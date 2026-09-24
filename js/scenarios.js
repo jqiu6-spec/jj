@@ -198,6 +198,30 @@ export const SCENARIOS = [
 
   // ---------------------------------------------------------------- valorant
   {
+    id: 'val-horizontal',
+    name: 'Horizontal Tracking',
+    category: 'valorant',
+    blurb: 'Pure left-right tracking at head level. The agent strafes and counter-strafes but never jumps, crouches or changes range, so every correction is horizontal. The head-only hitbox is on by default.',
+    duration: 60,
+    arena: HALL,
+    weapon: { type: 'beam', dps: 150 },
+    count: 1,
+    target: { shape: 'agent', headOnly: true },
+    motion: {
+      type: 'agent', x: [-9, 9], z: [-11, -9], depth: 0, adad: 0.8,
+      mix: { strafe: 6, swing: 2, stop: 1.5 },
+      strafeTime: [0.25, 0.8], swingTime: [0.6, 1.3], stopTime: [0.08, 0.25],
+    },
+    // Difficulty only changes how the agent strafes; motion keys override the above.
+    levels: {
+      easy: { hint: 'Shift-walk speed, long strafes, few stops', motion: { gait: 'walk', mix: { strafe: 6, swing: 2, stop: 1 }, strafeTime: [0.45, 1.2], swingTime: [0.9, 1.8] } },
+      medium: { hint: 'Run speed, a mix of short and long strafes', motion: {} },
+      hard: { hint: 'Run speed, ADAD spam and snap counter-strafes', motion: { mix: { strafe: 9, swing: 1, stop: 2.5 }, strafeTime: [0.12, 0.42], stopTime: [0.06, 0.2], adad: 0.9 } },
+    },
+    defaultLevel: 'medium',
+    minSep: 2,
+  },
+  {
     id: 'val-adad',
     name: 'ADAD Strafes',
     category: 'valorant',
@@ -298,8 +322,18 @@ export function countLimit(scn) {
   return scn.weapon.type === 'click' ? 12 : 10;
 }
 
+export const LEVEL_NAMES = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+
 export function defaultSetup(scn) {
-  return { count: scn.count, hp: scn.target.hp || 0, headOnly: false };
+  const v = { count: scn.count, hp: scn.target.hp || 0, headOnly: !!scn.target.headOnly };
+  if (scn.levels) v.level = scn.defaultLevel;
+  return v;
+}
+
+// The scenario as it plays with this setup: difficulty levels override motion.
+export function effectiveScenario(scn, v) {
+  if (!scn.levels || !v || !scn.levels[v.level]) return scn;
+  return { ...scn, motion: { ...scn.motion, ...scn.levels[v.level].motion } };
 }
 
 export function normalizeSetup(scn, s) {
@@ -309,17 +343,20 @@ export function normalizeSetup(scn, s) {
   if (scn.weapon.type !== 'beam' || !HP_CHOICES.includes(v.hp)) v.hp = d.hp;
   if (scn.target.shape !== 'agent') v.headOnly = false;
   v.headOnly = !!v.headOnly;
+  if (!scn.levels) delete v.level;
+  else if (!scn.levels[v.level]) v.level = d.level;
   return v;
 }
 
 export function setupKey(v) {
-  return `n${v.count}-hp${v.hp || 'inf'}${v.headOnly ? '-head' : ''}`;
+  return `n${v.count}-hp${v.hp || 'inf'}${v.headOnly ? '-head' : ''}${v.level ? `-${v.level}` : ''}`;
 }
 
 export function setupLabel(scn, v) {
   const parts = [`${v.count} target${v.count === 1 ? '' : 's'}`];
   if (scn.weapon.type === 'beam') parts.push(v.hp ? `${v.hp} HP` : 'unlimited HP');
   if (v.headOnly) parts.push('head only');
+  if (v.level) parts.push(LEVEL_NAMES[v.level]);
   return parts.join(' · ');
 }
 
@@ -327,7 +364,7 @@ export function setupLabel(scn, v) {
 // Rough numbers for the detail panel: distance, angular size, speed text.
 export function describe(scn, v = defaultSetup(scn)) {
   const [ex, ey, ez] = eyeOf(scn);
-  const m = scn.motion;
+  const m = effectiveScenario(scn, v).motion;
   const agent = scn.target.shape === 'agent';
   const headY = AGENT.bodyStand + AGENT.neck + AGENT.head;
   let dist;
@@ -348,7 +385,11 @@ export function describe(scn, v = defaultSetup(scn)) {
   const angular = (2 * Math.atan(r / dist) * 180) / Math.PI;
 
   let speed = 'Static';
-  if (agent) speed = `${AGENT.run} m/s run · ${AGENT.walk} walk · ${AGENT.crouch} crouch`;
+  const strafeOnly = agent && Object.keys(m.mix).every((k) => ['strafe', 'swing', 'stop'].includes(k));
+  if (strafeOnly) {
+    const gait = m.gait === 'walk' ? `${AGENT.walk} m/s shift-walk` : `${AGENT.run} m/s run`;
+    speed = `${gait} · strafes ${m.strafeTime[0]}–${m.strafeTime[1]} s`;
+  } else if (agent) speed = `${AGENT.run} m/s run · ${AGENT.walk} walk · ${AGENT.crouch} crouch`;
   else if (m.type === 'wander' || m.type === 'bounce') speed = `${m.speed[0]}–${m.speed[1]} m/s`;
   else if (m.type === 'strafe') speed = `${m.speed} m/s strafes`;
   else if (m.type === 'air') speed = `${m.speedX[0]}–${m.speedX[1]} m/s + jumps`;

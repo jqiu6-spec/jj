@@ -1,7 +1,7 @@
 // 3D arena, first-person camera, targets, weapons and the run state machine.
 import * as THREE from 'three';
 import { MOTIONS, AGENT, agentDims } from './motion.js';
-import { eyeOf, defaultSetup, setupKey } from './scenarios.js';
+import { eyeOf, defaultSetup, setupKey, effectiveScenario } from './scenarios.js';
 import { degPerCount, verticalFov } from './settings.js';
 import { sfx } from './audio.js';
 
@@ -163,6 +163,7 @@ export class Game {
   load(scn, setup = defaultSetup(scn)) {
     this.scn = scn;
     this.setup = setup;
+    this.eff = effectiveScenario(scn, setup); // what the motion models read
     this.loadedKey = `${scn.id}|${setupKey(setup)}`;
     this.buildArena(scn.arena);
     const [ex, ey, ez] = eyeOf(scn);
@@ -288,7 +289,7 @@ export class Game {
   }
 
   ctx() {
-    return { scn: this.scn, eye: this.eye, targets: this.targets, aimPoint: this.aimPoint };
+    return { scn: this.eff, eye: this.eye, targets: this.targets, aimPoint: this.aimPoint };
   }
 
   spawn(t) {

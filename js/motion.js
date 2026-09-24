@@ -206,8 +206,9 @@ const agent = {
     s.ix = 0;
     s.iz = 0;
     switch (act) {
-      case 'strafe': s.ix = dir(true); s.timer = randIn(m.strafeTime); break;
-      case 'swing': s.ix = dir(false); s.timer = rand(0.5, 1.1); break;
+      // `gait` lets a scenario strafe at shift-walk speed instead of running.
+      case 'strafe': s.ix = dir(true); s.mode = m.gait || 'run'; s.timer = randIn(m.strafeTime); break;
+      case 'swing': s.ix = dir(false); s.mode = m.gait || 'run'; s.timer = randIn(m.swingTime || [0.5, 1.1]); break;
       case 'walk': s.ix = dir(false); s.mode = 'walk'; s.timer = rand(0.35, 1.0); break;
       case 'crouchWalk': s.ix = dir(false); s.crouchWant = true; s.timer = rand(0.35, 0.9); break;
       case 'crouchSpam':

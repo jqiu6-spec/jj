@@ -41,6 +41,7 @@ sensitivity conversion comes out right.
 | Clicking | Wide Flick | 3 targets spread across a wide wall |
 | Clicking | Bounce Shot | 5 targets drifting and bouncing on a wall |
 | Clicking | Micro Flick | One tiny target at a time |
+| Valorant movement | Horizontal Tracking | Left-right only at head level; Easy / Medium / Hard |
 | Valorant movement | ADAD Strafes | Short run strafes with counter-strafe stops |
 | Valorant movement | Crouch Spam | Strafes, stops and crouch spam; the head drops 0.44 m |
 | Valorant movement | Jump Peeks | Strafes and jumps with weak air control |
@@ -60,6 +61,16 @@ a body capsule. It chains weighted actions the way a player does in a duel:
 - **Jumps**: about 1 m high and 0.6 s in the air, with weak air control, so the
   arc is committed once the bot leaves the ground
 
+**Horizontal Tracking** is modelled on KovaaK's horizontal strafe-tracking drills.
+The agent only strafes left and right at a fixed 10 m range. It never jumps,
+crouches or changes distance, so the head stays at crosshair height and every
+correction is horizontal. The hitbox is head-only by default (the head spans 1.6°).
+Difficulty changes how it strafes:
+
+- **Easy**: shift-walk speed (3.73 m/s), long strafes, few stops
+- **Medium**: run speed (6.75 m/s), a mix of short and long strafes
+- **Hard**: run speed, ADAD spam (0.12–0.42 s strafes) and snap counter-strafes
+
 The run, walk and crouch speeds are community-measured Valorant values. The
 acceleration, jump and crouch timings are tuned to feel like the game, not
 taken from it.
@@ -74,6 +85,7 @@ The scenario panel has a setup row:
   somewhere else.
 - **Hitbox** (Valorant bots only): head and body, or head only. In head-only mode
   the body turns dark and only time on the head counts.
+- **Difficulty** (Horizontal Tracking): Easy, Medium or Hard.
 
 Personal bests and history are kept separately for each setup, so a 5-target run
 is never compared with a 3-target run.

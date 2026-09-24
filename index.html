@@ -68,7 +68,16 @@
               <label><input type="radio" name="hitbox" id="d-hit-head" value="head"><span>Head only</span></label>
             </div>
           </div>
+          <div class="setup-item" id="d-level-wrap">
+            <span class="lbl" id="d-level-lbl">Difficulty</span>
+            <div class="seg seg-sm" role="radiogroup" aria-labelledby="d-level-lbl">
+              <label><input type="radio" name="level" id="d-level-easy" value="easy"><span>Easy</span></label>
+              <label><input type="radio" name="level" id="d-level-medium" value="medium"><span>Medium</span></label>
+              <label><input type="radio" name="level" id="d-level-hard" value="hard"><span>Hard</span></label>
+            </div>
+          </div>
         </div>
+        <p class="hint setup-note" id="d-level-hint" hidden></p>
         <p class="hint setup-note"><span id="d-setup-note"></span> <button type="button" class="link-btn" id="d-setup-reset">Restore default</button></p>
       </div>
       <div class="history">

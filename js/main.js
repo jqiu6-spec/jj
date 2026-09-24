@@ -1,6 +1,6 @@
 import { Game } from './game.js';
 import {
-  SCENARIOS, CATEGORIES, HP_CHOICES, describe, defaultSetup, normalizeSetup, setupKey, setupLabel, countLimit,
+  SCENARIOS, CATEGORIES, HP_CHOICES, LEVEL_NAMES, describe, defaultSetup, normalizeSetup, setupKey, setupLabel, countLimit,
 } from './scenarios.js';
 import {
   loadSettings, saveSettings, loadSetups, saveSetups, DEFAULTS, GAMES, CROSSHAIR_STYLES, degPerCount, cmPer360,
@@ -225,6 +225,12 @@ function renderDetail() {
   $('d-hitbox-wrap').hidden = s.target.shape !== 'agent';
   $('d-hit-full').checked = !v.headOnly;
   $('d-hit-head').checked = v.headOnly;
+  $('d-level-wrap').hidden = !s.levels;
+  $('d-level-hint').hidden = !s.levels;
+  if (s.levels) {
+    for (const lv of ['easy', 'medium', 'hard']) $(`d-level-${lv}`).checked = v.level === lv;
+    $('d-level-hint').textContent = `${LEVEL_NAMES[v.level]}: ${s.levels[v.level].hint}.`;
+  }
   const isDefault = setupKey(v) === defKeyFor(s);
   $('d-setup-reset').hidden = isDefault;
   $('d-setup-note').textContent = isDefault
@@ -237,7 +243,8 @@ function renderDetail() {
   $('d-pb').textContent = best ? fmt(best.score) : '—';
   $('d-avg').textContent = avg === null ? '—' : fmt(avg);
   $('d-runs').textContent = runs.length;
-  $('btn-start').textContent = `Start ${s.name} · ${s.duration}s`;
+  $('btn-start').innerHTML = `Start <span class="dur">· ${s.duration} s</span>`;
+  $('btn-start').setAttribute('aria-label', `Start ${s.name}, ${s.duration} seconds`);
   sparkline($('d-spark'), runs.slice(-20).map((r) => r.score));
 }
 
@@ -436,6 +443,9 @@ $('d-hp').addEventListener('change', (e) => changeSetup({ hp: parseInt(e.target.
 $('d-hit-full').addEventListener('change', () => changeSetup({ headOnly: false }));
 $('d-hit-head').addEventListener('change', () => changeSetup({ headOnly: true }));
 $('d-setup-reset').addEventListener('click', () => changeSetup(defaultSetup(selected)));
+for (const lv of ['easy', 'medium', 'hard']) {
+  $(`d-level-${lv}`).addEventListener('change', () => changeSetup({ level: lv }));
+}
 $('btn-again').addEventListener('click', () => play(game.scn));
 $('btn-menu').addEventListener('click', () => game.toMenu());
 $('btn-quit').addEventListener('click', () => { document.exitPointerLock?.(); game.toMenu(); });

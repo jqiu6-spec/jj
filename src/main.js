@@ -246,6 +246,25 @@ function updateCorners() {
   setText(els.hud.cm360, formatCm(cmPer360(state.sensitivity, state.dpi)));
 }
 
+async function enterFullscreen() {
+  if (!store.get().fullscreen || document.fullscreenElement || !els.game.requestFullscreen) return;
+  try {
+    await els.game.requestFullscreen({ navigationUI: 'hide' });
+  } catch {
+    // Denied (e.g. no user gesture left): keep playing in the window.
+  }
+}
+
+function exitFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+
+/** Call from a click or key press: go fullscreen if enabled, then lock the mouse. */
+async function lockPointer() {
+  await enterFullscreen();
+  return engine?.requestLock();
+}
+
 async function startRun() {
   audio.unlock();
   const state = store.get();
@@ -265,7 +284,7 @@ async function startRun() {
   els.hud.run.hidden = false;
   els.hud.sandbox.hidden = true;
   updateCorners();
-  eng.requestLock();
+  lockPointer();
 }
 
 async function startSandbox() {
@@ -281,11 +300,12 @@ async function startSandbox() {
   els.hud.run.hidden = true;
   els.hud.sandbox.hidden = false;
   updateCorners();
-  eng.requestLock();
+  lockPointer();
 }
 
 function goToMenu() {
   engine?.quit();
+  exitFullscreen();
   hideGame();
   updatePlayView();
 }
@@ -349,12 +369,12 @@ function bindGameLayer() {
     const action = event.target.closest('[data-action]')?.dataset.action;
     if (action === 'menu') return goToMenu();
     if (action === 'settings') return settingsPanel.open();
-    if (action === 'resume') return engine?.requestLock();
+    if (action === 'resume') return lockPointer();
     if (action === 'restart') {
       if (engine?.mode === 'sandbox') return startSandbox();
       return startRun();
     }
-    if (event.target.closest('#waiting-card')) engine?.requestLock();
+    if (event.target.closest('#waiting-card')) lockPointer();
   });
 
   document.addEventListener('keydown', (event) => {
@@ -378,7 +398,7 @@ function bindGameLayer() {
       } else if ((visible === 'waiting' || visible === 'paused') && (event.key === 'Enter' || event.key === ' ')) {
         if (onButton) return;
         event.preventDefault();
-        engine?.requestLock();
+        lockPointer();
       }
       return;
     }

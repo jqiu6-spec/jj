@@ -14,6 +14,7 @@ import {
   sensitivityFromCm360,
   clampSensitivity,
 } from '../core/sensitivity.js';
+import { CrosshairCodeError, parseCrosshairCode, toCrosshairCode } from '../core/crosshairCode.js';
 import { drawCrosshair } from '../game/crosshair.js';
 import { $$, h, setText } from './dom.js';
 import { createSensitivityControl } from './sensitivityControl.js';
@@ -285,6 +286,73 @@ function crosshairPreview() {
   return { el, sync: draw };
 }
 
+function crosshairCodeBlock(store) {
+  const importInput = h('input', {
+    class: 'input code-input',
+    type: 'text',
+    placeholder: '0;P;c;5;h;0;0l;4;0o;2;0a;1;0f;0;1b;0',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    'aria-label': 'Valorant crosshair code to import',
+  });
+  const exportInput = h('input', { class: 'input code-input', type: 'text', readonly: true, 'aria-label': 'Valorant code for this crosshair' });
+  const status = h('p', { class: 'hint', role: 'status' }, 'Paste a code from Valorant (Settings → Crosshair → Profile → Import/Export).');
+  const say = (message, isError = false) => {
+    status.textContent = message;
+    status.classList.toggle('is-error', isError);
+  };
+
+  const doImport = () => {
+    try {
+      store.set('crosshair', parseCrosshairCode(importInput.value));
+      say('Crosshair imported. Tracklock uses your primary crosshair without movement or firing error.');
+    } catch (error) {
+      if (!(error instanceof CrosshairCodeError)) throw error;
+      say(error.message, true);
+    }
+  };
+  importInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') doImport();
+  });
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(exportInput.value);
+      say('Code copied. In Valorant: Settings → Crosshair → Import Profile Code.');
+    } catch {
+      exportInput.select();
+      say('Your browser blocked clipboard access. The code is selected, press Ctrl+C (⌘C) to copy it.');
+    }
+  };
+
+  const el = h(
+    'fieldset',
+    { class: 'setting-group' },
+    h('legend', {}, 'Valorant crosshair code'),
+    h(
+      'div',
+      { class: 'code-row' },
+      h('span', { class: 'code-label', 'aria-hidden': 'true' }, 'From Valorant'),
+      importInput,
+      h('button', { type: 'button', class: 'btn btn-secondary btn-sm', onclick: doImport }, 'Import'),
+    ),
+    h(
+      'div',
+      { class: 'code-row' },
+      h('span', { class: 'code-label', 'aria-hidden': 'true' }, 'To Valorant'),
+      exportInput,
+      h('button', { type: 'button', class: 'btn btn-secondary btn-sm', onclick: copy }, 'Copy'),
+    ),
+    status,
+  );
+  return {
+    el,
+    sync(state) {
+      exportInput.value = toCrosshairCode(state.crosshair);
+    },
+  };
+}
+
 // ------------------------------------------------------------------- tabs
 
 const pct = (v) => `${Math.round(v * 100)}%`;
@@ -341,6 +409,7 @@ function buildTabs(store) {
       label: 'Crosshair',
       fields: () => [
         crosshairPreview(),
+        crosshairCodeBlock(store),
         colorField(store, { path: 'crosshair.color', label: 'Color', presets: CROSSHAIR_COLORS }),
         groupField('Outlines', [
           toggleField(store, { path: 'crosshair.outline', label: 'Show outlines' }),
@@ -400,6 +469,11 @@ function buildTabs(store) {
           help: 'Lower it if your frame rate drops below your monitor’s refresh rate.',
         }),
         toggleField(store, { path: 'showFps', label: 'Show FPS counter' }),
+        toggleField(store, {
+          path: 'fullscreen',
+          label: 'Fullscreen while playing',
+          help: 'Switches to fullscreen when a run starts and back when you return to the menu.',
+        }),
         rangeField(store, { path: 'volume', label: 'Volume', min: 0, max: 1, step: 0.05, format: pct }),
         toggleField(store, { path: 'hitSounds', label: 'Hit sounds', help: 'Soft ticks at rifle fire rate while you are on target.' }),
         toggleField(store, { path: 'uiSounds', label: 'Countdown and finish sounds' }),

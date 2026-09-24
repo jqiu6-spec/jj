@@ -201,6 +201,8 @@ export class Engine {
     this.mouseDown = false;
     if (locked) {
       if (this.state === 'waiting' || this.state === 'paused') this.#afterLock();
+      // A lock request can resolve after the player already quit or finished.
+      else if (this.state === 'idle' || this.state === 'finished') this.exitLock();
     } else if (this.state === 'countdown' || this.state === 'running' || this.state === 'sandbox') {
       this.resumeState = this.state;
       this.#setState('paused');

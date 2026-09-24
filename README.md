@@ -25,9 +25,10 @@ A browser aim trainer for **tracking** that uses your exact **Valorant sensitivi
 - **Stats:** history saved in the browser, personal bests per scenario, difficulty and length, a score progress
   chart, filters and CSV export.
 - **Valorant-style crosshair editor:** color, outlines, center dot, inner and outer lines. Sizes are in real
-  screen pixels, with a live preview and a 4× zoom.
+  screen pixels, with a live preview and a 4× zoom. **Import your Valorant crosshair code** or copy a code for
+  your Tracklock crosshair back into Valorant.
 - **Gameplay options:** always-firing or hold-to-fire, countdown, target color presets, a glow while on target,
-  hit sounds, render scale and an FPS counter.
+  hit sounds, render scale, fullscreen while playing and an FPS counter.
 - **Controls:** Esc pauses, R restarts, Enter plays again, M returns to the menu.
 - **Privacy:** no accounts, no tracking and no server. Everything stays in `localStorage`.
 
@@ -73,6 +74,7 @@ src/main.js             App wiring: routing, launch panel, HUD, results, keyboar
 src/styles.css          All styles
 src/core/               Framework-free logic (unit tested)
   sensitivity.js        Valorant yaw, clamping, log slider, cm/360, conversions, FOV
+  crosshairCode.js      Valorant crosshair profile code import/export
   scoring.js            Tracking session: accuracy, streaks, recovery, timeline
   settings.js           Defaults and validation of every setting
   stats.js              Run history, personal bests, CSV export

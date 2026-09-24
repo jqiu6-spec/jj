@@ -59,6 +59,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   // Video
   renderScale: 1,
   showFps: true,
+  fullscreen: false,
   // Audio
   volume: 0.5,
   hitSounds: true,
@@ -142,6 +143,7 @@ export function sanitizeSettings(raw) {
     customSize: num(s.customSize, d.customSize, 0.25, 3, 2),
     renderScale: num(s.renderScale, d.renderScale, 0.5, 1.5, 2),
     showFps: bool(s.showFps, d.showFps),
+    fullscreen: bool(s.fullscreen, d.fullscreen),
     volume: num(s.volume, d.volume, 0, 1, 2),
     hitSounds: bool(s.hitSounds, d.hitSounds),
     uiSounds: bool(s.uiSounds, d.uiSounds),

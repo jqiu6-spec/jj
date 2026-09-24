@@ -1337,6 +1337,36 @@ dialog.settings::backdrop {
   font-variant-numeric: tabular-nums;
 }
 
+.code-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0 0;
+}
+
+.code-label {
+  flex: none;
+  width: 104px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.code-row .btn {
+  min-width: 72px;
+}
+
+.code-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.code-row + .hint {
+  margin: 8px 0 8px;
+}
+
 .crosshair-preview {
   display: flex;
   flex-direction: column;
@@ -1788,6 +1818,14 @@ body.is-locked .game {
 
   .swatches {
     justify-content: flex-start;
+  }
+
+  .code-row {
+    flex-wrap: wrap;
+  }
+
+  .code-label {
+    width: 100%;
   }
 
   .results-score {

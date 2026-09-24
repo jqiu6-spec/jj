@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trackline Aim Trainer</title>
+<meta name="description" content="A browser aim trainer in the style of KovaaK's, built around tracking. Smoothbot, strafe tracking, air tracking, target switching and clicking drills, with game-matched sensitivity.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%2311161d'/%3E%3Ccircle cx='12' cy='12' r='7' fill='none' stroke='%23f4d35e' stroke-width='2'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23f4d35e'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Saira+Condensed:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<canvas id="crosshair" aria-hidden="true"></canvas>
+<div id="hitmarker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+<div id="hud" hidden>
+  <div class="hud-stat"><span class="lbl">Score</span><b id="hud-score">0</b></div>
+  <div class="hud-time"><b id="hud-time">60.0</b><span id="hud-name"></span></div>
+  <div class="hud-stat"><span class="lbl" id="hud-acc-lbl">Accuracy</span><b id="hud-acc">–</b></div>
+</div>
+<div id="hud-fps" hidden></div>
+<div id="countdown" hidden><b id="countdown-num">3</b><span id="countdown-hint"></span></div>
+
+<section id="menu">
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1v6M12 17v6M1 12h6M17 12h6" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+      <span>Trackline</span>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Menu">
+      <button role="tab" id="tab-scenarios" aria-selected="true" aria-controls="panel-scenarios">Scenarios</button>
+      <button role="tab" id="tab-settings" aria-selected="false" aria-controls="panel-settings">Settings</button>
+    </nav>
+    <button class="sens-chip" id="sens-chip" title="Sensitivity and field of view"></button>
+  </header>
+
+  <p class="notice" id="device-notice" hidden>Trackline needs a mouse and a desktop browser. You can look around the scenarios here, then play on a computer.</p>
+
+  <div id="panel-scenarios" class="panel-scenarios" role="tabpanel" aria-labelledby="tab-scenarios">
+    <aside class="glass scn-list" id="scn-list" aria-label="Scenarios"></aside>
+    <article class="glass scn-detail" id="scn-detail">
+      <p class="eyebrow" id="d-cat"></p>
+      <h1 id="d-name"></h1>
+      <p class="blurb" id="d-blurb"></p>
+      <dl class="specs" id="d-specs"></dl>
+      <div class="history">
+        <div class="history-nums">
+          <div><span class="lbl">Personal best</span><b id="d-pb">—</b></div>
+          <div><span class="lbl">Avg, last 10</span><b id="d-avg">—</b></div>
+          <div><span class="lbl">Runs</span><b id="d-runs">0</b></div>
+        </div>
+        <div id="d-spark" class="spark"></div>
+      </div>
+      <button class="btn-start" id="btn-start">Start</button>
+      <p class="keys"><kbd>Esc</kbd> pause <span aria-hidden="true">·</span> <kbd>R</kbd> restart <span aria-hidden="true">·</span> <kbd>Space</kbd> play again</p>
+      <p class="lock-error" id="lock-error" hidden></p>
+    </article>
+  </div>
+
+  <div id="panel-settings" class="panel-settings glass" role="tabpanel" aria-labelledby="tab-settings" hidden>
+    <form id="settings-form" autocomplete="off">
+      <fieldset>
+        <legend>Sensitivity</legend>
+        <div class="seg" role="radiogroup" aria-label="Sensitivity mode">
+          <label><input type="radio" name="sensMode" id="s-mode-game" value="game"><span>Match a game</span></label>
+          <label><input type="radio" name="sensMode" id="s-mode-cm" value="cm360"><span>cm per 360°</span></label>
+        </div>
+        <div class="fields">
+          <label class="f" data-mode="game"><span>Game</span><select id="s-game" name="game"></select></label>
+          <label class="f" data-mode="game"><span>In-game sensitivity</span><input type="number" id="s-sens" name="sens" min="0.001" step="0.001"></label>
+          <label class="f" data-mode="cm360"><span>cm / 360°</span><input type="number" id="s-cm360" name="cm360" min="1" step="0.1"></label>
+          <label class="f"><span>Mouse DPI</span><input type="number" id="s-dpi" name="dpi" min="50" step="50"></label>
+        </div>
+        <p class="readout" id="sens-readout"></p>
+        <p class="hint" id="raw-status">Raw input is used when the browser supports it, so your Windows pointer speed and acceleration do not apply.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>View</legend>
+        <div class="fields">
+          <label class="f wide"><span>Horizontal FOV <output id="o-fov"></output></span><input type="range" id="s-fov" name="fov" min="60" max="130" step="1"></label>
+          <label class="check"><input type="checkbox" id="s-invertY" name="invertY"><span>Invert vertical look</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="xhair">
+        <legend>Crosshair</legend>
+        <div class="xhair-grid">
+          <div class="xhair-preview"><canvas id="xhair-preview" aria-label="Crosshair preview"></canvas></div>
+          <div class="fields">
+            <label class="f"><span>Style</span><select id="s-x-style" name="x-style"></select></label>
+            <label class="f"><span>Colour</span><input type="color" id="s-x-color" name="x-color"></label>
+            <label class="f"><span>Length <output id="o-x-length"></output></span><input type="range" id="s-x-length" name="x-length" min="1" max="20" step="1"></label>
+            <label class="f"><span>Thickness <output id="o-x-thickness"></output></span><input type="range" id="s-x-thickness" name="x-thickness" min="1" max="6" step="0.5"></label>
+            <label class="f"><span>Gap <output id="o-x-gap"></output></span><input type="range" id="s-x-gap" name="x-gap" min="0" max="16" step="1"></label>
+            <label class="f"><span>Dot <output id="o-x-dot"></output></span><input type="range" id="s-x-dot" name="x-dot" min="1" max="8" step="0.5"></label>
+            <label class="check"><input type="checkbox" id="s-x-outline" name="x-outline"><span>Black outline</span></label>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Targets and feel</legend>
+        <div class="fields">
+          <label class="f"><span>Target colour</span><input type="color" id="s-targetColor" name="targetColor"></label>
+          <label class="f"><span>On-hit colour</span><input type="color" id="s-hitColor" name="hitColor"></label>
+          <label class="f wide"><span>Volume <output id="o-volume"></output></span><input type="range" id="s-volume" name="volume" min="0" max="100" step="1"></label>
+          <label class="check"><input type="checkbox" id="s-autoFire" name="autoFire"><span>Auto-fire in tracking scenarios (no need to hold mouse 1)</span></label>
+          <label class="check"><input type="checkbox" id="s-showFps" name="showFps"><span>Show frame rate</span></label>
+        </div>
+      </fieldset>
+
+      <div class="danger">
+        <button type="button" id="btn-reset-settings">Reset settings</button>
+        <button type="button" id="btn-clear-runs">Clear run history</button>
+        <span class="hint" id="danger-msg" role="status"></span>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section id="pause" class="overlay" hidden>
+  <div class="glass card pause-card">
+    <p class="eyebrow">Paused</p>
+    <h2 id="pause-name"></h2>
+    <p class="hint" id="pause-msg">The run is frozen. Resume locks the mouse again.</p>
+    <div class="row">
+      <button id="btn-resume" class="btn-primary">Resume</button>
+      <button id="btn-restart">Restart</button>
+      <button id="btn-quit">Scenarios</button>
+    </div>
+  </div>
+</section>
+
+<section id="results" class="overlay" hidden>
+  <div class="glass card results-card">
+    <p class="eyebrow" id="r-cat"></p>
+    <h2 id="r-name"></h2>
+    <div class="r-score"><b id="r-score"></b><span id="r-delta" class="delta"></span></div>
+    <dl class="r-stats" id="r-stats"></dl>
+    <p class="coach" id="r-coach"></p>
+    <div class="chart-block">
+      <div class="chart-head">
+        <h3>Pace, cumulative score by second</h3>
+        <div class="legend" id="r-legend">
+          <span><i class="sw sw-cur"></i>This run</span>
+          <span><i class="sw sw-best"></i>Best run</span>
+        </div>
+      </div>
+      <div id="r-chart" class="chart"></div>
+    </div>
+    <div class="row">
+      <button id="btn-again" class="btn-primary">Play again <kbd>Space</kbd></button>
+      <button id="btn-menu">Scenarios <kbd>Esc</kbd></button>
+    </div>
+  </div>
+</section>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

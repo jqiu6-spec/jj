@@ -281,6 +281,96 @@ const agent = {
   },
 };
 
+// Move an agent toward (tx, tz) at `speed` with Valorant-like acceleration
+// and a counter-strafe stop on arrival. Returns true once it has arrived.
+function runToward(t, dt, tx, tz, speed) {
+  const dx = tx - t.pos.x;
+  const dz = tz - t.pos.z;
+  const dist = Math.hypot(dx, dz);
+  const v = Math.hypot(t.vel.x, t.vel.z);
+  let wx = 0;
+  let wz = 0;
+  if (dist > (v * v) / (2 * AGENT.decel) + 0.03) { wx = (dx / dist) * speed; wz = (dz / dist) * speed; }
+  const dvx = wx - t.vel.x;
+  const dvz = wz - t.vel.z;
+  const dl = Math.hypot(dvx, dvz);
+  if (dl > 1e-6) {
+    const braking = (wx === 0 && wz === 0) || wx * t.vel.x + wz * t.vel.z < 0;
+    const k = Math.min(1, ((braking ? AGENT.decel : AGENT.accel) * dt) / dl);
+    t.vel.x += dvx * k;
+    t.vel.z += dvz * k;
+  }
+  t.pos.x += t.vel.x * dt;
+  t.pos.z += t.vel.z * dt;
+  if (dist < 0.06 && v < 0.4) {
+    t.pos.x = tx;
+    t.pos.z = tz;
+    t.vel.set(0, 0, 0);
+    return true;
+  }
+  return false;
+}
+
+// An agent holding a crate: waits hidden, then wide-swings, jiggles or runs
+// across to another crate, the way players peek an Operator.
+const peek = {
+  hiddenAt(c) {
+    return [c.x, c.z - c.d / 2 - 0.6];
+  },
+  spawn(t, ctx) {
+    const covers = ctx.scn.arena.covers;
+    const taken = new Set(ctx.targets.filter((o) => o !== t && o.alive).map((o) => o.m.cover));
+    let ci = Math.floor(Math.random() * covers.length);
+    for (let i = 0; i < 12 && taken.has(ci); i++) ci = Math.floor(Math.random() * covers.length);
+    const [hx, hz] = this.hiddenAt(covers[ci]);
+    t.pos.set(hx, 0, hz);
+    t.vel.set(0, 0, 0);
+    Object.assign(t.m, {
+      cover: ci, state: 'wait', timer: randIn(ctx.scn.motion.wait), tx: hx, tz: hz,
+      crouch: 0, crouchWant: false, grounded: true,
+    });
+  },
+  update(t, dt, ctx) {
+    const m = ctx.scn.motion;
+    const covers = ctx.scn.arena.covers;
+    const s = t.m;
+    const c = covers[s.cover];
+    s.timer -= dt;
+    const arrived = runToward(t, dt, s.tx, s.tz, s.crouchWant ? AGENT.crouch : AGENT.run);
+    const home = this.hiddenAt(c);
+    if (s.state === 'wait' && s.timer <= 0) {
+      const r = Math.random();
+      if (r < (m.cross || 0) && covers.length > 1) {
+        let next = s.cover;
+        while (next === s.cover) next = Math.floor(Math.random() * covers.length);
+        s.cover = next;
+        [s.tx, s.tz] = this.hiddenAt(covers[next]);
+        s.state = 'move';
+      } else {
+        const jiggle = r < (m.cross || 0) + (m.jiggle || 0);
+        const side = sign();
+        const out = jiggle ? rand(0.35, 0.8) : randIn(m.peekDist);
+        s.tx = c.x + side * (c.w / 2 + 0.3 + out);
+        s.tz = home[1];
+        s.state = jiggle ? 'jiggle' : 'out';
+      }
+    } else if (arrived && s.state === 'out') {
+      s.state = 'hold';
+      s.timer = randIn(m.hold);
+      s.crouchWant = Math.random() < (m.crouchOnHold || 0);
+    } else if ((arrived && s.state === 'jiggle') || (s.state === 'hold' && s.timer <= 0)) {
+      s.crouchWant = false;
+      [s.tx, s.tz] = home;
+      s.state = 'move';
+    } else if (arrived && s.state === 'move') {
+      s.state = 'wait';
+      s.timer = randIn(m.wait);
+    }
+    const cstep = dt / AGENT.crouchTime;
+    s.crouch += Math.max(-cstep, Math.min(cstep, (s.crouchWant ? 1 : 0) - s.crouch));
+  },
+};
+
 // Ballistic hops with mid-air direction changes.
 const air = {
   spawn(t, ctx) {
@@ -393,4 +483,4 @@ const still = {
   update() {},
 };
 
-export const MOTIONS = { wander, strafe, agent, air, orbit, bounce, static: still };
+export const MOTIONS = { wander, strafe, agent, peek, air, orbit, bounce, static: still };

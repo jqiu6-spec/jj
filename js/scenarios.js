@@ -7,7 +7,33 @@ export const CATEGORIES = [
   { id: 'switching', name: 'Target switching', blurb: 'Track a target down, then snap to the next one.' },
   { id: 'clicking', name: 'Clicking', blurb: 'One click per target. Speed matters, misses cost points.' },
   { id: 'valorant', name: 'Valorant movement', blurb: 'Agent-sized bots that run, counter-strafe, crouch and jump like Valorant players.' },
+  { id: 'sniping', name: 'Sniping', blurb: 'Operator training with the AWP: scope with right click, one shot every 1.67 s.' },
 ];
+
+// Valorant Operator numbers: 0.6 rounds/s, 2.5x and 5x zoom, 255 head /
+// 150 body / 120 legs, 5-round magazine, 3.7 s reload. The scope-in time is
+// not published, so it is an estimate the player can change in Settings.
+export const OPERATOR = {
+  fireInterval: 1 / 0.6,
+  zooms: [2.5, 5],
+  damage: { head: 255, body: 150, legs: 120 },
+  magazine: 5,
+  reload: 3.7,
+  hipSpread: 5, // degrees; unscoped Operator shots are close to useless
+};
+
+// Long range with crates to hide behind (x, z centre; w, d footprint; h height).
+const CRATES = [
+  { x: -11, z: -26, w: 2.2, h: 2.1, d: 2.2 },
+  { x: -3.5, z: -34, w: 2.2, h: 2.1, d: 2.2 },
+  { x: 5, z: -28, w: 2.2, h: 2.1, d: 2.2 },
+  { x: 12.5, z: -37, w: 2.2, h: 2.1, d: 2.2 },
+  { x: -15, z: -43, w: 2.2, h: 2.1, d: 2.2 },
+  { x: 3, z: -46, w: 3, h: 2.1, d: 2.2 },
+];
+const RANGE = { w: 50, h: 16, zMin: -70, zMax: 4, covers: CRATES };
+const FIELD = { w: 50, h: 16, zMin: -70, zMax: 4 };
+const OP = { type: 'sniper', points: 100, headBonus: 50, missPenalty: 20 };
 
 const HALL = { w: 40, h: 14, zMin: -34, zMax: 4 };
 const ROOM = { w: 30, h: 12, zMin: -22, zMax: 4 };
@@ -307,6 +333,51 @@ export const SCENARIOS = [
     minSep: 2,
   },
 
+
+  // ---------------------------------------------------------------- sniping
+  {
+    id: 'op-angles',
+    name: 'Op Angles',
+    category: 'sniping',
+    blurb: 'Hold an angle with the Operator. Agents wide-swing, jiggle and swap crates 26–46 m out. Scope in, wait for the peek, click.',
+    duration: 60,
+    arena: RANGE,
+    weapon: OP,
+    count: 2,
+    target: { shape: 'agent', hp: 150 },
+    respawn: 0.6,
+    motion: { type: 'peek', peekDist: [1.2, 3.2], wait: [0.6, 2.2], hold: [0.25, 0.9], jiggle: 0.25, cross: 0.12, crouchOnHold: 0.2 },
+  },
+  {
+    id: 'op-flicks',
+    name: 'Op Flicks',
+    category: 'sniping',
+    blurb: 'Agents appear anywhere across an open field at 18–42 m and stand or shift-walk. Flick, let the scope settle, fire. A miss costs you 1.67 s.',
+    duration: 60,
+    arena: FIELD,
+    weapon: OP,
+    count: 1,
+    target: { shape: 'agent', hp: 150 },
+    respawn: 0.35,
+    motion: {
+      type: 'agent', x: [-16, 16], z: [-42, -18], mix: { stop: 3, walk: 1.2 },
+      strafeTime: [0.3, 0.8], stopTime: [0.8, 2], adad: 0.5, depth: 0.2,
+    },
+    minSep: 6,
+  },
+  {
+    id: 'op-crossing',
+    name: 'Op Crossing',
+    category: 'sniping',
+    blurb: 'Agents sprint across the gaps between crates at full run speed. Pre-aim the gap and time the shot.',
+    duration: 60,
+    arena: RANGE,
+    weapon: OP,
+    count: 2,
+    target: { shape: 'agent', hp: 150 },
+    respawn: 0.6,
+    motion: { type: 'peek', peekDist: [2, 4], wait: [0.5, 1.6], hold: [0.15, 0.4], jiggle: 0.05, cross: 0.8 },
+  },
 ];
 
 export function eyeOf(scn) {
@@ -319,6 +390,7 @@ export function eyeOf(scn) {
 export const HP_CHOICES = [0, 50, 100, 150, 250, 500]; // 0 = unlimited
 
 export function countLimit(scn) {
+  if (scn.weapon.type === 'sniper') return scn.arena.covers ? scn.arena.covers.length : 6;
   return scn.weapon.type === 'click' ? 12 : 10;
 }
 
@@ -370,6 +442,9 @@ export function describe(scn, v = defaultSetup(scn)) {
   let dist;
   if (m.type === 'orbit') {
     dist = (m.dist[0] + m.dist[1]) / 2;
+  } else if (m.type === 'peek') {
+    const cs = scn.arena.covers;
+    dist = cs.reduce((a, c) => a + Math.hypot(c.x - ex, headY - ey, c.z - ez), 0) / cs.length;
   } else if (agent) {
     dist = Math.hypot(0, headY - ey, (m.z[0] + m.z[1]) / 2 - ez);
   } else if (m.type === 'strafe') {
@@ -385,8 +460,10 @@ export function describe(scn, v = defaultSetup(scn)) {
   const angular = (2 * Math.atan(r / dist) * 180) / Math.PI;
 
   let speed = 'Static';
-  const strafeOnly = agent && Object.keys(m.mix).every((k) => ['strafe', 'swing', 'stop'].includes(k));
-  if (strafeOnly) {
+  const strafeOnly = agent && m.mix && Object.keys(m.mix).every((k) => ['strafe', 'swing', 'stop'].includes(k));
+  if (m.type === 'peek') {
+    speed = `${AGENT.run} m/s swings and runs`;
+  } else if (strafeOnly) {
     const gait = m.gait === 'walk' ? `${AGENT.walk} m/s shift-walk` : `${AGENT.run} m/s run`;
     speed = `${gait} · strafes ${m.strafeTime[0]}–${m.strafeTime[1]} s`;
   } else if (agent) speed = `${AGENT.run} m/s run · ${AGENT.walk} walk · ${AGENT.crouch} crouch`;
@@ -401,7 +478,10 @@ export function describe(scn, v = defaultSetup(scn)) {
 
   let fire;
   let scoring;
-  if (scn.weapon.type === 'beam') {
+  if (scn.weapon.type === 'sniper') {
+    fire = 'AWP with Operator handling: 0.6 shots/s, 2.5x / 5x zoom';
+    scoring = `+${scn.weapon.points} per kill, +${scn.weapon.headBonus} headshot, −${scn.weapon.missPenalty} per miss`;
+  } else if (scn.weapon.type === 'beam') {
     fire = 'Beam, hold mouse 1';
     scoring = `${scn.weapon.dps} damage per second on ${v.headOnly ? 'the head' : 'target'}`;
   } else {
@@ -414,11 +494,15 @@ export function describe(scn, v = defaultSetup(scn)) {
     angular: agent ? `head spans ${angular.toFixed(2)}°` : `${angular.toFixed(2)}° wide`,
     size,
     speed,
-    moves: agent ? Object.keys(m.mix).map((k) => AGENT_MOVES[k]).join(', ') : null,
+    moves: m.type === 'peek'
+      ? ['wide swings from behind crates', m.jiggle ? 'jiggle peeks' : null, m.cross ? 'crate-to-crate runs' : null, m.crouchOnHold ? 'crouched holds' : null].filter(Boolean).join(', ')
+      : agent ? Object.keys(m.mix).map((k) => AGENT_MOVES[k]).join(', ') : null,
     fire,
     scoring,
-    health: scn.weapon.type === 'beam'
-      ? (v.hp ? `${v.hp} HP each${scn.respawn ? `, respawn after ${scn.respawn} s` : ''}` : 'Unlimited, never dies')
-      : 'One shot',
+    health: scn.weapon.type === 'sniper'
+      ? `${scn.target.hp} HP: head 255, body 150, legs 120`
+      : scn.weapon.type === 'beam'
+        ? (v.hp ? `${v.hp} HP each${scn.respawn ? `, respawn after ${scn.respawn} s` : ''}` : 'Unlimited, never dies')
+        : 'One shot',
   };
 }

@@ -7,6 +7,11 @@ Valorant-movement scenarios uses agent-sized bots that run, counter-strafe,
 crouch and jump like Valorant players. You can set the number of targets in
 every scenario.
 
+It also has a first-person weapon system: five guns (M4A1-S, AK-47, XM7, a
+Phantom-style rifle and an AWP), skins you can edit, stickers, selectable fire
+sounds, and Operator sniping drills where the AWP handles like Valorant's
+Operator.
+
 ## Run it
 
 It's a static site with no build step, but it uses ES modules, so you have to serve
@@ -47,6 +52,9 @@ sensitivity conversion comes out right.
 | Valorant movement | Jump Peeks | Strafes and jumps with weak air control |
 | Valorant movement | Duel Mix | 3 agents with 150 HP and every movement type |
 | Valorant movement | Close Duel | 2 agents with 150 HP at 5–8 m |
+| Sniping | Op Angles | Agents wide-swing, jiggle and swap crates 26–46 m out |
+| Sniping | Op Flicks | Agents appear anywhere on an open field at 18–42 m |
+| Sniping | Op Crossing | Agents sprint across the gaps between crates |
 
 ### Valorant movement bots
 
@@ -100,9 +108,75 @@ takes one second of tracking.
 
 Clicking scenarios are hitscan: a kill is worth +100 and a miss costs −20.
 
+## Weapons
+
+Open the **Weapon** tab to pick a gun, edit its skin and preview it on a
+turntable (drag to turn it). The models are original low-poly builds made from
+primitives; no game assets are used.
+
+| Gun | Fire rate | Notes |
+|---|---|---|
+| M4A1-S | 600 RPM | The suppressor comes off |
+| AK-47 | 600 RPM | Wood furniture by default |
+| XM7 | 800 RPM | The US Army's 6.8 mm rifle, with a Coyote tan preset |
+| Phantom | 11 rounds/s | An original Phantom-style rifle with a blue laser module |
+| AWP | Operator handling | Sniping scenarios only; the only gun that scopes |
+
+Pick one of the first four with **Use for tracking and clicking**. While you
+track, the gun cycles at its own fire rate; in clicking scenarios, clicks can't
+come faster than that rate.
+
+### Skins
+
+- **Presets**: Fade (the default: crimson at the front, magenta and purple
+  through the receiver, blue at the rear, a gold suppressor, black furniture),
+  Recon Digital, Coyote, Factory, Woodland, Arctic Digital, Carbon Weave, Ember
+  Tiger, Cobalt Hex, Neon Splatter and Damascus.
+- **Pattern**: solid, fade, woodland camo, digital camo, carbon fibre, hex grid,
+  tiger stripe, splatter or Damascus steel, each with three colours.
+- **Finish** (matte, satin, gloss, anodized, metallic), **wear** (0–1, adding
+  scratches and chipped paint), **pattern scale** and **pattern seed**.
+- **Furniture** (stock, grip) and **accent** (suppressor, scope or magazine) can
+  wear the skin or a solid black, gunmetal, tan, wood, gold or steel finish.
+
+### Stickers
+
+Each gun has five sticker slots on the side you see in first person. A slot takes
+one of twelve designs, including a text sticker with your own text. You can set
+its colour, finish (paper, glossy, holo or gold foil), size, rotation, position
+and scrape.
+
+### Fire sounds
+
+Choose a sound for each gun: suppressed, rifle crack, heavy rifle, SMG snap,
+sniper boom, laser, soft click or silent. **Match the gun** picks one
+automatically, and taking the M4A1-S suppressor off switches it to the rifle
+crack.
+
+## Sniping (Valorant Operator)
+
+The sniping scenarios use the AWP model with Valorant Operator numbers: 0.6
+shots a second (1.67 s apart), 2.5x and 5x zoom, a 5-round magazine with a
+3.7 s reload, and 255 head / 150 body / 120 leg damage against 150 HP agents. A
+body shot kills; a leg shot doesn't. Crates block both shots and line of sight.
+
+- **Right click** scopes to 2.5x, a second click goes to 5x and a third unscopes.
+  Settings also has a hold-to-scope option.
+- Shots fired before the scope settles carry hip-fire spread (about 5°).
+- By default you drop out of the scope after each shot.
+- **Scoped sensitivity** scales with the zoom (2.5x turns 2.5 times slower) times
+  a multiplier you can set.
+- **Scope-in time** defaults to 0.25 s. Riot doesn't publish this number, so it
+  is an estimate you can change in Settings.
+
+The results screen shows accuracy, kills, headshots, your average reaction time
+(from an agent coming into view to killing it) and how many shots you fired
+before the scope settled.
+
 ## Controls
 
 - **Mouse 1**: fire (hold it in tracking scenarios, or turn on auto-fire in Settings)
+- **Mouse 2**: scope with the AWP in sniping scenarios
 - **Esc**: pause. Press Esc again to go back to the scenario list
 - **R**: restart the current run
 - **Space / Enter** on the results screen: play again
@@ -132,7 +206,10 @@ js/settings.js        settings storage and sensitivity maths
 js/stats.js           run history
 js/chart.js           pace chart and history sparkline (SVG)
 js/crosshair.js       crosshair drawing
-js/audio.js           synthesized sound effects
+js/audio.js           synthesized sound effects and fire sounds
+js/guns.js            gun models, fire rates and sticker slots
+js/skins.js           skin patterns, presets and sticker designs
+js/weapon.js          first-person gun view, skins, stickers, turntable
 vendor/               three.js r186 (MIT), bundled into one ES module
 ```
 

@@ -1,4 +1,6 @@
 // Persistent user settings and sensitivity math.
+import { SKIN_PRESETS } from './skins.js';
+import { GUNS } from './guns.js';
 
 // Degrees of yaw per mouse count at sensitivity 1.0, per game.
 export const GAMES = {
@@ -27,6 +29,19 @@ export const DEFAULTS = {
   targetColor: '#ff4f64',
   hitColor: '#ffe066',
   showFps: false,
+  weapon: {
+    show: true, // gun model in first person
+    primary: 'm4a1s', // gun for tracking and clicking runs
+    hand: 'right',
+    fov: 60, // viewmodel field of view
+    sounds: true,
+  },
+  sniper: {
+    scopeMode: 'toggle', // 'toggle' cycles 2.5x, 5x, off; 'hold' keeps 2.5x while held
+    scopedSens: 1, // multiplier on top of scaling by zoom
+    scopeTime: 0.25, // seconds to scope in (estimate; not published for the Operator)
+    unscope: true, // drop out of scope after each shot
+  },
   crosshair: {
     style: 'crossdot',
     color: '#5cf2c9',
@@ -99,4 +114,45 @@ export function loadSetups() {
 
 export function saveSetups(s) {
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(s)); } catch (e) { /* ignore */ }
+}
+
+// ------------------------------------------------------------------ skins
+// One skin per gun, stored apart from settings because stickers are a list.
+
+const SKINS_KEY = 'trackline.skins.v1';
+export const STICKER_SLOTS = 5;
+
+export function presetSkin(presetId, gunId) {
+  const p = SKIN_PRESETS[presetId];
+  const { name, ...rest } = p;
+  return { ...rest, furniture: p.furniture || GUNS[gunId].defaultFurniture, preset: presetId };
+}
+
+export function defaultSkin(gunId) {
+  return {
+    ...presetSkin('fade', gunId),
+    suppressor: true,
+    sound: 'auto',
+    stickers: Array(STICKER_SLOTS).fill(null),
+  };
+}
+
+export function loadSkins() {
+  let stored = {};
+  try {
+    stored = JSON.parse(localStorage.getItem(SKINS_KEY)) || {};
+  } catch (e) { /* storage unavailable */ }
+  const out = {};
+  for (const id of Object.keys(GUNS)) {
+    const d = defaultSkin(id);
+    const s = stored[id] && typeof stored[id] === 'object' ? stored[id] : {};
+    out[id] = { ...d, ...s };
+    const list = Array.isArray(s.stickers) ? s.stickers : [];
+    out[id].stickers = d.stickers.map((_, i) => list[i] || null);
+  }
+  return out;
+}
+
+export function saveSkins(skins) {
+  try { localStorage.setItem(SKINS_KEY, JSON.stringify(skins)); } catch (e) { /* ignore */ }
 }

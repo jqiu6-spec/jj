@@ -1,12 +1,17 @@
 import { Game } from './game.js';
 import {
-  SCENARIOS, CATEGORIES, HP_CHOICES, LEVEL_NAMES, describe, defaultSetup, normalizeSetup, setupKey, setupLabel, countLimit,
+  SCENARIOS, CATEGORIES, HP_CHOICES, LEVEL_NAMES, OPERATOR, describe, defaultSetup, normalizeSetup, setupKey, setupLabel, countLimit,
 } from './scenarios.js';
 import {
-  loadSettings, saveSettings, loadSetups, saveSetups, DEFAULTS, GAMES, CROSSHAIR_STYLES, degPerCount, cmPer360,
+  loadSettings, saveSettings, loadSetups, saveSetups, loadSkins, saveSkins, defaultSkin, presetSkin,
+  DEFAULTS, GAMES, CROSSHAIR_STYLES, degPerCount, cmPer360,
 } from './settings.js';
 import { drawCrosshair } from './crosshair.js';
-import { initAudio, setVolume } from './audio.js';
+import { initAudio, setVolume, sfx, FIRE_SOUNDS } from './audio.js';
+import { GUNS } from './guns.js';
+import {
+  SKIN_PRESETS, PATTERNS, COLOR_ROLES, FINISHES, ZONE_FINISHES, STICKERS, STICKER_FINISHES, stickerCanvas, wearLabel,
+} from './skins.js';
 import { runsFor, bestRun, addRun, clearRuns, average } from './stats.js';
 import { paceChart, sparkline } from './chart.js';
 
@@ -17,6 +22,9 @@ const catOf = (id) => CATEGORIES.find((c) => c.id === id);
 
 let settings = loadSettings();
 const setups = loadSetups();
+let skins = loadSkins();
+let weaponGun = settings.weapon.primary; // gun shown in the Weapon tab
+let stickerSlot = 0;
 let selected = SCENARIOS[0];
 let rawInput = null; // true / false once pointer lock has been taken
 let lastResult = null;
@@ -31,7 +39,9 @@ const game = new Game(canvas, settings, {
   onHud: renderHud,
   onFinish: showResults,
   onHit: flashHitmarker,
+  onScope: renderScope,
 });
+game.setSkins(skins);
 
 // ------------------------------------------------------------------ setups
 const setupFor = (s) => normalizeSetup(s, setups[s.id]);
@@ -115,6 +125,7 @@ function onGameState(s) {
   $('hud-fps').hidden = !(inGame && settings.showFps);
   $('countdown').hidden = s !== 'countdown';
   $('pause').hidden = s !== 'paused';
+  $('hud-ammo').hidden = !((inGame || s === 'paused') && game.sniper);
   if (s === 'results' && document.pointerLockElement === canvas) document.exitPointerLock();
   if (s === 'paused') {
     pausedAt = performance.now();
@@ -130,9 +141,14 @@ function onGameState(s) {
   if (inGame) {
     $('hud-name').textContent = game.scn.name;
     $('hud-acc-lbl').textContent = game.scn.weapon.type === 'beam' ? 'On target' : 'Accuracy';
-    $('countdown-hint').textContent = game.scn.weapon.type === 'beam'
-      ? (settings.autoFire ? 'Auto-fire is on. Just track.' : 'Hold mouse 1 on the target')
-      : 'Click each target';
+    let hint = 'Click each target';
+    if (game.scn.weapon.type === 'beam') hint = settings.autoFire ? 'Auto-fire is on. Just track.' : 'Hold mouse 1 on the target';
+    if (game.sniper) {
+      hint = settings.sniper.scopeMode === 'hold'
+        ? 'Hold right click to scope. Left click fires.'
+        : 'Right click scopes to 2.5x, again for 5x. Left click fires.';
+    }
+    $('countdown-hint').textContent = hint;
   }
 }
 
@@ -144,10 +160,26 @@ function renderHud(h) {
   $('hud-acc').textContent = h.acc === null ? '–' : pct(h.acc);
   $('hud').classList.toggle('on-target', !!h.onTarget);
   if (h.countdown) $('countdown-num').textContent = h.countdown;
+  if (h.ammo !== null) {
+    $('hud-ammo-n').textContent = h.reload > 0 ? '—' : h.ammo;
+    $('hud-ammo-info').textContent = h.reload > 0
+      ? `RELOADING ${h.reload.toFixed(1)} S`
+      : `${h.zoom ? `${h.zoom}X SCOPE` : 'UNSCOPED'} · ${OPERATOR.magazine} ROUNDS`;
+  }
   if (settings.showFps && performance.now() - hudFpsTimer > 250) {
     hudFpsTimer = performance.now();
     $('hud-fps').textContent = `${Math.round(h.fps)} fps`;
   }
+}
+
+// The scope overlay fades in over the last half of the scope-in.
+let scopeShown = -1;
+function renderScope(t, level) {
+  const o = level ? Math.max(0, (t - 0.5) / 0.5) : 0;
+  if (o === scopeShown) return;
+  scopeShown = o;
+  $('scope').style.opacity = o;
+  document.body.classList.toggle('scoped', o > 0.5);
 }
 
 function flashHitmarker() {
@@ -271,7 +303,13 @@ function showResults(result) {
   }
 
   const stats = [];
-  if (beam) {
+  if (s.weapon.type === 'sniper') {
+    stats.push(['Accuracy', pct(result.accuracy)]);
+    stats.push(['Kills', result.kills]);
+    stats.push(['Headshots', result.kills ? `${result.headshots}<small>${pct(result.headshots / result.kills)}</small>` : '0']);
+    stats.push(['Avg. reaction', result.react === null ? '–' : `${Math.round(result.react * 1000)}<small>ms</small>`]);
+    stats.push(['Early shots', `${result.unscoped}<small>of ${result.shots}</small>`]);
+  } else if (beam) {
     stats.push(['On target', pct(result.accuracy)]);
     stats.push(['Damage', fmt(result.damage)]);
     if (game.setup.hp) stats.push(['Kills', result.kills]);
@@ -294,6 +332,18 @@ function showResults(result) {
 }
 
 function coaching(r, s, v) {
+  if (s.weapon.type === 'sniper') {
+    if (r.shots === 0) return 'No shots fired. Right click to scope, left click to fire.';
+    let text = r.react !== null
+      ? `On average you killed an agent <b>${Math.round(r.react * 1000)} ms</b> after it came into view.`
+      : 'No kills this run.';
+    if (r.unscoped > 0) {
+      text += ` <b>${r.unscoped}</b> of ${r.shots} shots left before the scope settled, so they carried hip-fire spread. Give the scope its ${settings.sniper.scopeTime.toFixed(2)} s.`;
+    }
+    if (r.accuracy < 0.6) text += ` Accuracy was ${pct(r.accuracy)}; every miss locks you out for ${OPERATOR.fireInterval.toFixed(2)} s.`;
+    else if (r.kills && r.headshots / r.kills < 0.3) text += ' Body shots kill with the Operator, but legs don\'t: keep the crosshair at chest height or above.';
+    return text;
+  }
   if (s.weapon.type === 'beam') {
     if (r.lead === null) return 'Hold mouse 1 while tracking so Trackline can measure how closely you follow the target.';
     const lag = r.lead;
@@ -342,6 +392,11 @@ function syncForm() {
   $('s-volume').value = s.volume;
   $('s-autoFire').checked = s.autoFire;
   $('s-showFps').checked = s.showFps;
+  $('s-scope-toggle').checked = s.sniper.scopeMode !== 'hold';
+  $('s-scope-hold').checked = s.sniper.scopeMode === 'hold';
+  $('s-scopedSens').value = s.sniper.scopedSens;
+  $('s-scopeTime').value = s.sniper.scopeTime;
+  $('s-unscope').checked = s.sniper.unscope;
   syncOutputs();
 }
 
@@ -353,6 +408,8 @@ function syncOutputs() {
   $('o-x-gap').textContent = `${s.crosshair.gap}px`;
   $('o-x-dot').textContent = `${s.crosshair.dot}px`;
   $('o-volume').textContent = `${s.volume}%`;
+  $('o-scopedSens').textContent = `${s.sniper.scopedSens.toFixed(2)}×`;
+  $('o-scopeTime').textContent = `${s.sniper.scopeTime.toFixed(2)} s${s.sniper.scopeTime === DEFAULTS.sniper.scopeTime ? ' (estimate)' : ''}`;
   for (const el of document.querySelectorAll('[data-mode]')) el.hidden = el.dataset.mode !== s.sensMode;
   renderSensReadout();
   drawCrosshair($('xhair-preview'), s.crosshair);
@@ -393,6 +450,10 @@ function readForm() {
   s.volume = parseInt($('s-volume').value, 10);
   s.autoFire = $('s-autoFire').checked;
   s.showFps = $('s-showFps').checked;
+  s.sniper.scopeMode = $('s-scope-hold').checked ? 'hold' : 'toggle';
+  s.sniper.scopedSens = parseFloat($('s-scopedSens').value);
+  s.sniper.scopeTime = parseFloat($('s-scopeTime').value);
+  s.sniper.unscope = $('s-unscope').checked;
   saveSettings(s);
   setVolume(s.volume / 100);
   game.applySettings(s);
@@ -415,12 +476,184 @@ function armButton(btn, label, action) {
 
 // -------------------------------------------------------------------- tabs
 function showTab(name) {
-  const scen = name === 'scenarios';
-  $('tab-scenarios').setAttribute('aria-selected', String(scen));
-  $('tab-settings').setAttribute('aria-selected', String(!scen));
-  $('panel-scenarios').hidden = !scen;
-  $('panel-settings').hidden = scen;
-  if (!scen) drawCrosshair($('xhair-preview'), settings.crosshair);
+  for (const t of ['scenarios', 'weapon', 'settings']) {
+    $(`tab-${t}`).setAttribute('aria-selected', String(t === name));
+    $(`panel-${t}`).hidden = t !== name;
+  }
+  if (name === 'settings') drawCrosshair($('xhair-preview'), settings.crosshair);
+  if (name === 'weapon') {
+    game.setInspect(weaponGun, stageCenter()); // builds the gun, so slot names exist
+    renderWeapon();
+  } else {
+    game.setInspect(null);
+  }
+}
+
+// ------------------------------------------------------------------ weapon
+const skinOf = () => skins[weaponGun];
+const STICKER_DEFAULT = { color: '#ffd166', text: 'GG', finish: 'glossy', scale: 1, rot: 0, dx: 0, dy: 0, scrape: 0 };
+
+// Where the turntable gun should sit: the centre of the stage, in NDC.
+function stageCenter() {
+  const r = $('weapon-stage').getBoundingClientRect();
+  if (!r.width || !r.height) return { x: 0.3, y: 0 };
+  const cy = Math.min(r.top + r.height / 2, window.innerHeight * 0.55);
+  return { x: ((r.left + r.width / 2) / window.innerWidth) * 2 - 1, y: -((cy / window.innerHeight) * 2 - 1) };
+}
+
+// Apply skin edits; slider drags rebuild the texture at most once a frame.
+let skinFrame = 0;
+function skinChanged(custom = true) {
+  if (custom) skinOf().preset = 'custom';
+  saveSkins(skins);
+  if (!skinFrame) {
+    skinFrame = requestAnimationFrame(() => {
+      skinFrame = 0;
+      game.setSkins(skins);
+    });
+  }
+  renderWeaponOutputs();
+}
+
+function swatch(p) {
+  if (p.pattern === 'fade') return `linear-gradient(90deg, ${p.c1}, ${p.c2}, ${p.c3})`;
+  if (p.pattern === 'solid') return p.c1;
+  return `linear-gradient(90deg, ${p.c1} 0 45%, ${p.c2} 45% 75%, ${p.c3 === '#000000' ? p.c1 : p.c3} 75%)`;
+}
+
+function thumb(st, px) {
+  const c = document.createElement('canvas');
+  c.width = c.height = px;
+  c.getContext('2d').drawImage(stickerCanvas(st), 0, 0, px, px);
+  return c;
+}
+
+function renderWeapon() {
+  const g = GUNS[weaponGun];
+  const sk = skinOf();
+  for (const b of document.querySelectorAll('.gun-chip')) b.setAttribute('aria-checked', String(b.dataset.gun === weaponGun));
+  $('w-kind').textContent = g.sniper ? 'Sniper · sniping scenarios' : `${g.kind} · ${Math.round(60 / g.fireInterval)} rounds per minute`;
+  $('w-name').textContent = g.name;
+  $('w-blurb').textContent = g.blurb;
+  const equip = $('w-equip');
+  if (g.sniper) {
+    equip.disabled = true;
+    equip.textContent = 'Used in sniping scenarios';
+    $('w-equip-note').textContent = 'Only the AWP can scope.';
+  } else {
+    const on = settings.weapon.primary === weaponGun;
+    equip.disabled = on;
+    equip.textContent = on ? 'Equipped for tracking and clicking' : 'Use for tracking and clicking';
+    $('w-equip-note').textContent = on ? '' : `Now equipped: ${GUNS[settings.weapon.primary].name}`;
+  }
+  for (const b of document.querySelectorAll('.preset')) b.setAttribute('aria-pressed', String(b.dataset.preset === sk.preset));
+  $('w-pattern').value = sk.pattern;
+  $('w-finish').value = sk.finish;
+  const roles = COLOR_ROLES[sk.pattern] || COLOR_ROLES.solid;
+  ['c1', 'c2', 'c3'].forEach((k, i) => {
+    $(`w-${k}`).value = sk[k];
+    $(`w-${k}-lbl`).textContent = roles[i] || '';
+    $(`w-${k}-wrap`).hidden = !roles[i];
+  });
+  $('w-furniture-lbl').textContent = g.furnitureLabel;
+  $('w-accent-lbl').textContent = g.accentLabel;
+  $('w-furniture').value = sk.furniture || g.defaultFurniture;
+  $('w-accent').value = sk.accent || 'black';
+  $('w-wear').value = sk.wear;
+  $('w-scale').value = sk.scale;
+  $('w-seed').value = sk.seed;
+  $('w-suppressor-wrap').hidden = weaponGun !== 'm4a1s';
+  $('w-suppressor').checked = sk.suppressor !== false;
+  $('w-sound').value = sk.sound || 'auto';
+  $('w-show').checked = settings.weapon.show;
+  $('w-sounds').checked = settings.weapon.sounds;
+  $('w-hand-right').checked = settings.weapon.hand !== 'left';
+  $('w-hand-left').checked = settings.weapon.hand === 'left';
+  $('w-fov').value = settings.weapon.fov;
+  renderStickers();
+  renderWeaponOutputs();
+}
+
+function renderWeaponOutputs() {
+  const sk = skinOf();
+  $('w-preset-name').textContent = sk.preset === 'custom' ? 'Custom' : SKIN_PRESETS[sk.preset] ? SKIN_PRESETS[sk.preset].name : '';
+  $('o-w-wear').textContent = `${sk.wear.toFixed(2)} · ${wearLabel(sk.wear)}`;
+  $('o-w-scale').textContent = `${sk.scale.toFixed(2)}×`;
+  $('o-w-fov').textContent = `${settings.weapon.fov}°`;
+  const st = sk.stickers[stickerSlot];
+  if (st) {
+    $('o-w-st-scale').textContent = `${Math.round(st.scale * 100)}%`;
+    $('o-w-st-rot').textContent = `${st.rot}°`;
+    $('o-w-st-scrape').textContent = `${Math.round(st.scrape * 100)}%`;
+  }
+}
+
+function renderStickers() {
+  const sk = skinOf();
+  const slots = $('w-slots');
+  slots.textContent = '';
+  const gv = game.vm.guns[weaponGun];
+  const names = gv ? gv.model.slots.map((sl) => sl.name) : [];
+  sk.stickers.forEach((st, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'slot';
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(i === stickerSlot));
+    b.appendChild(st ? thumb(st, 80) : Object.assign(document.createElement('i'), { className: 'empty' }));
+    const label = document.createElement('span');
+    label.textContent = names[i] || `Slot ${i + 1}`;
+    b.appendChild(label);
+    b.title = `${names[i] || `Slot ${i + 1}`}: ${st ? STICKERS[st.id].name : 'empty'}`;
+    b.addEventListener('click', () => { stickerSlot = i; renderStickers(); renderWeaponOutputs(); });
+    slots.appendChild(b);
+  });
+
+  const cur = sk.stickers[stickerSlot];
+  const grid = $('w-sticker-grid');
+  grid.textContent = '';
+  const none = document.createElement('button');
+  none.type = 'button';
+  none.textContent = 'None';
+  none.setAttribute('aria-pressed', String(!cur));
+  none.addEventListener('click', () => { sk.stickers[stickerSlot] = null; skinChanged(false); renderStickers(); });
+  grid.appendChild(none);
+  const color = cur ? cur.color : STICKER_DEFAULT.color;
+  for (const [id, d] of Object.entries(STICKERS)) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.title = d.name;
+    b.setAttribute('aria-label', `${d.name} sticker`);
+    b.setAttribute('aria-pressed', String(!!cur && cur.id === id));
+    b.appendChild(thumb({ ...STICKER_DEFAULT, color, text: cur ? cur.text : 'GG', id }, 96));
+    b.addEventListener('click', () => {
+      sk.stickers[stickerSlot] = { ...STICKER_DEFAULT, seed: 1 + Math.floor(Math.random() * 998), ...(sk.stickers[stickerSlot] || {}), id };
+      skinChanged(false);
+      renderStickers();
+      renderWeaponOutputs();
+    });
+    grid.appendChild(b);
+  }
+  $('w-st-fields').hidden = !cur;
+  if (cur) {
+    $('w-st-text-wrap').hidden = cur.id !== 'text';
+    $('w-st-text').value = cur.text || '';
+    $('w-st-color').value = cur.color;
+    $('w-st-finish').value = cur.finish;
+    $('w-st-scale').value = cur.scale;
+    $('w-st-rot').value = cur.rot;
+    $('w-st-scrape').value = cur.scrape;
+    $('w-st-dx').value = cur.dx;
+    $('w-st-dy').value = cur.dy;
+  }
+}
+
+// Update the current slot's sticker thumbnail without rebuilding the grid.
+function refreshSlotThumb() {
+  const st = skinOf().stickers[stickerSlot];
+  const b = $('w-slots').children[stickerSlot];
+  if (!b || !st) return;
+  b.replaceChild(thumb(st, 80), b.firstChild);
 }
 
 // ------------------------------------------------------------------ wiring
@@ -430,11 +663,129 @@ fillSelect($('s-x-style'), CROSSHAIR_STYLES);
 syncForm();
 setVolume(settings.volume / 100);
 
+// Weapon tab.
+const fill = (sel, entries) => { sel.innerHTML = entries.map(([k, v]) => `<option value="${k}">${v}</option>`).join(''); };
+$('w-guns').innerHTML = Object.entries(GUNS).map(([id, g]) => `<button type="button" class="gun-chip" role="radio" data-gun="${id}"><b>${g.name}</b><span>${g.kind}</span></button>`).join('');
+$('w-presets').innerHTML = Object.entries(SKIN_PRESETS).map(([id, p]) => `<button type="button" class="preset" data-preset="${id}"><i style="background:${swatch(p)}"></i>${p.name}</button>`).join('');
+fill($('w-pattern'), Object.entries(PATTERNS));
+fill($('w-finish'), Object.entries(FINISHES).map(([k, f]) => [k, f.label]));
+fill($('w-furniture'), ['skin', 'black', 'gray', 'tan', 'wood'].map((k) => [k, ZONE_FINISHES[k].label]));
+fill($('w-accent'), ['skin', 'black', 'gold', 'steel'].map((k) => [k, ZONE_FINISHES[k].label]));
+fill($('w-st-finish'), Object.entries(STICKER_FINISHES));
+fill($('w-sound'), Object.entries(FIRE_SOUNDS));
+
+for (const b of document.querySelectorAll('.gun-chip')) {
+  b.addEventListener('click', () => {
+    weaponGun = b.dataset.gun;
+    stickerSlot = 0;
+    game.setInspect(weaponGun, stageCenter());
+    renderWeapon();
+  });
+}
+for (const b of document.querySelectorAll('.preset')) {
+  b.addEventListener('click', () => {
+    Object.assign(skinOf(), presetSkin(b.dataset.preset, weaponGun));
+    skinChanged(false);
+    renderWeapon();
+  });
+}
+$('w-equip').addEventListener('click', () => {
+  settings.weapon.primary = weaponGun;
+  saveSettings(settings);
+  game.applySettings(settings);
+  renderWeapon();
+});
+const skinInput = (id, key, parse = (v) => v, rerender = false) => {
+  $(id).addEventListener('input', (e) => {
+    skinOf()[key] = parse(e.target.value);
+    skinChanged();
+    if (rerender) renderWeapon();
+  });
+};
+skinInput('w-pattern', 'pattern', String, true);
+skinInput('w-finish', 'finish');
+skinInput('w-c1', 'c1');
+skinInput('w-c2', 'c2');
+skinInput('w-c3', 'c3');
+skinInput('w-furniture', 'furniture');
+skinInput('w-accent', 'accent');
+skinInput('w-wear', 'wear', parseFloat);
+skinInput('w-scale', 'scale', parseFloat);
+skinInput('w-seed', 'seed', (v) => Math.max(1, Math.min(999, parseInt(v, 10) || 1)));
+$('w-shuffle').addEventListener('click', () => {
+  skinOf().seed = 1 + Math.floor(Math.random() * 998);
+  $('w-seed').value = skinOf().seed;
+  skinChanged();
+});
+$('w-suppressor').addEventListener('change', (e) => {
+  skinOf().suppressor = e.target.checked;
+  skinChanged(false);
+});
+const stickerInput = (id, key, parse = (v) => v) => {
+  $(id).addEventListener('input', (e) => {
+    const st = skinOf().stickers[stickerSlot];
+    if (!st) return;
+    st[key] = parse(e.target.value);
+    skinChanged(false);
+    refreshSlotThumb();
+  });
+};
+stickerInput('w-st-text', 'text');
+stickerInput('w-st-color', 'color');
+stickerInput('w-st-finish', 'finish');
+stickerInput('w-st-scale', 'scale', parseFloat);
+stickerInput('w-st-rot', 'rot', (v) => parseInt(v, 10));
+stickerInput('w-st-scrape', 'scrape', parseFloat);
+stickerInput('w-st-dx', 'dx', parseFloat);
+stickerInput('w-st-dy', 'dy', parseFloat);
+// Recolour the design thumbnails once the colour is chosen.
+$('w-st-color').addEventListener('change', renderStickers);
+$('w-sound').addEventListener('change', (e) => {
+  skinOf().sound = e.target.value;
+  skinChanged(false);
+});
+$('w-sound-test').addEventListener('click', () => {
+  initAudio();
+  const sk = skinOf();
+  sfx.gun(sk.sound && sk.sound !== 'auto' ? sk.sound : GUNS[weaponGun].sound(sk));
+});
+const viewInput = (id, apply) => {
+  $(id).addEventListener('input', (e) => {
+    apply(e.target);
+    saveSettings(settings);
+    game.applySettings(settings);
+    renderWeaponOutputs();
+  });
+};
+viewInput('w-show', (el) => { settings.weapon.show = el.checked; });
+viewInput('w-sounds', (el) => { settings.weapon.sounds = el.checked; });
+viewInput('w-hand-right', () => { settings.weapon.hand = 'right'; });
+viewInput('w-hand-left', () => { settings.weapon.hand = 'left'; });
+viewInput('w-fov', (el) => { settings.weapon.fov = parseInt(el.value, 10); });
+$('w-reset').addEventListener('click', (e) => armButton(e.currentTarget, 'Reset this gun', () => {
+  skins[weaponGun] = defaultSkin(weaponGun);
+  saveSkins(skins);
+  game.setSkins(skins);
+  renderWeapon();
+  $('w-msg').textContent = `${GUNS[weaponGun].name} reset to the Fade skin.`;
+}));
+// Drag the stage to turn the gun.
+const stage = $('weapon-stage');
+let dragging = false;
+stage.addEventListener('pointerdown', (e) => { dragging = true; stage.setPointerCapture(e.pointerId); });
+stage.addEventListener('pointermove', (e) => { if (dragging) game.vm.inspectDrag(e.movementX, e.movementY); });
+stage.addEventListener('pointerup', () => { dragging = false; });
+stage.addEventListener('pointercancel', () => { dragging = false; });
+const recentre = () => { if (!$('panel-weapon').hidden) game.setInspect(weaponGun, stageCenter()); };
+window.addEventListener('resize', recentre);
+$('menu').addEventListener('scroll', recentre, { passive: true });
+
 $('settings-form').addEventListener('input', readForm);
 $('settings-form').addEventListener('change', readForm);
 $('settings-form').addEventListener('submit', (e) => e.preventDefault());
 $('tab-scenarios').addEventListener('click', () => showTab('scenarios'));
 $('tab-settings').addEventListener('click', () => showTab('settings'));
+$('tab-weapon').addEventListener('click', () => showTab('weapon'));
 $('sens-chip').addEventListener('click', () => showTab('settings'));
 $('btn-start').addEventListener('click', () => play(selected));
 $('d-count-dec').addEventListener('click', () => changeSetup({ count: setupFor(selected).count - 1 }));
@@ -461,6 +812,7 @@ $('btn-resume').addEventListener('click', async () => {
 $('btn-reset-settings').addEventListener('click', (e) => armButton(e.currentTarget, 'Reset settings', () => {
   settings = JSON.parse(JSON.stringify(DEFAULTS));
   saveSettings(settings);
+  renderWeapon();
   game.applySettings(settings);
   setVolume(settings.volume / 100);
   syncForm();

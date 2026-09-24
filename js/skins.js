@@ -1,0 +1,636 @@
+// Procedural weapon skins and stickers. Everything here is drawn in code;
+// no artwork is copied from any game.
+import * as THREE from 'three';
+
+const TAU = Math.PI * 2;
+
+export const PATTERNS = {
+  solid: 'Solid',
+  fade: 'Fade',
+  camo: 'Woodland camo',
+  digital: 'Digital camo',
+  carbon: 'Carbon fibre',
+  hex: 'Hex grid',
+  stripes: 'Tiger stripe',
+  splatter: 'Splatter',
+  damascus: 'Damascus steel',
+};
+
+// What each colour slot does in a pattern, for the form labels.
+export const COLOR_ROLES = {
+  solid: ['Paint', null, null],
+  fade: ['Rear', 'Middle', 'Front'],
+  camo: ['Base', 'Dark blotches', 'Light blotches'],
+  digital: ['Base', 'Mid pixels', 'Dark pixels'],
+  carbon: ['Weave', 'Sheen', null],
+  hex: ['Base', 'Grid lines', 'Filled cells'],
+  stripes: ['Base', 'Stripes', null],
+  splatter: ['Base', 'Splash 1', 'Splash 2'],
+  damascus: ['Light steel', 'Dark steel', null],
+};
+
+export const FINISHES = {
+  matte: { label: 'Matte', roughness: 0.82, metalness: 0 },
+  satin: { label: 'Satin', roughness: 0.55, metalness: 0.15 },
+  gloss: { label: 'Gloss', roughness: 0.22, metalness: 0 },
+  anodized: { label: 'Anodized', roughness: 0.28, metalness: 0.62 },
+  metallic: { label: 'Metallic', roughness: 0.3, metalness: 0.88 },
+};
+
+// Solid choices for the furniture (stock, grip) and accent (suppressor,
+// scope, magazine) zones; 'skin' paints them with the pattern instead.
+export const ZONE_FINISHES = {
+  skin: { label: 'Skin pattern' },
+  black: { label: 'Black polymer', color: '#16171a', roughness: 0.7, metalness: 0.05 },
+  tan: { label: 'Tan polymer', color: '#b59a70', roughness: 0.72, metalness: 0.02 },
+  wood: { label: 'Wood', color: '#ffffff', roughness: 0.6, metalness: 0, wood: true },
+  gray: { label: 'Gunmetal polymer', color: '#3f444c', roughness: 0.62, metalness: 0.1 },
+  gold: { label: 'Gold', color: '#e9ad3c', roughness: 0.24, metalness: 1 },
+  steel: { label: 'Steel', color: '#9aa1aa', roughness: 0.32, metalness: 1 },
+};
+
+// Starting points; every value can be changed afterwards. Fade copies the
+// colour scheme of the reference: crimson front, magenta and purple through
+// the receiver, blue at the rear, a gold suppressor and black furniture.
+export const SKIN_PRESETS = {
+  fade: { name: 'Fade', pattern: 'fade', c1: '#3a5ae8', c2: '#b02ec2', c3: '#e8234d', finish: 'anodized', wear: 0.01, scale: 1, seed: 1, furniture: 'black', accent: 'gold' },
+  recon: { name: 'Recon Digital', pattern: 'digital', c1: '#dfe4ea', c2: '#8a97a6', c3: '#34414f', finish: 'matte', wear: 0.04, scale: 0.55, seed: 9, furniture: 'gray', accent: 'skin' },
+  coyote: { name: 'Coyote', pattern: 'solid', c1: '#a8875c', c2: '#8a6d49', c3: '#5e4a33', finish: 'matte', wear: 0.05, scale: 1, seed: 1, furniture: 'tan', accent: 'black' },
+  factory: { name: 'Factory', pattern: 'solid', c1: '#2a2d32', c2: '#4a4f57', c3: '#7d848e', finish: 'satin', wear: 0.06, scale: 1, seed: 1, furniture: null, accent: 'black' },
+  woodland: { name: 'Woodland', pattern: 'camo', c1: '#56663f', c2: '#2c3622', c3: '#8e7b52', finish: 'matte', wear: 0.24, scale: 1, seed: 7, furniture: 'skin', accent: 'black' },
+  arctic: { name: 'Arctic Digital', pattern: 'digital', c1: '#dde4ea', c2: '#98a5b2', c3: '#4b5764', finish: 'matte', wear: 0.14, scale: 1, seed: 3, furniture: 'skin', accent: 'black' },
+  carbon: { name: 'Carbon Weave', pattern: 'carbon', c1: '#141619', c2: '#454c56', c3: '#000000', finish: 'gloss', wear: 0.04, scale: 1, seed: 1, furniture: 'skin', accent: 'steel' },
+  ember: { name: 'Ember Tiger', pattern: 'stripes', c1: '#ff8a1e', c2: '#1b120d', c3: '#000000', finish: 'gloss', wear: 0.1, scale: 1, seed: 11, furniture: 'black', accent: 'black' },
+  cobalt: { name: 'Cobalt Hex', pattern: 'hex', c1: '#10284d', c2: '#46b3ff', c3: '#0b1a36', finish: 'satin', wear: 0.05, scale: 1, seed: 5, furniture: 'skin', accent: 'steel' },
+  neon: { name: 'Neon Splatter', pattern: 'splatter', c1: '#17171f', c2: '#3dfc9b', c3: '#ff3df0', finish: 'gloss', wear: 0.05, scale: 1, seed: 21, furniture: 'black', accent: 'black' },
+  damascus: { name: 'Damascus', pattern: 'damascus', c1: '#8a919b', c2: '#2c3036', c3: '#000000', finish: 'metallic', wear: 0.03, scale: 1, seed: 2, furniture: 'black', accent: 'steel' },
+};
+
+export const SKIN_KEYS = ['pattern', 'c1', 'c2', 'c3', 'finish', 'wear', 'scale', 'seed', 'furniture', 'accent'];
+
+export function wearLabel(w) {
+  if (w < 0.07) return 'Pristine';
+  if (w < 0.15) return 'Light wear';
+  if (w < 0.38) return 'Used';
+  if (w < 0.45) return 'Worn';
+  return 'Battered';
+}
+
+// ------------------------------------------------------------ drawing tools
+export function rng(seed) {
+  let a = (seed * 2654435761) >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shade(hex, k) {
+  const c = new THREE.Color(hex);
+  c.multiplyScalar(k);
+  return `#${c.getHexString()}`;
+}
+
+// Tileable value noise on a `period` grid, sampled at (x, y) in [0, 1).
+function noiseField(rand, period) {
+  const g = Array.from({ length: period * period }, rand);
+  const at = (i, j) => g[((j % period + period) % period) * period + ((i % period + period) % period)];
+  return (x, y) => {
+    const fx = x * period;
+    const fy = y * period;
+    const i = Math.floor(fx);
+    const j = Math.floor(fy);
+    const u = fx - i;
+    const v = fy - j;
+    const su = u * u * (3 - 2 * u);
+    const sv = v * v * (3 - 2 * v);
+    const a = at(i, j) + (at(i + 1, j) - at(i, j)) * su;
+    const b = at(i, j + 1) + (at(i + 1, j + 1) - at(i, j + 1)) * su;
+    return a + (b - a) * sv;
+  };
+}
+
+// Run a drawing function at all nine offsets so shapes wrap across edges.
+function wrapped(W, H, fn) {
+  for (const dx of [-W, 0, W]) for (const dy of [-H, 0, H]) fn(dx, dy);
+}
+
+function blob(g, rand, cx, cy, r) {
+  const n = 9;
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU;
+    const rr = r * (0.55 + rand() * 0.6);
+    pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * (0.6 + rand() * 0.5)]);
+  }
+  g.beginPath();
+  const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  let m = mid(pts[n - 1], pts[0]);
+  g.moveTo(m[0], m[1]);
+  for (let i = 0; i < n; i++) {
+    const p = pts[i];
+    m = mid(p, pts[(i + 1) % n]);
+    g.quadraticCurveTo(p[0], p[1], m[0], m[1]);
+  }
+  g.fill();
+}
+
+function grain(g, W, H, rand, amount) {
+  for (let i = 0; i < amount; i++) {
+    g.fillStyle = rand() < 0.5 ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)';
+    g.fillRect(rand() * W, rand() * H, 1.5, 1.5);
+  }
+}
+
+// --------------------------------------------------------------- patterns
+const DRAW = {
+  solid(g, W, H, s, rand) {
+    g.fillStyle = s.c1;
+    g.fillRect(0, 0, W, H);
+    grain(g, W, H, rand, 2500);
+  },
+  fade(g, W, H, s, rand) {
+    // Colour comes from the gradient along the gun; the texture adds grain.
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, 0, W, H);
+    grain(g, W, H, rand, 1500);
+  },
+  camo(g, W, H, s, rand) {
+    g.fillStyle = s.c1;
+    g.fillRect(0, 0, W, H);
+    const layers = [[s.c2, 16, 70], [s.c3, 13, 55], [shade(s.c2, 0.55), 10, 38]];
+    for (const [col, n, r] of layers) {
+      g.fillStyle = col;
+      for (let i = 0; i < n; i++) {
+        const x = rand() * W;
+        const y = rand() * H;
+        const rr = r * (0.6 + rand() * 0.8);
+        const seed = rand() * 1e9;
+        wrapped(W, H, (dx, dy) => blob(g, rng(seed), x + dx, y + dy, rr));
+      }
+    }
+    grain(g, W, H, rand, 1500);
+  },
+  digital(g, W, H, s, rand) {
+    const n1 = noiseField(rand, 6);
+    const n2 = noiseField(rand, 16);
+    const cols = [s.c1, s.c2, s.c3, shade(s.c3, 0.6)];
+    const px = 16;
+    for (let y = 0; y < H; y += px) {
+      for (let x = 0; x < W; x += px) {
+        const v = n1(x / W, y / H) * 0.7 + n2(x / W, y / H) * 0.3;
+        const k = v < 0.34 ? 3 : v < 0.44 ? 2 : v < 0.6 ? 0 : 1;
+        g.fillStyle = cols[k];
+        g.fillRect(x, y, px, px);
+      }
+    }
+  },
+  carbon(g, W, H, s) {
+    const c = 16;
+    for (let j = 0; j < H / c; j++) {
+      for (let i = 0; i < W / c; i++) {
+        const along = (i + j) % 2 === 0;
+        const gr = along
+          ? g.createLinearGradient(0, j * c, 0, j * c + c)
+          : g.createLinearGradient(i * c, 0, i * c + c, 0);
+        gr.addColorStop(0, s.c1);
+        gr.addColorStop(0.5, s.c2);
+        gr.addColorStop(1, s.c1);
+        g.fillStyle = gr;
+        g.fillRect(i * c, j * c, c, c);
+      }
+    }
+    g.fillStyle = 'rgba(0,0,0,0.35)';
+    for (let k = 0; k < W; k += c) { g.fillRect(k, 0, 1, H); g.fillRect(0, k, W, 1); }
+  },
+  hex(g, W, H, s, rand) {
+    const r = 16;
+    const h = Math.sqrt(3) * r;
+    g.fillStyle = s.c1;
+    g.fillRect(0, 0, W, H);
+    const hexPath = (cx, cy) => {
+      g.beginPath();
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * TAU;
+        const px = cx + Math.cos(a) * (r - 1.5);
+        const py = cy + Math.sin(a) * (r - 1.5);
+        if (k) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+      g.closePath();
+    };
+    g.lineWidth = 2.5;
+    g.strokeStyle = s.c2;
+    const cols = Math.round(W / (1.5 * r));
+    const rows = Math.round(H / h);
+    for (let q = 0; q < cols; q++) {
+      for (let row = 0; row < rows; row++) {
+        const cx = q * 1.5 * r;
+        const cy = row * h + (q % 2) * (h / 2);
+        const fill = rand() < 0.16;
+        wrapped(W, H, (dx, dy) => {
+          hexPath(cx + dx, cy + dy);
+          if (fill) { g.fillStyle = s.c3; g.fill(); }
+          g.stroke();
+        });
+      }
+    }
+  },
+  stripes(g, W, H, s, rand) {
+    g.fillStyle = s.c1;
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = s.c2;
+    const n = 7;
+    for (let k = 0; k < n; k++) {
+      const base = ((k + rand() * 0.5) / n) * H;
+      const k1 = 1 + Math.floor(rand() * 2);
+      const k2 = 3 + Math.floor(rand() * 3);
+      const m = 2 + Math.floor(rand() * 3);
+      const p1 = rand() * TAU;
+      const p2 = rand() * TAU;
+      const p3 = rand() * TAU;
+      const w = 10 + rand() * 12;
+      const top = [];
+      const bot = [];
+      for (let x = 0; x <= W; x += 4) {
+        const t = (x / W) * TAU;
+        const cy = base + 18 * Math.sin(t * k1 + p1) + 6 * Math.sin(t * k2 + p2);
+        const hw = w * Math.max(0, Math.sin(t * m + p3)) ** 0.7;
+        top.push([x, cy - hw]);
+        bot.push([x, cy + hw]);
+      }
+      for (const dy of [-H, 0, H]) {
+        g.beginPath();
+        top.forEach(([x, y], i) => (i ? g.lineTo(x, y + dy) : g.moveTo(x, y + dy)));
+        for (let i = bot.length - 1; i >= 0; i--) g.lineTo(bot[i][0], bot[i][1] + dy);
+        g.closePath();
+        g.fill();
+      }
+    }
+  },
+  splatter(g, W, H, s, rand) {
+    g.fillStyle = s.c1;
+    g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 26; i++) {
+      const col = rand() < 0.5 ? s.c2 : s.c3;
+      const x = rand() * W;
+      const y = rand() * H;
+      const r = 8 + rand() * 30;
+      const drops = [];
+      const nd = 6 + Math.floor(rand() * 10);
+      for (let d = 0; d < nd; d++) {
+        const a = rand() * TAU;
+        const dist = r * (1.1 + rand() * 1.6);
+        drops.push([Math.cos(a) * dist, Math.sin(a) * dist, 1.5 + rand() * 6]);
+      }
+      g.fillStyle = col;
+      wrapped(W, H, (dx, dy) => {
+        g.beginPath();
+        g.arc(x + dx, y + dy, r, 0, TAU);
+        g.fill();
+        for (const [ox, oy, rr] of drops) {
+          g.beginPath();
+          g.arc(x + dx + ox, y + dy + oy, rr, 0, TAU);
+          g.fill();
+        }
+      });
+    }
+  },
+  damascus(g, W, H, s, rand) {
+    const n1 = noiseField(rand, 4);
+    const n2 = noiseField(rand, 9);
+    const a = new THREE.Color(s.c1);
+    const b = new THREE.Color(s.c2);
+    a.convertLinearToSRGB();
+    b.convertLinearToSRGB();
+    const img = g.createImageData(W, H);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const u = x / W;
+        const v = y / H;
+        const warp = n1(u, v) * 5 + n2(u, v) * 1.5;
+        const t = 0.5 + 0.5 * Math.sin(v * TAU * 9 + u * TAU * 2 + warp);
+        const k = t * t * (3 - 2 * t);
+        const o = (y * W + x) * 4;
+        img.data[o] = (a.r + (b.r - a.r) * k) * 255;
+        img.data[o + 1] = (a.g + (b.g - a.g) * k) * 255;
+        img.data[o + 2] = (a.b + (b.b - a.b) * k) * 255;
+        img.data[o + 3] = 255;
+      }
+    }
+    g.putImageData(img, 0, 0);
+  },
+};
+
+// Scratches and chipped paint showing bare metal, scaled by wear (0-1).
+function drawWear(g, W, H, wear, rand) {
+  if (wear <= 0) return;
+  g.fillStyle = `rgba(120,124,130,${wear * 0.15})`;
+  g.fillRect(0, 0, W, H);
+  const scratches = Math.floor(wear * 320);
+  for (let i = 0; i < scratches; i++) {
+    const x = rand() * W;
+    const y = rand() * H;
+    const len = 8 + rand() * 50;
+    const a = rand() * TAU;
+    const bend = (rand() - 0.5) * 12;
+    g.strokeStyle = `rgba(196,200,206,${0.3 + rand() * 0.5})`;
+    g.lineWidth = 0.6 + rand() * 1.1;
+    wrapped(W, H, (dx, dy) => {
+      g.beginPath();
+      g.moveTo(x + dx, y + dy);
+      g.quadraticCurveTo(
+        x + dx + Math.cos(a) * len * 0.5 - Math.sin(a) * bend,
+        y + dy + Math.sin(a) * len * 0.5 + Math.cos(a) * bend,
+        x + dx + Math.cos(a) * len,
+        y + dy + Math.sin(a) * len,
+      );
+      g.stroke();
+    });
+  }
+  const chips = Math.floor(wear ** 1.4 * 110);
+  g.fillStyle = 'rgba(158,163,170,0.95)';
+  for (let i = 0; i < chips; i++) {
+    const x = rand() * W;
+    const y = rand() * H;
+    const r = 1.5 + rand() * 7 * (0.4 + wear);
+    const seed = rand() * 1e9;
+    wrapped(W, H, (dx, dy) => blob(g, rng(seed), x + dx, y + dy, r));
+  }
+}
+
+export function skinCanvas(s) {
+  const c = document.createElement('canvas');
+  // The hex grid only tiles on a canvas sized to whole cells.
+  c.width = s.pattern === 'hex' ? 480 : 512;
+  c.height = s.pattern === 'hex' ? 471 : 512;
+  const g = c.getContext('2d');
+  const rand = rng(s.seed || 1);
+  (DRAW[s.pattern] || DRAW.solid)(g, c.width, c.height, s, rand);
+  drawWear(g, c.width, c.height, s.wear, rng((s.seed || 1) + 999));
+  return c;
+}
+
+// Straight-grained walnut for classic wood furniture.
+export function woodCanvas() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const rand = rng(42);
+  const n = noiseField(rand, 5);
+  const img = g.createImageData(256, 256);
+  for (let y = 0; y < 256; y++) {
+    for (let x = 0; x < 256; x++) {
+      const u = x / 256;
+      const v = y / 256;
+      const t = 0.5 + 0.5 * Math.sin(v * TAU * 14 + n(u, v) * 7);
+      const o = (y * 256 + x) * 4;
+      img.data[o] = 112 + t * 50;
+      img.data[o + 1] = 58 + t * 30;
+      img.data[o + 2] = 30 + t * 14;
+      img.data[o + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
+// ---------------------------------------------------------------- stickers
+export const STICKER_FINISHES = {
+  paper: 'Paper',
+  glossy: 'Glossy',
+  holo: 'Holo',
+  gold: 'Gold foil',
+};
+
+const star = (g, cx, cy, r, inner, points = 5) => {
+  g.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const rr = i % 2 ? r * inner : r;
+    const a = (i / (points * 2)) * TAU - Math.PI / 2;
+    const x = cx + Math.cos(a) * rr;
+    const y = cy + Math.sin(a) * rr;
+    if (i) g.lineTo(x, y); else g.moveTo(x, y);
+  }
+  g.closePath();
+};
+
+// Each design draws in `color` on a 256 px canvas centred at 128, 128.
+export const STICKERS = {
+  text: {
+    name: 'Text',
+    draw(g, color, text) {
+      const t = (text || 'GG').slice(0, 10);
+      g.fillStyle = color;
+      const w = 220;
+      const h = 110;
+      g.beginPath();
+      g.roundRect(128 - w / 2, 128 - h / 2, w, h, 26);
+      g.fill();
+      let size = 90;
+      g.font = `900 ${size}px "Saira Condensed", "Arial Narrow", sans-serif`;
+      while (g.measureText(t).width > w - 34 && size > 20) {
+        size -= 4;
+        g.font = `900 ${size}px "Saira Condensed", "Arial Narrow", sans-serif`;
+      }
+      g.fillStyle = '#ffffff';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(t.toUpperCase(), 128, 132);
+    },
+  },
+  crosshair: {
+    name: 'Crosshair',
+    draw(g, color) {
+      g.strokeStyle = color;
+      g.lineWidth = 16;
+      g.beginPath();
+      g.arc(128, 128, 70, 0, TAU);
+      g.stroke();
+      g.fillStyle = color;
+      for (const [x, y, w, h] of [[120, 24, 16, 62], [120, 170, 16, 62], [24, 120, 62, 16], [170, 120, 62, 16]]) g.fillRect(x, y, w, h);
+      g.beginPath();
+      g.arc(128, 128, 12, 0, TAU);
+      g.fill();
+    },
+  },
+  bolt: {
+    name: 'Lightning',
+    draw(g, color) {
+      g.fillStyle = color;
+      g.beginPath();
+      [[150, 16], [60, 140], [118, 140], [92, 240], [196, 104], [136, 104], [172, 16]].forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.closePath();
+      g.fill();
+    },
+  },
+  star: {
+    name: 'Star',
+    draw(g, color) {
+      g.fillStyle = color;
+      star(g, 128, 134, 112, 0.45);
+      g.fill();
+    },
+  },
+  heart: {
+    name: 'Heart',
+    draw(g, color) {
+      g.fillStyle = color;
+      g.beginPath();
+      g.moveTo(128, 222);
+      g.bezierCurveTo(20, 150, 16, 70, 76, 50);
+      g.bezierCurveTo(108, 40, 124, 62, 128, 80);
+      g.bezierCurveTo(132, 62, 148, 40, 180, 50);
+      g.bezierCurveTo(240, 70, 236, 150, 128, 222);
+      g.fill();
+    },
+  },
+  flame: {
+    name: 'Flame',
+    draw(g, color) {
+      const f = (s, col) => {
+        g.fillStyle = col;
+        g.beginPath();
+        g.moveTo(128, 236);
+        g.bezierCurveTo(128 - 90 * s, 236, 128 - 100 * s, 150, 128 - 40 * s, 100);
+        g.bezierCurveTo(128 - 30 * s, 140, 128 - 10 * s, 140, 128 - 14 * s, 110);
+        g.bezierCurveTo(128 - 20 * s, 70, 128, 40, 128 + 10 * s, 236 - 216 * s);
+        g.bezierCurveTo(128 + 30 * s, 80, 128 + 100 * s, 120, 128 + 88 * s, 180);
+        g.bezierCurveTo(128 + 80 * s, 226, 128 + 40 * s, 236, 128, 236);
+        g.fill();
+      };
+      f(1, color);
+      f(0.5, 'rgba(255,255,255,0.55)');
+    },
+  },
+  skull: {
+    name: 'Skull',
+    draw(g, color) {
+      g.fillStyle = color;
+      g.beginPath();
+      g.arc(128, 110, 84, 0, TAU);
+      g.fill();
+      g.beginPath();
+      g.roundRect(78, 150, 100, 70, 18);
+      g.fill();
+      g.fillStyle = '#16171a';
+      g.beginPath();
+      g.ellipse(96, 112, 22, 26, 0, 0, TAU);
+      g.ellipse(160, 112, 22, 26, 0, 0, TAU);
+      g.fill();
+      g.beginPath();
+      g.moveTo(128, 140);
+      g.lineTo(116, 164);
+      g.lineTo(140, 164);
+      g.fill();
+      for (let i = 0; i < 4; i++) g.fillRect(92 + i * 22, 194, 6, 26);
+    },
+  },
+  crown: {
+    name: 'Crown',
+    draw(g, color) {
+      g.fillStyle = color;
+      g.beginPath();
+      [[30, 190], [30, 80], [80, 130], [128, 50], [176, 130], [226, 80], [226, 190]].forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.closePath();
+      g.fill();
+      g.fillRect(30, 196, 196, 26);
+      for (const [x, y] of [[30, 72], [128, 42], [226, 72]]) {
+        g.beginPath();
+        g.arc(x, y, 14, 0, TAU);
+        g.fill();
+      }
+    },
+  },
+  smile: {
+    name: 'Smile',
+    draw(g, color) {
+      g.fillStyle = color;
+      g.beginPath();
+      g.arc(128, 128, 108, 0, TAU);
+      g.fill();
+      g.fillStyle = '#16171a';
+      g.beginPath();
+      g.ellipse(92, 100, 14, 22, 0, 0, TAU);
+      g.ellipse(164, 100, 14, 22, 0, 0, TAU);
+      g.fill();
+      g.strokeStyle = '#16171a';
+      g.lineWidth = 14;
+      g.lineCap = 'round';
+      g.beginPath();
+      g.arc(128, 128, 62, 0.2 * Math.PI, 0.8 * Math.PI);
+      g.stroke();
+    },
+  },
+  paw: {
+    name: 'Paw',
+    draw(g, color) {
+      g.fillStyle = color;
+      g.beginPath();
+      g.ellipse(128, 168, 62, 52, 0, 0, TAU);
+      g.fill();
+      for (const [x, y, r] of [[60, 104, 24], [102, 66, 26], [154, 66, 26], [196, 104, 24]]) {
+        g.beginPath();
+        g.ellipse(x, y, r, r * 1.25, 0, 0, TAU);
+        g.fill();
+      }
+    },
+  },
+  target: {
+    name: 'Bullseye',
+    draw(g, color) {
+      for (const [r, col] of [[110, color], [82, '#ffffff'], [56, color], [28, '#ffffff'], [12, color]]) {
+        g.fillStyle = col;
+        g.beginPath();
+        g.arc(128, 128, r, 0, TAU);
+        g.fill();
+      }
+    },
+  },
+};
+
+// A sticker as a die-cut decal: the design, a white border, and scraping.
+export function stickerCanvas(st) {
+  const design = STICKERS[st.id];
+  const art = document.createElement('canvas');
+  art.width = art.height = 256;
+  const a = art.getContext('2d');
+  a.save();
+  a.translate(128, 128);
+  a.scale(0.86, 0.86);
+  a.translate(-128, -128);
+  design.draw(a, st.color, st.text);
+  a.restore();
+
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  // White border: stamp a white silhouette around the design.
+  const sil = document.createElement('canvas');
+  sil.width = sil.height = 256;
+  const s = sil.getContext('2d');
+  s.drawImage(art, 0, 0);
+  s.globalCompositeOperation = 'source-in';
+  s.fillStyle = '#ffffff';
+  s.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 16; i++) {
+    const ang = (i / 16) * TAU;
+    g.drawImage(sil, Math.cos(ang) * 7, Math.sin(ang) * 7);
+  }
+  g.drawImage(art, 0, 0);
+
+  if (st.scrape > 0) {
+    const n1 = noiseField(rng(st.seed || 3), 6);
+    const n2 = noiseField(rng((st.seed || 3) + 1), 20);
+    const img = g.getImageData(0, 0, 256, 256);
+    for (let y = 0; y < 256; y++) {
+      for (let x = 0; x < 256; x++) {
+        const v = n1(x / 256, y / 256) * 0.65 + n2(x / 256, y / 256) * 0.35;
+        if (v < st.scrape * 0.85) img.data[(y * 256 + x) * 4 + 3] = 0;
+      }
+    }
+    g.putImageData(img, 0, 0);
+  }
+  return c;
+}

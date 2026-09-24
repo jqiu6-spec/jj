@@ -23,6 +23,8 @@
   <div class="hud-stat"><span class="lbl" id="hud-acc-lbl">Accuracy</span><b id="hud-acc">–</b></div>
 </div>
 <div id="hud-fps" hidden></div>
+<div id="scope" aria-hidden="true"><i class="scope-h"></i><i class="scope-v"></i><i class="scope-dot"></i></div>
+<div id="hud-ammo" hidden><b id="hud-ammo-n">5</b><span id="hud-ammo-info"></span></div>
 <div id="countdown" hidden><b id="countdown-num">3</b><span id="countdown-hint"></span></div>
 
 <section id="menu">
@@ -33,6 +35,7 @@
     </div>
     <nav class="tabs" role="tablist" aria-label="Menu">
       <button role="tab" id="tab-scenarios" aria-selected="true" aria-controls="panel-scenarios">Scenarios</button>
+      <button role="tab" id="tab-weapon" aria-selected="false" aria-controls="panel-weapon">Weapon</button>
       <button role="tab" id="tab-settings" aria-selected="false" aria-controls="panel-settings">Settings</button>
     </nav>
     <button class="sens-chip" id="sens-chip" title="Sensitivity and field of view"></button>
@@ -94,6 +97,84 @@
     </article>
   </div>
 
+  <div id="panel-weapon" class="panel-weapon" role="tabpanel" aria-labelledby="tab-weapon" hidden>
+    <div class="glass weapon-card">
+      <div class="gun-picker" id="w-guns" role="radiogroup" aria-label="Gun"></div>
+      <div class="gun-head">
+        <p class="eyebrow" id="w-kind"></p>
+        <h1 id="w-name"></h1>
+        <p class="blurb" id="w-blurb"></p>
+        <div class="gun-use">
+          <button type="button" id="w-equip" class="btn-equip">Use for tracking and clicking</button>
+          <span class="hint" id="w-equip-note"></span>
+        </div>
+      </div>
+
+      <section class="w-section" aria-labelledby="w-skin-h">
+        <div class="w-head"><h2 class="w-h" id="w-skin-h">Skin</h2><span class="hint" id="w-preset-name"></span></div>
+        <div class="preset-grid" id="w-presets"></div>
+        <div class="fields">
+          <label class="f"><span>Pattern</span><select id="w-pattern"></select></label>
+          <label class="f"><span>Finish</span><select id="w-finish"></select></label>
+          <label class="f" id="w-c1-wrap"><span id="w-c1-lbl">Colour 1</span><input type="color" id="w-c1"></label>
+          <label class="f" id="w-c2-wrap"><span id="w-c2-lbl">Colour 2</span><input type="color" id="w-c2"></label>
+          <label class="f" id="w-c3-wrap"><span id="w-c3-lbl">Colour 3</span><input type="color" id="w-c3"></label>
+          <label class="f"><span id="w-furniture-lbl">Furniture</span><select id="w-furniture"></select></label>
+          <label class="f"><span id="w-accent-lbl">Accent</span><select id="w-accent"></select></label>
+          <label class="f wide"><span>Wear <output id="o-w-wear"></output></span><input type="range" id="w-wear" min="0" max="1" step="0.01"></label>
+          <label class="f"><span>Pattern scale <output id="o-w-scale"></output></span><input type="range" id="w-scale" min="0.4" max="2.5" step="0.05"></label>
+          <div class="f"><label for="w-seed"><span>Pattern seed</span></label><div class="seed-row"><input type="number" id="w-seed" min="1" max="999" step="1"><button type="button" id="w-shuffle" class="btn-small">Shuffle</button></div></div>
+          <label class="check" id="w-suppressor-wrap"><input type="checkbox" id="w-suppressor"><span>Suppressor fitted</span></label>
+        </div>
+      </section>
+
+      <section class="w-section" aria-labelledby="w-st-h">
+        <div class="w-head"><h2 class="w-h" id="w-st-h">Stickers</h2><span class="hint">On the side you see in first person</span></div>
+        <div class="slot-row" id="w-slots" role="radiogroup" aria-label="Sticker slot"></div>
+        <div class="sticker-grid" id="w-sticker-grid" aria-label="Sticker designs"></div>
+        <div class="fields" id="w-st-fields">
+          <label class="f" id="w-st-text-wrap"><span>Text</span><input type="text" id="w-st-text" maxlength="10"></label>
+          <label class="f"><span>Colour</span><input type="color" id="w-st-color"></label>
+          <label class="f"><span>Finish</span><select id="w-st-finish"></select></label>
+          <label class="f"><span>Size <output id="o-w-st-scale"></output></span><input type="range" id="w-st-scale" min="0.5" max="1.4" step="0.05"></label>
+          <label class="f"><span>Rotation <output id="o-w-st-rot"></output></span><input type="range" id="w-st-rot" min="-180" max="180" step="5"></label>
+          <label class="f"><span>Scrape <output id="o-w-st-scrape"></output></span><input type="range" id="w-st-scrape" min="0" max="0.9" step="0.05"></label>
+          <label class="f"><span>Move along</span><input type="range" id="w-st-dx" min="-1" max="1" step="0.05"></label>
+          <label class="f"><span>Move up / down</span><input type="range" id="w-st-dy" min="-1" max="1" step="0.05"></label>
+        </div>
+      </section>
+
+      <section class="w-section" aria-labelledby="w-snd-h">
+        <h2 class="w-h" id="w-snd-h">Fire sound</h2>
+        <div class="sound-row">
+          <label class="f"><span>Sound</span><select id="w-sound"></select></label>
+          <button type="button" id="w-sound-test" class="btn-small">Play</button>
+        </div>
+      </section>
+
+      <section class="w-section" aria-labelledby="w-view-h">
+        <h2 class="w-h" id="w-view-h">First-person view</h2>
+        <div class="fields">
+          <label class="check"><input type="checkbox" id="w-show"><span>Show the gun during runs</span></label>
+          <label class="check"><input type="checkbox" id="w-sounds"><span>Gun sounds</span></label>
+          <div class="f">
+            <span class="lbl-plain" id="w-hand-lbl">Hand</span>
+            <div class="seg seg-sm" role="radiogroup" aria-labelledby="w-hand-lbl">
+              <label><input type="radio" name="w-hand" id="w-hand-right" value="right"><span>Right</span></label>
+              <label><input type="radio" name="w-hand" id="w-hand-left" value="left"><span>Left</span></label>
+            </div>
+          </div>
+          <label class="f"><span>Viewmodel FOV <output id="o-w-fov"></output></span><input type="range" id="w-fov" min="50" max="75" step="1"></label>
+        </div>
+      </section>
+      <div class="danger">
+        <button type="button" id="w-reset">Reset this gun</button>
+        <span class="hint" id="w-msg" role="status"></span>
+      </div>
+    </div>
+    <div class="weapon-stage" id="weapon-stage" aria-label="Gun preview. Drag to turn it."><span class="stage-hint">Drag to turn</span></div>
+  </div>
+
   <div id="panel-settings" class="panel-settings glass" role="tabpanel" aria-labelledby="tab-settings" hidden>
     <form id="settings-form" autocomplete="off">
       <fieldset>
@@ -134,6 +215,21 @@
             <label class="check"><input type="checkbox" id="s-x-outline" name="x-outline"><span>Black outline</span></label>
           </div>
         </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Sniping (Valorant Operator)</legend>
+        <p class="readout">0.6 shots/s (1.67 s apart) · 2.5x and 5x zoom · 5 rounds · 3.7 s reload · head 255, body 150, legs 120</p>
+        <div class="seg" role="radiogroup" aria-label="Scope mode">
+          <label><input type="radio" name="scopeMode" id="s-scope-toggle" value="toggle"><span>Right click cycles 2.5x, 5x, off</span></label>
+          <label><input type="radio" name="scopeMode" id="s-scope-hold" value="hold"><span>Hold right click for 2.5x</span></label>
+        </div>
+        <div class="fields">
+          <label class="f wide"><span>Scoped sensitivity multiplier <output id="o-scopedSens"></output></span><input type="range" id="s-scopedSens" min="0.2" max="2" step="0.05"></label>
+          <label class="f wide"><span>Scope-in time <output id="o-scopeTime"></output></span><input type="range" id="s-scopeTime" min="0.05" max="0.6" step="0.01"></label>
+          <label class="check"><input type="checkbox" id="s-unscope"><span>Drop out of scope after each shot</span></label>
+        </div>
+        <p class="hint">At 1.0, scoped sensitivity scales with the zoom, so 2.5x turns 2.5 times slower. Riot doesn't publish the Operator's scope-in time; 0.25 s is an estimate you can tune to match how it feels in game.</p>
       </fieldset>
 
       <fieldset>

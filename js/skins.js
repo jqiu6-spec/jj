@@ -1,6 +1,6 @@
 // Procedural weapon skins and stickers. Everything here is drawn in code;
 // no artwork is copied from any game.
-import * as THREE from 'three';
+import * as THREE from '../vendor/three.module.min.js';
 
 const TAU = Math.PI * 2;
 
@@ -37,8 +37,8 @@ export const FINISHES = {
   metallic: { label: 'Metallic', roughness: 0.3, metalness: 0.88 },
 };
 
-// Solid choices for the furniture (stock, grip) and accent (suppressor,
-// scope, magazine) zones; 'skin' paints them with the pattern instead.
+// Solid choices for a gun's zones (stock, grip, magazine, suppressor, scope
+// and so on); 'skin' paints the zone with the pattern instead.
 export const ZONE_FINISHES = {
   skin: { label: 'Skin pattern' },
   black: { label: 'Black polymer', color: '#16171a', roughness: 0.7, metalness: 0.05 },
@@ -49,24 +49,49 @@ export const ZONE_FINISHES = {
   steel: { label: 'Steel', color: '#9aa1aa', roughness: 0.32, metalness: 1 },
 };
 
-// Starting points; every value can be changed afterwards. Fade copies the
-// colour scheme of the reference: crimson front, magenta and purple through
-// the receiver, blue at the rear, a gold suppressor and black furniture.
+// Starting points; every value can be changed afterwards. `zones` names the
+// solid finishes by part kind; parts not listed wear the pattern. `fx` is the
+// fire effect. Fade copies the colour scheme of the reference: crimson at the
+// front, magenta and purple through the receiver, blue at the rear, a gold
+// suppressor and black furniture.
 export const SKIN_PRESETS = {
-  fade: { name: 'Fade', pattern: 'fade', c1: '#3a5ae8', c2: '#b02ec2', c3: '#e8234d', finish: 'anodized', wear: 0.01, scale: 1, seed: 1, furniture: 'black', accent: 'gold' },
-  recon: { name: 'Recon Digital', pattern: 'digital', c1: '#dfe4ea', c2: '#8a97a6', c3: '#34414f', finish: 'matte', wear: 0.04, scale: 0.55, seed: 9, furniture: 'gray', accent: 'skin' },
-  coyote: { name: 'Coyote', pattern: 'solid', c1: '#a8875c', c2: '#8a6d49', c3: '#5e4a33', finish: 'matte', wear: 0.05, scale: 1, seed: 1, furniture: 'tan', accent: 'black' },
-  factory: { name: 'Factory', pattern: 'solid', c1: '#2a2d32', c2: '#4a4f57', c3: '#7d848e', finish: 'satin', wear: 0.06, scale: 1, seed: 1, furniture: null, accent: 'black' },
-  woodland: { name: 'Woodland', pattern: 'camo', c1: '#56663f', c2: '#2c3622', c3: '#8e7b52', finish: 'matte', wear: 0.24, scale: 1, seed: 7, furniture: 'skin', accent: 'black' },
-  arctic: { name: 'Arctic Digital', pattern: 'digital', c1: '#dde4ea', c2: '#98a5b2', c3: '#4b5764', finish: 'matte', wear: 0.14, scale: 1, seed: 3, furniture: 'skin', accent: 'black' },
-  carbon: { name: 'Carbon Weave', pattern: 'carbon', c1: '#141619', c2: '#454c56', c3: '#000000', finish: 'gloss', wear: 0.04, scale: 1, seed: 1, furniture: 'skin', accent: 'steel' },
-  ember: { name: 'Ember Tiger', pattern: 'stripes', c1: '#ff8a1e', c2: '#1b120d', c3: '#000000', finish: 'gloss', wear: 0.1, scale: 1, seed: 11, furniture: 'black', accent: 'black' },
-  cobalt: { name: 'Cobalt Hex', pattern: 'hex', c1: '#10284d', c2: '#46b3ff', c3: '#0b1a36', finish: 'satin', wear: 0.05, scale: 1, seed: 5, furniture: 'skin', accent: 'steel' },
-  neon: { name: 'Neon Splatter', pattern: 'splatter', c1: '#17171f', c2: '#3dfc9b', c3: '#ff3df0', finish: 'gloss', wear: 0.05, scale: 1, seed: 21, furniture: 'black', accent: 'black' },
-  damascus: { name: 'Damascus', pattern: 'damascus', c1: '#8a919b', c2: '#2c3036', c3: '#000000', finish: 'metallic', wear: 0.03, scale: 1, seed: 2, furniture: 'black', accent: 'steel' },
+  fade: { name: 'Fade', pattern: 'fade', c1: '#3a5ae8', c2: '#b02ec2', c3: '#e8234d', finish: 'anodized', wear: 0.01, scale: 1, seed: 1, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black', suppressor: 'gold' }, fx: { type: 'plasma', color: '#ff4fd8', glow: true } },
+  recon: { name: 'Recon Digital', pattern: 'digital', c1: '#dfe4ea', c2: '#8a97a6', c3: '#34414f', finish: 'matte', wear: 0.04, scale: 0.55, seed: 9, zones: { stock: 'gray', grip: 'gray', foregrip: 'gray', mag: 'gray', butt: 'black' }, fx: { type: 'tracer', color: '#5fd8ff', glow: false } },
+  coyote: { name: 'Coyote', pattern: 'solid', c1: '#a8875c', c2: '#8a6d49', c3: '#5e4a33', finish: 'matte', wear: 0.05, scale: 1, seed: 1, zones: { stock: 'tan', grip: 'tan', foregrip: 'tan', mag: 'black', butt: 'black' }, fx: { type: 'none', color: '#ffb35c', glow: false } },
+  factory: { name: 'Factory', pattern: 'solid', c1: '#2a2d32', c2: '#4a4f57', c3: '#7d848e', finish: 'satin', wear: 0.06, scale: 1, seed: 1, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black' }, fx: { type: 'none', color: '#ffd27a', glow: false } },
+  woodland: { name: 'Woodland', pattern: 'camo', c1: '#56663f', c2: '#2c3622', c3: '#8e7b52', finish: 'matte', wear: 0.24, scale: 1, seed: 7, zones: { butt: 'black' }, fx: { type: 'none', color: '#ffb35c', glow: false } },
+  arctic: { name: 'Arctic Digital', pattern: 'digital', c1: '#dde4ea', c2: '#98a5b2', c3: '#4b5764', finish: 'matte', wear: 0.14, scale: 1, seed: 3, zones: { butt: 'black' }, fx: { type: 'tracer', color: '#dff4ff', glow: false } },
+  carbon: { name: 'Carbon Weave', pattern: 'carbon', c1: '#141619', c2: '#454c56', c3: '#000000', finish: 'gloss', wear: 0.04, scale: 1, seed: 1, zones: { mag: 'steel', suppressor: 'steel', scope: 'steel', butt: 'black' }, fx: { type: 'tracer', color: '#ffffff', glow: false } },
+  ember: { name: 'Ember Tiger', pattern: 'stripes', c1: '#ff8a1e', c2: '#1b120d', c3: '#000000', finish: 'gloss', wear: 0.1, scale: 1, seed: 11, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black' }, fx: { type: 'flame', color: '#ff7a1a', glow: true } },
+  cobalt: { name: 'Cobalt Hex', pattern: 'hex', c1: '#10284d', c2: '#46b3ff', c3: '#0b1a36', finish: 'satin', wear: 0.05, scale: 1, seed: 5, zones: { mag: 'steel', suppressor: 'steel', scope: 'steel', butt: 'black' }, fx: { type: 'lightning', color: '#5cc8ff', glow: true } },
+  neon: { name: 'Neon Splatter', pattern: 'splatter', c1: '#17171f', c2: '#3dfc9b', c3: '#ff3df0', finish: 'gloss', wear: 0.05, scale: 1, seed: 21, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black' }, fx: { type: 'spectral', color: '#3dfc9b', glow: true } },
+  damascus: { name: 'Damascus', pattern: 'damascus', c1: '#8a919b', c2: '#2c3036', c3: '#000000', finish: 'metallic', wear: 0.03, scale: 1, seed: 2, zones: { stock: 'black', grip: 'black', foregrip: 'black', mag: 'steel', suppressor: 'steel', scope: 'steel', butt: 'black' }, fx: { type: 'none', color: '#ffd27a', glow: false } },
 };
 
-export const SKIN_KEYS = ['pattern', 'c1', 'c2', 'c3', 'finish', 'wear', 'scale', 'seed', 'furniture', 'accent'];
+// Keys that change the paint itself (texture, materials); zones and fx are
+// applied separately.
+export const SKIN_KEYS = ['pattern', 'c1', 'c2', 'c3', 'finish', 'wear', 'scale', 'seed', 'fadeReverse'];
+
+// A random skin that still looks designed: one hue, its complement, a dark.
+export function randomSkin(rand = Math.random) {
+  const pick = (arr) => arr[Math.floor(rand() * arr.length)];
+  const h = rand() * 360;
+  const hsl = (hh, ss, ll) => `#${new THREE.Color().setHSL((((hh % 360) + 360) % 360) / 360, ss, ll).getHexString()}`;
+  const pattern = pick(Object.keys(PATTERNS));
+  const fxType = pick(['none', 'tracer', 'plasma', 'flame', 'spectral', 'lightning']);
+  return {
+    pattern,
+    c1: hsl(h, 0.6 + rand() * 0.3, 0.42 + rand() * 0.2),
+    c2: hsl(h + 150 + rand() * 60, 0.6 + rand() * 0.3, 0.4 + rand() * 0.25),
+    c3: rand() < 0.5 ? hsl(h + 30, 0.3, 0.12) : hsl(h - 60, 0.7, 0.55),
+    finish: pick(Object.keys(FINISHES)),
+    wear: Math.round(rand() * rand() * 60) / 100,
+    scale: Math.round((0.6 + rand() * 1.2) * 20) / 20,
+    seed: 1 + Math.floor(rand() * 998),
+    fadeReverse: rand() < 0.5,
+    fx: { type: fxType, color: hsl(h + (rand() < 0.5 ? 0 : 180), 0.9, 0.62), glow: rand() < 0.6 },
+  };
+}
 
 export function wearLabel(w) {
   if (w < 0.07) return 'Pristine';
@@ -426,7 +451,8 @@ export const STICKERS = {
       const w = 220;
       const h = 110;
       g.beginPath();
-      g.roundRect(128 - w / 2, 128 - h / 2, w, h, 26);
+      if (g.roundRect) g.roundRect(128 - w / 2, 128 - h / 2, w, h, 26);
+      else g.rect(128 - w / 2, 128 - h / 2, w, h);
       g.fill();
       let size = 90;
       g.font = `900 ${size}px "Saira Condensed", "Arial Narrow", sans-serif`;
@@ -512,7 +538,8 @@ export const STICKERS = {
       g.arc(128, 110, 84, 0, TAU);
       g.fill();
       g.beginPath();
-      g.roundRect(78, 150, 100, 70, 18);
+      if (g.roundRect) g.roundRect(78, 150, 100, 70, 18);
+      else g.rect(78, 150, 100, 70);
       g.fill();
       g.fillStyle = '#16171a';
       g.beginPath();

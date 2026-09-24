@@ -1,7 +1,7 @@
 // First-person weapon view: renders the equipped gun on top of the world with
 // its own camera, applies skins and stickers, and animates sway, recoil and
 // muzzle flash. Also drives the turntable inspect view in the Weapon tab.
-import * as THREE from 'three';
+import * as THREE from '../vendor/three.module.min.js';
 import { GUNS, buildGun } from './guns.js';
 import {
   SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, woodCanvas, stickerCanvas, STICKERS,
@@ -17,14 +17,14 @@ const FIXED = {
   glow: new THREE.MeshBasicMaterial({ color: 0x5fd8ff }),
 };
 
-// Where each gun sits in first person, in the viewmodel camera's space.
-// The receiver sits low and right; the muzzle ends just below-right of centre.
+// Where each gun sits in first person, in the viewmodel camera's space: the
+// receiver low and right, the muzzle ending just below-right of the centre.
 const PLAY_POSE = {
   m4a1s: { x: 0.13, y: -0.15, z: -0.34 },
   ak47: { x: 0.13, y: -0.14, z: -0.34 },
   xm7: { x: 0.13, y: -0.15, z: -0.33 },
   phantom: { x: 0.13, y: -0.152, z: -0.34 },
-  awp: { x: 0.14, y: -0.18, z: -0.38 },
+  awp: { x: 0.17, y: -0.21, z: -0.5 },
 };
 
 let woodTexture = null;
@@ -43,9 +43,9 @@ function flashTexture() {
   c.width = c.height = 128;
   const g = c.getContext('2d');
   const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-  grd.addColorStop(0, 'rgba(255,248,220,1)');
-  grd.addColorStop(0.25, 'rgba(255,196,90,0.85)');
-  grd.addColorStop(1, 'rgba(255,120,20,0)');
+  grd.addColorStop(0, 'rgba(255,255,255,1)');
+  grd.addColorStop(0.25, 'rgba(255,255,255,0.85)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = grd;
   g.translate(64, 64);
   for (let i = 0; i < 5; i++) {
@@ -64,6 +64,8 @@ function flashTexture() {
   return t;
 }
 
+const FLASH_PLAIN = new THREE.Color('#ffc46a');
+
 function stickerMaterial(finish, map) {
   const base = { map, alphaTest: 0.4, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 };
   if (finish === 'holo') {
@@ -76,16 +78,15 @@ function stickerMaterial(finish, map) {
   return new THREE.MeshStandardMaterial({ ...base, roughness: 0.85, metalness: 0 });
 }
 
-// One built gun with its skin materials and sticker decals.
+// One built gun with its skin materials, sticker decals and fire-effect glow.
 class GunView {
   constructor(id, flashMap) {
     this.id = id;
     this.info = GUNS[id];
     this.model = buildGun(id, FIXED);
     this.paint = new THREE.MeshStandardMaterial({ vertexColors: true });
-    this.furniture = new THREE.MeshStandardMaterial();
-    this.accent = new THREE.MeshStandardMaterial();
-    for (const m of this.model.zones.body) m.material = this.paint;
+    this.zoneMats = {};
+    for (const m of this.model.zones.body || []) m.material = this.paint;
     this.stickers = new THREE.Group();
     this.model.group.add(this.stickers);
     this.flash = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -94,7 +95,12 @@ class GunView {
     this.flash.visible = false;
     this.model.group.add(this.flash);
     this.sig = '';
+    this.zoneSig = '';
     this.stickerSig = '';
+    this.fxColor = new THREE.Color('#ffffff');
+    this.glowBase = 0;
+    this.glowPulse = 0;
+    this.suppressed = false;
   }
 
   apply(skin) {
@@ -104,6 +110,7 @@ class GunView {
       m.hider.visible = skin.suppressor === false;
     }
     const [mx, my] = m.muzzle(skin);
+    this.muzzle = { x: mx, y: my };
     this.flash.position.set(mx + 0.035, my, 0);
     this.suppressed = !!m.suppressor && skin.suppressor !== false;
     const sig = SKIN_KEYS.map((k) => skin[k]).join('|');
@@ -111,11 +118,21 @@ class GunView {
       this.sig = sig;
       this.applySkin(skin);
     }
+    const zsig = JSON.stringify(skin.zones || {});
+    if (zsig !== this.zoneSig) {
+      this.zoneSig = zsig;
+      this.applyZones(skin.zones || {});
+    }
     const ssig = JSON.stringify(skin.stickers || []);
     if (ssig !== this.stickerSig) {
       this.stickerSig = ssig;
       this.applyStickers(skin.stickers || []);
     }
+    const fx = skin.fx || { type: 'none' };
+    this.fxType = fx.type || 'none';
+    this.fxColor.set(fx.color || '#ffffff');
+    this.glowBase = fx.glow && this.fxType !== 'none' ? 0.12 : 0;
+    this.flash.material.color.copy(this.fxType === 'none' ? FLASH_PLAIN : this.fxColor);
   }
 
   applySkin(s) {
@@ -134,41 +151,48 @@ class GunView {
     this.paint.metalness = f.metalness;
     this.paint.needsUpdate = true;
 
-    const zone = (meshes, choice, mat) => {
-      const z = ZONE_FINISHES[choice] || ZONE_FINISHES.black;
-      if (choice === 'skin') {
-        for (const m of meshes) m.material = this.paint;
-        return;
+    // Fade runs through three colours along the painted body, rear to front
+    // unless reversed. Other patterns keep the vertex colour white.
+    const stops = [new THREE.Color(s.c1), new THREE.Color(s.c2), new THREE.Color(s.c3)];
+    const [x0, x1] = this.model.fade;
+    const tmp = new THREE.Color();
+    for (const zone of Object.values(this.model.zones)) {
+      for (const mesh of zone) {
+        const p = mesh.geometry.attributes.position;
+        const col = mesh.geometry.attributes.color;
+        for (let i = 0; i < p.count; i++) {
+          if (s.pattern === 'fade') {
+            let t = Math.min(1, Math.max(0, (p.getX(i) - x0) / (x1 - x0)));
+            if (s.fadeReverse) t = 1 - t;
+            if (t < 0.5) tmp.copy(stops[0]).lerp(stops[1], t * 2);
+            else tmp.copy(stops[1]).lerp(stops[2], (t - 0.5) * 2);
+            col.setXYZ(i, tmp.r, tmp.g, tmp.b);
+          } else {
+            col.setXYZ(i, 1, 1, 1);
+          }
+        }
+        col.needsUpdate = true;
       }
+    }
+  }
+
+  // Each non-body zone wears the pattern or one solid finish.
+  applyZones(zones) {
+    for (const [zone, meshes] of Object.entries(this.model.zones)) {
+      if (zone === 'body') continue;
+      const choice = zones[zone] || 'skin';
+      const z = ZONE_FINISHES[choice];
+      if (choice === 'skin' || !z) {
+        for (const m of meshes) m.material = this.paint;
+        continue;
+      }
+      const mat = this.zoneMats[zone] || (this.zoneMats[zone] = new THREE.MeshStandardMaterial());
       mat.color.set(z.color);
       mat.roughness = z.roughness;
       mat.metalness = z.metalness;
       mat.map = z.wood ? wood() : null;
       mat.needsUpdate = true;
       for (const m of meshes) m.material = mat;
-    };
-    zone(this.model.zones.furniture, s.furniture || this.info.defaultFurniture, this.furniture);
-    zone(this.model.zones.accent, s.accent || 'black', this.accent);
-
-    // Fade runs rear to front through three colours along the painted body.
-    const stops = [new THREE.Color(s.c1), new THREE.Color(s.c2), new THREE.Color(s.c3)];
-    const [x0, x1] = this.model.fade;
-    const tmp = new THREE.Color();
-    const all = [...this.model.zones.body, ...this.model.zones.furniture, ...this.model.zones.accent];
-    for (const mesh of all) {
-      const p = mesh.geometry.attributes.position;
-      const col = mesh.geometry.attributes.color;
-      for (let i = 0; i < p.count; i++) {
-        if (s.pattern === 'fade') {
-          const t = Math.min(1, Math.max(0, (p.getX(i) - x0) / (x1 - x0)));
-          if (t < 0.5) tmp.copy(stops[0]).lerp(stops[1], t * 2);
-          else tmp.copy(stops[1]).lerp(stops[2], (t - 0.5) * 2);
-          col.setXYZ(i, tmp.r, tmp.g, tmp.b);
-        } else {
-          col.setXYZ(i, 1, 1, 1);
-        }
-      }
-      col.needsUpdate = true;
     }
   }
 
@@ -191,6 +215,21 @@ class GunView {
       mesh.position.set(slot.x + (st.dx || 0) * slot.size * 0.5, slot.y + (st.dy || 0) * slot.size * 0.5, slot.z - 0.0004);
       this.stickers.add(mesh);
     });
+  }
+
+  // Emissive glow from the fire effect: a faint base plus a pulse per shot.
+  setGlow(dt) {
+    this.glowPulse *= Math.exp(-dt * 9);
+    const k = this.glowBase + this.glowPulse;
+    const mats = [this.paint, ...Object.values(this.zoneMats)];
+    for (const m of mats) {
+      if (k > 0.001) {
+        m.emissive.copy(this.fxColor);
+        m.emissiveIntensity = k;
+      } else if (m.emissiveIntensity !== 0) {
+        m.emissiveIntensity = 0;
+      }
+    }
   }
 }
 
@@ -221,6 +260,8 @@ function studioEnvironment(renderer) {
   pmrem.dispose();
   return tex;
 }
+
+const _m = new THREE.Vector3();
 
 export class Viewmodel {
   constructor(renderer) {
@@ -253,9 +294,10 @@ export class Viewmodel {
     this.inspectPitch = 0.06;
     this.inspectAt = { x: 0.3, y: 0 };
     this.fov = 60;
+    this.mode = 'play';
   }
 
-  // Equip gun `id` wearing `skin` (pattern, zones, stickers, suppressor).
+  // Equip gun `id` wearing `skin` (pattern, zones, stickers, fx, suppressor).
   setGun(id, skin) {
     if (!this.guns[id]) this.guns[id] = new GunView(id, this.flashMap);
     const gv = this.guns[id];
@@ -290,7 +332,10 @@ export class Viewmodel {
   shot(heavy = false) {
     this.kick = Math.min(heavy ? 3 : 1.4, this.kick + (heavy ? 3 : 1));
     this.flashT = 0.045;
-    if (this.current) this.current.flash.material.rotation = Math.random() * TAU;
+    if (this.current) {
+      this.current.flash.material.rotation = Math.random() * TAU;
+      this.current.glowPulse = Math.min(1, this.current.glowPulse + 0.5);
+    }
   }
 
   // Held fire at `interval` seconds per round. Returns rounds fired now.
@@ -314,8 +359,20 @@ export class Viewmodel {
     this.inspectPitch = Math.max(-0.6, Math.min(0.6, this.inspectPitch + dy * 0.006));
   }
 
+  // The muzzle's screen position as NDC, for tracers that start at the gun.
+  muzzleNDC() {
+    const gv = this.current;
+    if (!gv) return { x: 0.25, y: -0.3 };
+    gv.model.group.updateWorldMatrix(true, false);
+    _m.set(gv.muzzle.x, gv.muzzle.y, 0);
+    gv.model.group.localToWorld(_m);
+    _m.project(this.camera);
+    return { x: _m.x, y: _m.y };
+  }
+
   // mode: 'play' (first person) or 'inspect' (turntable in the menu).
   update(dt, mode) {
+    this.mode = mode;
     this.t += dt;
     this.kick *= Math.exp(-dt * 14);
     this.swayX *= Math.exp(-dt * 7);
@@ -323,19 +380,24 @@ export class Viewmodel {
     this.flashT -= dt;
     const gv = this.current;
     if (!gv) return;
+    gv.setGlow(dt);
     const rig = this.rig;
     const gun = gv.model.group;
     const { rear, front } = gv.model;
+    gv.flash.visible = this.flashT > 0;
+    const big = gv.info.sniper ? 0.2 : 0.11;
+    const s = gv.suppressed ? 0.035 : big;
+    gv.flash.scale.set(s, s, s);
+    gv.flash.material.opacity = gv.suppressed ? 0.45 : 0.95;
     if (mode === 'inspect') {
       this.camera.fov = 32;
       this.camera.updateProjectionMatrix();
       const dist = (front - rear) * 2.4;
       const halfH = Math.tan((this.camera.fov * Math.PI) / 360) * dist;
       gun.position.set(-(rear + front) / 2, -0.02, 0);
-      rig.position.set(this.inspectAt.x * halfH * this.camera.aspect, this.inspectAt.y * halfH, -dist);
+      rig.position.set(this.inspectAt.x * halfH * this.camera.aspect, this.inspectAt.y * halfH, -dist + this.kick * 0.03);
       // Yaw of pi shows the left side with the muzzle pointing left.
-      rig.rotation.set(0.1 * Math.sin(this.t * 0.7), Math.PI + this.inspectYaw + 0.22 * Math.sin(this.t * 0.4), this.inspectPitch);
-      gv.flash.visible = false;
+      rig.rotation.set(0.1 * Math.sin(this.t * 0.7), Math.PI + this.inspectYaw + 0.22 * Math.sin(this.t * 0.4), this.inspectPitch + this.kick * 0.02);
       return;
     }
     this.camera.fov = this.fov || 60;
@@ -349,11 +411,6 @@ export class Viewmodel {
       P.z + this.kick * 0.022,
     );
     rig.rotation.set(-0.03 + this.swayX * 0.4, Math.PI / 2 + 0.035 + this.swayX, 0.012 - this.swayY + this.kick * 0.03);
-    gv.flash.visible = this.flashT > 0;
-    const big = gv.info.sniper ? 0.2 : 0.11;
-    const s = gv.suppressed ? 0.035 : big;
-    gv.flash.scale.set(s, s, s);
-    gv.flash.material.opacity = gv.suppressed ? 0.45 : 0.95;
   }
 
   render(renderer) {

@@ -1,0 +1,15 @@
+{
+  "name": "trackline",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A browser aim trainer in the style of KovaaK's, focused on tracking.",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve -l 8000 .",
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "license": "MIT"
+}

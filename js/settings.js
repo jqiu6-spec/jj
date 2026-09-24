@@ -29,6 +29,9 @@ export const DEFAULTS = {
   targetColor: '#ff4f64',
   hitColor: '#ffe066',
   showFps: false,
+  render: {
+    scale: 1, // fraction of the device pixel ratio (capped at 2) to render at
+  },
   weapon: {
     show: true, // gun model in first person
     primary: 'm4a1s', // gun for tracking and clicking runs
@@ -118,14 +121,13 @@ export function saveSetups(s) {
 
 // ------------------------------------------------------------------ skins
 // One skin per gun, stored apart from settings because stickers are a list.
-
 const SKINS_KEY = 'trackline.skins.v1';
 export const STICKER_SLOTS = 5;
 
-export function presetSkin(presetId, gunId) {
-  const p = SKIN_PRESETS[presetId];
+export function presetSkin(presetId) {
+  const p = SKIN_PRESETS[presetId] || SKIN_PRESETS.fade;
   const { name, ...rest } = p;
-  return { ...rest, furniture: p.furniture || GUNS[gunId].defaultFurniture, preset: presetId };
+  return { ...rest, zones: { ...(p.zones || {}) }, fx: { ...(p.fx || { type: 'none', color: '#ffd27a', glow: false }) }, fadeReverse: false, preset: presetId };
 }
 
 export function defaultSkin(gunId) {
@@ -137,6 +139,16 @@ export function defaultSkin(gunId) {
   };
 }
 
+// Skins saved before zones existed had one 'furniture' and one 'accent'
+// finish per gun; map those onto the zones each gun has.
+const OLD_ZONES = {
+  m4a1s: { furniture: ['stock', 'grip'], accent: ['suppressor'] },
+  ak47: { furniture: ['stock', 'grip', 'handguard'], accent: ['mag'] },
+  xm7: { furniture: ['stock', 'grip'], accent: ['mag'] },
+  phantom: { furniture: ['stock', 'grip', 'foregrip', 'mag'], accent: ['suppressor'] },
+  awp: { furniture: ['butt', 'mag'], accent: ['scope'] },
+};
+
 export function loadSkins() {
   let stored = {};
   try {
@@ -146,9 +158,20 @@ export function loadSkins() {
   for (const id of Object.keys(GUNS)) {
     const d = defaultSkin(id);
     const s = stored[id] && typeof stored[id] === 'object' ? stored[id] : {};
-    out[id] = { ...d, ...s };
+    const skin = { ...d, ...s };
+    if (!s.zones || typeof s.zones !== 'object') {
+      skin.zones = {};
+      const map = OLD_ZONES[id];
+      if (s.furniture && s.furniture !== 'skin') for (const z of map.furniture) skin.zones[z] = s.furniture;
+      if (s.accent && s.accent !== 'skin') for (const z of map.accent) skin.zones[z] = s.accent;
+      if (!s.furniture && !s.accent) skin.zones = { ...d.zones };
+    }
+    if (!s.fx || typeof s.fx !== 'object') skin.fx = { ...(SKIN_PRESETS[s.preset] ? SKIN_PRESETS[s.preset].fx : { type: 'none', color: '#ffd27a', glow: false }) };
+    delete skin.furniture;
+    delete skin.accent;
     const list = Array.isArray(s.stickers) ? s.stickers : [];
-    out[id].stickers = d.stickers.map((_, i) => list[i] || null);
+    skin.stickers = d.stickers.map((_, i) => list[i] || null);
+    out[id] = skin;
   }
   return out;
 }

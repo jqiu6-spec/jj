@@ -8,10 +8,14 @@ import {
 } from './settings.js';
 import { drawCrosshair } from './crosshair.js';
 import { initAudio, setVolume, sfx, FIRE_SOUNDS } from './audio.js';
-import { GUNS } from './guns.js';
+import { GUNS, ZONE_LABELS } from './guns.js';
 import {
-  SKIN_PRESETS, PATTERNS, COLOR_ROLES, FINISHES, ZONE_FINISHES, STICKERS, STICKER_FINISHES, stickerCanvas, wearLabel,
+  SKIN_PRESETS, PATTERNS, COLOR_ROLES, FINISHES, ZONE_FINISHES, STICKERS, STICKER_FINISHES, SKIN_KEYS,
+  stickerCanvas, wearLabel, randomSkin,
 } from './skins.js';
+import { FX_TYPES } from './effects.js';
+
+const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || '') || /Macintosh/.test(navigator.userAgent || '');
 import { runsFor, bestRun, addRun, clearRuns, average } from './stats.js';
 import { paceChart, sparkline } from './chart.js';
 
@@ -379,6 +383,7 @@ function syncForm() {
   $('s-cm360').value = s.cm360;
   $('s-dpi').value = s.dpi;
   $('s-fov').value = s.fov;
+  $('s-renderScale').value = String(s.render.scale);
   $('s-invertY').checked = s.invertY;
   $('s-x-style').value = s.crosshair.style;
   $('s-x-color').value = s.crosshair.color;
@@ -421,8 +426,13 @@ function renderSensReadout() {
   const deg = degPerCount(settings);
   $('sens-readout').innerHTML = `<b>${cm.toFixed(2)} cm/360°</b> <span>·</span> ${(cm / 2.54).toFixed(2)} in/360° <span>·</span> ${deg.toFixed(4)}° per count <span>·</span> ${Math.round(360 / deg).toLocaleString('en-US')} counts per turn`;
   $('sens-chip').textContent = `${cm.toFixed(1)} cm/360 · ${settings.fov}° FOV`;
-  if (rawInput === true) $('raw-status').textContent = 'Raw input is active: the browser reports unaccelerated mouse counts.';
-  else if (rawInput === false) $('raw-status').textContent = 'This browser does not offer raw input, so OS pointer speed and acceleration apply. On Windows, set pointer speed to 6/11 and turn off Enhance pointer precision for accurate conversion. Chrome and Edge on Windows support raw input.';
+  const status = $('raw-status');
+  if (rawInput === true) status.textContent = 'Raw input is active: the browser reports unaccelerated mouse counts, so the conversion is exact.';
+  else if (rawInput === false && IS_MAC) status.textContent = 'This browser does not offer raw input, so macOS pointer acceleration applies and the cm/360 figure is approximate. Chrome and Edge on macOS give raw input.';
+  else if (rawInput === false) status.textContent = 'This browser does not offer raw input, so OS pointer speed and acceleration apply. On Windows, set pointer speed to 6/11 and turn off Enhance pointer precision. Chrome and Edge on Windows give raw input.';
+  else status.textContent = IS_MAC
+    ? 'Chrome and Edge on macOS give raw, unaccelerated input. Safari and Firefox apply macOS pointer acceleration, so the conversion is approximate there.'
+    : 'Chrome and Edge give raw, unaccelerated input. In other browsers, set Windows pointer speed to 6/11 and turn off Enhance pointer precision.';
 }
 
 function readForm() {
@@ -437,6 +447,7 @@ function readForm() {
   s.cm360 = num('s-cm360', s.cm360);
   s.dpi = num('s-dpi', s.dpi);
   s.fov = parseInt($('s-fov').value, 10);
+  s.render.scale = parseFloat($('s-renderScale').value) || 1;
   s.invertY = $('s-invertY').checked;
   s.crosshair.style = $('s-x-style').value;
   s.crosshair.color = $('s-x-color').value;
@@ -510,6 +521,7 @@ function skinChanged(custom = true) {
     skinFrame = requestAnimationFrame(() => {
       skinFrame = 0;
       game.setSkins(skins);
+      renderPatternPreview();
     });
   }
   renderWeaponOutputs();
@@ -555,10 +567,12 @@ function renderWeapon() {
     $(`w-${k}-lbl`).textContent = roles[i] || '';
     $(`w-${k}-wrap`).hidden = !roles[i];
   });
-  $('w-furniture-lbl').textContent = g.furnitureLabel;
-  $('w-accent-lbl').textContent = g.accentLabel;
-  $('w-furniture').value = sk.furniture || g.defaultFurniture;
-  $('w-accent').value = sk.accent || 'black';
+  $('w-fade-wrap').hidden = sk.pattern !== 'fade';
+  $('w-fadeReverse').checked = !!sk.fadeReverse;
+  renderZones();
+  $('w-fx-type').value = sk.fx.type;
+  $('w-fx-color').value = sk.fx.color;
+  $('w-fx-glow').checked = !!sk.fx.glow;
   $('w-wear').value = sk.wear;
   $('w-scale').value = sk.scale;
   $('w-seed').value = sk.seed;
@@ -572,10 +586,63 @@ function renderWeapon() {
   $('w-fov').value = settings.weapon.fov;
   renderStickers();
   renderWeaponOutputs();
+  requestAnimationFrame(renderPatternPreview);
+}
+
+// One select per part the gun has, with the finishes it can wear.
+function renderZones() {
+  const g = GUNS[weaponGun];
+  const sk = skinOf();
+  const host = $('w-zones');
+  host.textContent = '';
+  const opts = ['skin', 'black', 'gray', 'tan', 'wood', 'gold', 'steel'];
+  for (const zone of g.zones) {
+    const label = document.createElement('label');
+    label.className = 'f';
+    const name = document.createElement('span');
+    name.textContent = ZONE_LABELS[zone] || zone;
+    const sel = document.createElement('select');
+    sel.id = `w-zone-${zone}`;
+    sel.innerHTML = opts.map((k) => `<option value="${k}">${ZONE_FINISHES[k].label}</option>`).join('');
+    sel.value = sk.zones[zone] || 'skin';
+    sel.addEventListener('input', () => {
+      sk.zones[zone] = sel.value;
+      skinChanged(false);
+    });
+    label.append(name, sel);
+    host.appendChild(label);
+  }
+}
+
+function renderPatternPreview() {
+  const gv = game.vm.guns[weaponGun];
+  const img = gv && gv.texture && gv.texture.image;
+  const c = $('w-pattern-preview');
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, c.width, c.height);
+  if (!img) return;
+  const sk = skinOf();
+  if (sk.pattern === 'fade') {
+    const grd = g.createLinearGradient(0, 0, c.width, 0);
+    grd.addColorStop(0, sk.fadeReverse ? sk.c3 : sk.c1);
+    grd.addColorStop(0.5, sk.c2);
+    grd.addColorStop(1, sk.fadeReverse ? sk.c1 : sk.c3);
+    g.fillStyle = grd;
+    g.fillRect(0, 0, c.width, c.height);
+    g.globalAlpha = 0.35;
+  }
+  // Show about 12 cm of pattern at the gun's scale.
+  const px = (c.width * 0.25 * 4) / (4 * (sk.scale || 1)) * 2;
+  const tile = Math.max(24, Math.min(c.width * 4, px));
+  for (let y = 0; y < c.height; y += tile) for (let x = 0; x < c.width; x += tile) g.drawImage(img, x, y, tile, tile * (img.height / img.width));
+  g.globalAlpha = 1;
 }
 
 function renderWeaponOutputs() {
   const sk = skinOf();
+  $('w-fx-note').textContent = sk.fx.type === 'none'
+    ? 'No effect: a plain muzzle flash.'
+    : `${FX_TYPES[sk.fx.type]} shots from the muzzle to the impact, with a burst where they land.`;
   $('w-preset-name').textContent = sk.preset === 'custom' ? 'Custom' : SKIN_PRESETS[sk.preset] ? SKIN_PRESETS[sk.preset].name : '';
   $('o-w-wear').textContent = `${sk.wear.toFixed(2)} · ${wearLabel(sk.wear)}`;
   $('o-w-scale').textContent = `${sk.scale.toFixed(2)}×`;
@@ -669,8 +736,7 @@ $('w-guns').innerHTML = Object.entries(GUNS).map(([id, g]) => `<button type="but
 $('w-presets').innerHTML = Object.entries(SKIN_PRESETS).map(([id, p]) => `<button type="button" class="preset" data-preset="${id}"><i style="background:${swatch(p)}"></i>${p.name}</button>`).join('');
 fill($('w-pattern'), Object.entries(PATTERNS));
 fill($('w-finish'), Object.entries(FINISHES).map(([k, f]) => [k, f.label]));
-fill($('w-furniture'), ['skin', 'black', 'gray', 'tan', 'wood'].map((k) => [k, ZONE_FINISHES[k].label]));
-fill($('w-accent'), ['skin', 'black', 'gold', 'steel'].map((k) => [k, ZONE_FINISHES[k].label]));
+fill($('w-fx-type'), Object.entries(FX_TYPES));
 fill($('w-st-finish'), Object.entries(STICKER_FINISHES));
 fill($('w-sound'), Object.entries(FIRE_SOUNDS));
 
@@ -707,8 +773,7 @@ skinInput('w-finish', 'finish');
 skinInput('w-c1', 'c1');
 skinInput('w-c2', 'c2');
 skinInput('w-c3', 'c3');
-skinInput('w-furniture', 'furniture');
-skinInput('w-accent', 'accent');
+$('w-fadeReverse').addEventListener('change', (e) => { skinOf().fadeReverse = e.target.checked; skinChanged(); });
 skinInput('w-wear', 'wear', parseFloat);
 skinInput('w-scale', 'scale', parseFloat);
 skinInput('w-seed', 'seed', (v) => Math.max(1, Math.min(999, parseInt(v, 10) || 1)));
@@ -720,6 +785,33 @@ $('w-shuffle').addEventListener('click', () => {
 $('w-suppressor').addEventListener('change', (e) => {
   skinOf().suppressor = e.target.checked;
   skinChanged(false);
+});
+$('w-fx-type').addEventListener('input', (e) => { skinOf().fx.type = e.target.value; skinChanged(false); });
+$('w-fx-color').addEventListener('input', (e) => { skinOf().fx.color = e.target.value; skinChanged(false); });
+$('w-fx-glow').addEventListener('change', (e) => { skinOf().fx.glow = e.target.checked; skinChanged(false); });
+$('w-test-fire').addEventListener('click', () => {
+  initAudio();
+  game.vm.shot(GUNS[weaponGun].sniper);
+  const sk = skinOf();
+  if (settings.weapon.sounds) sfx.gun(sk.sound && sk.sound !== 'auto' ? sk.sound : GUNS[weaponGun].sound(sk));
+});
+$('w-random').addEventListener('click', () => {
+  const sk = skinOf();
+  Object.assign(sk, randomSkin());
+  sk.preset = 'custom';
+  skinChanged(false);
+  renderWeapon();
+});
+$('w-apply-all').addEventListener('click', () => {
+  const src = skinOf();
+  for (const id of Object.keys(skins)) {
+    if (id === weaponGun) continue;
+    for (const k of SKIN_KEYS) skins[id][k] = src[k];
+    skins[id].fx = { ...src.fx };
+    skins[id].preset = src.preset;
+  }
+  skinChanged(false);
+  $('w-msg').textContent = 'Pattern, colours, finish and fire effect copied to every gun. Parts and stickers stay as they were.';
 });
 const stickerInput = (id, key, parse = (v) => v) => {
   $(id).addEventListener('input', (e) => {
@@ -827,22 +919,42 @@ $('btn-clear-runs').addEventListener('click', (e) => armButton(e.currentTarget, 
 
 document.addEventListener('keydown', (e) => {
   const tag = e.target && e.target.tagName;
-  if (tag === 'INPUT' || tag === 'SELECT') return;
-  const k = e.key.toLowerCase();
-  if (k === 'r' && (game.state === 'running' || game.state === 'countdown')) {
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  // Leave browser shortcuts (Cmd+R, Ctrl+R) alone.
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.code; // physical key, so it works on any keyboard layout
+  if ((k === 'ShiftLeft' || k === 'ShiftRight') && !e.repeat) {
+    game.scopePress();
+  } else if (k === 'KeyR' && (game.state === 'running' || game.state === 'countdown')) {
     e.preventDefault();
     game.start();
-  } else if (k === 'r' && game.state === 'paused') {
+  } else if (k === 'KeyR' && game.state === 'paused') {
     play(game.scn);
-  } else if ((k === ' ' || k === 'enter') && game.state === 'results') {
+  } else if ((k === 'Space' || k === 'Enter') && game.state === 'results') {
+    // A focused button already fires its own click on Space or Enter.
+    if (tag === 'BUTTON') return;
     e.preventDefault();
     play(game.scn);
-  } else if (k === 'escape' && game.state === 'results') {
+  } else if (k === 'Escape' && game.state === 'results') {
     game.toMenu();
-  } else if (k === 'escape' && game.state === 'paused' && performance.now() - pausedAt > 400) {
+  } else if (k === 'Escape' && game.state === 'paused' && performance.now() - pausedAt > 400) {
     // The Esc that released the mouse can arrive here too; only a second press quits.
     game.toMenu();
   }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') game.scopeRelease();
+});
+
+// Fullscreen helps on laptops: no browser chrome, and pointer lock stays put.
+const fsBtn = $('btn-fullscreen');
+const docEl = document.documentElement;
+const fsSupported = !!(docEl.requestFullscreen || docEl.webkitRequestFullscreen);
+fsBtn.hidden = !fsSupported;
+fsBtn.addEventListener('click', () => {
+  const active = document.fullscreenElement || document.webkitFullscreenElement;
+  if (active) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  else (docEl.requestFullscreen || docEl.webkitRequestFullscreen).call(docEl).catch?.(() => {});
 });
 
 window.addEventListener('resize', () => {

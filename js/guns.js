@@ -2,17 +2,31 @@
 // rifles, sized in metres. Gun-local space: +X toward the muzzle, +Y up,
 // +Z the right side. The left side (-Z) faces the player in first person and
 // in the inspect view, so sticker slots sit there.
-import * as THREE from 'three';
+//
+// Every mesh belongs to a zone. 'body' always wears the skin pattern; the
+// other zones can wear the pattern or a solid finish, chosen per gun in the
+// skin editor. 'metal', 'dark', 'glass' and 'glow' are fixed materials.
+import * as THREE from '../vendor/three.module.min.js';
+
+export const ZONE_LABELS = {
+  body: 'Body',
+  handguard: 'Handguard',
+  stock: 'Stock',
+  grip: 'Grip',
+  foregrip: 'Foregrip',
+  mag: 'Magazine',
+  suppressor: 'Suppressor',
+  scope: 'Scope',
+  butt: 'Butt pad',
+};
 
 export const GUNS = {
   m4a1s: {
     name: 'M4A1-S',
     kind: 'Rifle',
     fireInterval: 0.1, // 600 rounds per minute
-    blurb: 'Suppressed 5.56 carbine. 600 rounds per minute; the suppressor comes off.',
-    furnitureLabel: 'Stock and grip',
-    accentLabel: 'Suppressor',
-    defaultFurniture: 'black',
+    blurb: 'Suppressed 5.56 carbine with a ribbed handguard and a fixed stock. 600 rounds per minute; the suppressor comes off.',
+    zones: ['handguard', 'stock', 'grip', 'mag', 'suppressor'],
     sound: (skin) => (skin.suppressor === false ? 'rifle' : 'suppressed'),
   },
   ak47: {
@@ -20,9 +34,7 @@ export const GUNS = {
     kind: 'Rifle',
     fireInterval: 0.1,
     blurb: '7.62 rifle with a curved magazine and wood furniture. 600 rounds per minute.',
-    furnitureLabel: 'Stock, grip and handguard',
-    accentLabel: 'Magazine',
-    defaultFurniture: 'wood',
+    zones: ['handguard', 'stock', 'grip', 'mag'],
     sound: () => 'heavy',
   },
   xm7: {
@@ -30,9 +42,7 @@ export const GUNS = {
     kind: 'Rifle',
     fireInterval: 0.075, // 800 rounds per minute
     blurb: 'The US Army\'s 6.8 mm rifle: long slotted handguard, flip-up sights, straight box magazine, folding stock. Fires at 800 rounds per minute here.',
-    furnitureLabel: 'Stock and grip',
-    accentLabel: 'Magazine',
-    defaultFurniture: 'tan',
+    zones: ['handguard', 'stock', 'grip', 'mag'],
     sound: () => 'rifle',
   },
   phantom: {
@@ -40,9 +50,7 @@ export const GUNS = {
     kind: 'Rifle',
     fireInterval: 1 / 11, // Valorant Phantom: 11 rounds per second
     blurb: 'An original Phantom-style rifle: integrated suppressor, vertical foregrip, blue laser module. Fires at Valorant\'s 11 rounds per second.',
-    furnitureLabel: 'Stock, grips and magazine',
-    accentLabel: 'Suppressor',
-    defaultFurniture: 'gray',
+    zones: ['handguard', 'stock', 'grip', 'foregrip', 'mag', 'suppressor'],
     sound: () => 'suppressed',
   },
   awp: {
@@ -50,9 +58,7 @@ export const GUNS = {
     kind: 'Sniper',
     sniper: true,
     blurb: 'Bolt-action sniper with a thumbhole stock. Used in sniping scenarios, where it handles like the Valorant Operator.',
-    furnitureLabel: 'Butt pad and magazine',
-    accentLabel: 'Scope',
-    defaultFurniture: 'black',
+    zones: ['scope', 'mag', 'butt'],
     sound: () => 'sniper',
   },
 };
@@ -133,19 +139,15 @@ function projectUVs(geo, round) {
   geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(p.count * 3).fill(1), 3));
 }
 
-// Collects meshes by zone: body / furniture / accent take the skin or a
-// solid finish; metal, dark and glass are fixed materials.
+// Collects meshes by zone. Skinnable zones get UVs and no material yet.
 function kit(mats) {
   const group = new THREE.Group();
-  const zones = { body: [], furniture: [], accent: [] };
+  const zones = {};
   const part = (geo, zone, round) => {
-    let mat = mats[zone];
-    if (zones[zone]) {
-      projectUVs(geo, round);
-      mat = null;
-    }
-    const m = new THREE.Mesh(geo, mat);
-    if (zones[zone]) zones[zone].push(m);
+    const fixed = mats[zone];
+    if (!fixed) projectUVs(geo, round);
+    const m = new THREE.Mesh(geo, fixed || null);
+    if (!fixed) (zones[zone] || (zones[zone] = [])).push(m);
     group.add(m);
     return m;
   };
@@ -157,42 +159,47 @@ function m4a1s(mats) {
   const { group, zones, part } = kit(mats);
   const Y = 0.022; // bore line
   const round = (r) => ({ y: Y, r });
-  // Upper receiver, rail, charging handle, forward assist, ejection port.
+  // Upper receiver, flat-top rail, charging handle, forward assist, ejection
+  // port with a brass deflector, magazine well bulge on the lower.
   part(extrude([[-0.005, 0], [0.195, 0], [0.195, 0.048], [0.02, 0.048], [0, 0.043], [-0.005, 0.03]], 0.028), 'body');
   part(rail(0, 0.19, 0.048, 0.021), 'metal');
   part(box(-0.02, -0.004, 0.036, 0.046, 0.04), 'metal');
   part(tube(0.0055, -0.002, 0.022, 0.03).translate(0, 0, 0.019), 'metal');
-  part(box(0.068, 0.136, 0.013, 0.034, 0.001, 0.0162), 'dark');
-  // Lower receiver, trigger guard, trigger.
+  part(box(0.068, 0.136, 0.013, 0.034, 0.001, 0.0152), 'dark');
+  part(extrude([[0.058, 0.01], [0.068, 0.01], [0.068, 0.04], [0.058, 0.04]], 0.006, 0.001).translate(0, 0, 0.017), 'metal');
   part(extrude([[0, 0], [0.19, 0], [0.19, -0.02], [0.148, -0.028], [0.148, -0.046], [0.07, -0.046], [0.06, -0.03], [0, -0.028]], 0.03), 'body');
+  part(box(0.072, 0.146, -0.044, -0.026, 0.034), 'body');
   part(box(0.018, 0.072, -0.061, -0.056, 0.012), 'metal');
   part(box(0.066, 0.072, -0.061, -0.03, 0.012), 'metal');
   part(extrude([[0.04, -0.028], [0.047, -0.028], [0.05, -0.052], [0.044, -0.052]], 0.005, 0.0008), 'metal');
-  // Grip and curved magazine.
-  part(extrude([[-0.006, -0.026], [0.036, -0.026], [0.022, -0.07], [0.006, -0.126], [-0.031, -0.126], [-0.022, -0.07]], 0.026, 0.004), 'furniture');
-  part(extrude([[0.078, -0.03], [0.14, -0.03], [0.148, -0.1], [0.162, -0.17], [0.176, -0.214], [0.116, -0.226], [0.104, -0.176], [0.091, -0.1]], 0.022, 0.003), 'body');
-  // Handguard with vents and a rail; delta ring.
-  part(extrude([[0.198, -0.006], [0.44, -0.006], [0.44, 0.05], [0.198, 0.05]], 0.044, 0.004), 'body');
-  part(rail(0.205, 0.435, 0.054, 0.02), 'metal');
-  for (let i = 0; i < 5; i++) {
-    const x = 0.235 + i * 0.04;
-    part(box(x, x + 0.022, 0.012, 0.03, 0.001, 0.0265), 'dark');
-    part(box(x, x + 0.022, 0.012, 0.03, 0.001, -0.0265), 'dark');
+  part(new THREE.CylinderGeometry(0.004, 0.004, 0.008, 12).rotateX(Math.PI / 2).translate(0.024, -0.014, -0.018), 'metal'); // selector
+  // Pistol grip, raked back, and the curved magazine.
+  part(extrude([[-0.006, -0.026], [0.036, -0.026], [0.022, -0.07], [0.006, -0.126], [-0.031, -0.126], [-0.022, -0.07]], 0.026, 0.004), 'grip');
+  part(extrude([[0.078, -0.03], [0.14, -0.03], [0.148, -0.1], [0.162, -0.17], [0.176, -0.214], [0.116, -0.226], [0.104, -0.176], [0.091, -0.1]], 0.022, 0.003), 'mag');
+  // Round ribbed handguard like the reference: a tube with raised rings,
+  // a delta ring behind it and a handguard cap in front.
+  part(tube(0.03, 0.188, 0.2, Y), 'metal');
+  part(tube(0.026, 0.2, 0.44, Y), 'handguard', round(0.026));
+  for (let i = 0; i < 9; i++) {
+    const x = 0.212 + i * 0.026;
+    part(tube(0.0295, x, x + 0.012, Y), 'handguard', round(0.0295));
   }
-  part(tube(0.03, 0.188, 0.199, Y), 'metal');
-  // Barrel, gas block, front sight, rear sight.
-  part(tube(0.0085, 0.44, 0.58, Y), 'metal');
-  part(box(0.444, 0.472, -0.004, 0.034, 0.024), 'metal');
-  part(extrude([[0.446, 0.034], [0.474, 0.034], [0.463, 0.088], [0.455, 0.088]], 0.01, 0.001), 'metal');
+  part(tube(0.028, 0.44, 0.452, Y), 'metal');
+  // Barrel, gas block and A-frame front sight, rear sight on the rail.
+  part(tube(0.0085, 0.452, 0.58, Y), 'metal');
+  part(box(0.452, 0.478, -0.004, 0.034, 0.024), 'metal');
+  part(extrude([[0.452, 0.034], [0.48, 0.034], [0.469, 0.088], [0.461, 0.088]], 0.01, 0.001), 'metal');
   part(extrude([[0.004, 0.061], [0.034, 0.061], [0.029, 0.082], [0.011, 0.082]], 0.018, 0.001), 'metal');
-  // Buffer tube (painted, like the reference), stock, butt pad.
+  // Buffer tube (painted, like the reference) and an A2-style fixed stock
+  // with the sloped comb, the lower sling notch and a rubber butt pad.
   part(tube(0.0145, -0.27, -0.004, Y), 'body', round(0.0145));
-  part(extrude([[-0.37, 0.05], [-0.205, 0.046], [-0.19, 0.032], [-0.19, 0.002], [-0.24, -0.018], [-0.36, -0.074], [-0.37, -0.074]], 0.036, 0.004), 'furniture');
-  part(box(-0.385, -0.37, -0.078, 0.054, 0.04), 'dark');
+  part(extrude([[-0.37, 0.05], [-0.205, 0.046], [-0.19, 0.032], [-0.19, 0.002], [-0.24, -0.018], [-0.33, -0.06], [-0.37, -0.074]], 0.036, 0.004), 'stock');
+  part(box(-0.3, -0.29, -0.052, -0.038, 0.04), 'dark');
+  part(box(-0.385, -0.37, -0.078, 0.054, 0.04), 'butt');
   // Suppressor or bare flash hider.
   const sup = new THREE.Group();
   const before = group.children.length;
-  part(tube(0.0195, 0.575, 0.765, Y), 'accent', round(0.0195));
+  part(tube(0.0195, 0.575, 0.765, Y), 'suppressor', round(0.0195));
   part(tube(0.0205, 0.566, 0.578, Y), 'metal');
   part(tube(0.0205, 0.763, 0.775, Y), 'metal');
   part(tube(0.0055, 0.775, 0.7755, Y), 'dark');
@@ -204,10 +211,10 @@ function m4a1s(mats) {
     muzzle: (skin) => [skin.suppressor === false ? 0.605 : 0.775, Y],
     rear: -0.385, front: 0.775, fade: [-0.27, 0.44],
     slots: [
-      { name: 'Handguard', x: 0.32, y: 0.022, z: -0.0276, size: 0.046 },
+      { name: 'Handguard', x: 0.32, y: 0.022, z: -0.0301, size: 0.036 },
       { name: 'Receiver', x: 0.105, y: 0.024, z: -0.0166, size: 0.032 },
       { name: 'Magazine', x: 0.123, y: -0.125, z: -0.0146, size: 0.04 },
-      { name: 'Stock', x: -0.29, y: -0.004, z: -0.0226, size: 0.05 },
+      { name: 'Stock', x: -0.29, y: 0.004, z: -0.0226, size: 0.05 },
       { name: 'Lower', x: 0.172, y: -0.012, z: -0.0176, size: 0.022 },
     ],
   };
@@ -216,13 +223,16 @@ function m4a1s(mats) {
 function ak47(mats) {
   const { group, zones, part } = kit(mats);
   const Y = 0.012;
-  // Stamped receiver and rear sight block.
+  // Stamped receiver with a ribbed dust cover, rear sight block.
   part(extrude([[-0.1, -0.02], [0.2, -0.02], [0.2, 0.035], [0.19, 0.05], [-0.06, 0.055], [-0.1, 0.045]], 0.036), 'body');
+  for (let i = 0; i < 4; i++) part(box(0.0 + i * 0.024, 0.014 + i * 0.024, 0.052, 0.058, 0.03), 'body');
   part(box(0.19, 0.232, 0.03, 0.062, 0.03), 'metal');
   part(extrude([[0.2, 0.062], [0.232, 0.062], [0.228, 0.072], [0.204, 0.07]], 0.014, 0.001), 'metal');
+  part(box(0.08, 0.16, 0.0, 0.02, 0.001, 0.0185), 'dark'); // ejection port
+  part(tube(0.005, 0.15, 0.175, 0.03).translate(0, 0, 0.02), 'metal'); // charging handle
   // Handguards and gas tube.
-  part(extrude([[0.232, -0.026], [0.42, -0.02], [0.42, 0.028], [0.232, 0.03]], 0.04, 0.006), 'furniture');
-  part(tube(0.0135, 0.236, 0.41, 0.05), 'furniture', { y: 0.05, r: 0.0135 });
+  part(extrude([[0.232, -0.026], [0.42, -0.02], [0.42, 0.028], [0.232, 0.03]], 0.04, 0.006), 'handguard');
+  part(tube(0.0135, 0.236, 0.41, 0.05), 'handguard', { y: 0.05, r: 0.0135 });
   part(tube(0.0085, 0.41, 0.47, 0.05), 'metal');
   part(box(0.46, 0.49, 0.002, 0.058, 0.026), 'metal');
   // Barrel, front sight, slant brake.
@@ -230,15 +240,16 @@ function ak47(mats) {
   part(tube(0.013, 0.55, 0.585, Y), 'metal');
   part(extrude([[0.553, 0.02], [0.582, 0.02], [0.575, 0.072], [0.561, 0.072]], 0.012, 0.001), 'metal');
   part(tube(0.011, 0.6, 0.636, Y), 'metal');
+  part(extrude([[0.61, 0.0], [0.64, 0.0], [0.634, 0.024], [0.616, 0.024]], 0.014, 0.001), 'metal');
   // Banana magazine.
-  part(extrude([[0.075, -0.02], [0.132, -0.02], [0.146, -0.08], [0.176, -0.15], [0.214, -0.21], [0.242, -0.244], [0.186, -0.268], [0.156, -0.202], [0.122, -0.132], [0.096, -0.07]], 0.026, 0.003), 'accent');
+  part(extrude([[0.075, -0.02], [0.132, -0.02], [0.146, -0.08], [0.176, -0.15], [0.214, -0.21], [0.242, -0.244], [0.186, -0.268], [0.156, -0.202], [0.122, -0.132], [0.096, -0.07]], 0.026, 0.003), 'mag');
   // Trigger guard and trigger.
   part(box(-0.005, 0.07, -0.062, -0.056, 0.012), 'metal');
   part(box(0.064, 0.07, -0.062, -0.02, 0.012), 'metal');
   part(extrude([[0.02, -0.02], [0.027, -0.02], [0.03, -0.047], [0.024, -0.047]], 0.005, 0.0008), 'metal');
   // Grip and drop stock with a steel butt plate.
-  part(extrude([[-0.055, -0.02], [-0.015, -0.02], [-0.03, -0.07], [-0.045, -0.125], [-0.08, -0.122], [-0.068, -0.07]], 0.03, 0.004), 'furniture');
-  part(extrude([[-0.1, 0.042], [-0.46, 0.02], [-0.47, 0.018], [-0.47, -0.115], [-0.44, -0.118], [-0.25, -0.055], [-0.1, -0.02]], 0.036, 0.004), 'furniture');
+  part(extrude([[-0.055, -0.02], [-0.015, -0.02], [-0.03, -0.07], [-0.045, -0.125], [-0.08, -0.122], [-0.068, -0.07]], 0.03, 0.004), 'grip');
+  part(extrude([[-0.1, 0.042], [-0.46, 0.02], [-0.47, 0.018], [-0.47, -0.115], [-0.44, -0.118], [-0.25, -0.055], [-0.1, -0.02]], 0.036, 0.004), 'stock');
   part(box(-0.484, -0.47, -0.12, 0.024, 0.04), 'metal');
   return {
     group, zones,
@@ -264,7 +275,7 @@ function xm7(mats) {
   part(extrude([[0.482, 0.065], [0.504, 0.065], [0.5, 0.092], [0.488, 0.092]], 0.016, 0.001), 'metal');
   part(box(0.118, 0.142, 0.024, 0.04, 0.012, -0.022), 'metal');
   // Long handguard with slots along the side and angled vents at the front.
-  part(extrude([[0.2, -0.012], [0.5, -0.012], [0.515, 0], [0.515, 0.05], [0.2, 0.052]], 0.05, 0.004), 'body');
+  part(extrude([[0.2, -0.012], [0.5, -0.012], [0.515, 0], [0.515, 0.05], [0.2, 0.052]], 0.05, 0.004), 'handguard');
   for (const [x0, x1] of [[0.232, 0.29], [0.305, 0.335], [0.35, 0.41], [0.425, 0.452]]) {
     part(box(x0, x1, 0.026, 0.038, 0.001, 0.0295), 'dark');
     part(box(x0, x1, 0.026, 0.038, 0.001, -0.0295), 'dark');
@@ -284,10 +295,10 @@ function xm7(mats) {
   part(box(0.068, 0.074, -0.064, -0.032, 0.012), 'metal');
   part(extrude([[0.042, -0.03], [0.049, -0.03], [0.052, -0.054], [0.046, -0.054]], 0.005, 0.0008), 'metal');
   // Straight box magazine with a base plate.
-  part(extrude([[0.08, -0.035], [0.146, -0.035], [0.152, -0.16], [0.088, -0.165]], 0.03, 0.003), 'accent');
+  part(extrude([[0.08, -0.035], [0.146, -0.035], [0.152, -0.16], [0.088, -0.165]], 0.03, 0.003), 'mag');
   part(box(0.084, 0.156, -0.176, -0.162, 0.036), 'dark');
   // Ergonomic grip.
-  part(extrude([[-0.005, -0.028], [0.04, -0.028], [0.03, -0.07], [0.02, -0.125], [-0.02, -0.13], [-0.028, -0.1], [-0.015, -0.06]], 0.03, 0.004), 'furniture');
+  part(extrude([[-0.005, -0.028], [0.04, -0.028], [0.03, -0.07], [0.02, -0.125], [-0.02, -0.13], [-0.028, -0.1], [-0.015, -0.06]], 0.03, 0.004), 'grip');
   // Folding hinge, short tube and an angular adjustable stock.
   part(box(-0.042, -0.02, -0.004, 0.05, 0.03), 'metal');
   part(tube(0.014, -0.18, -0.04, 0.03), 'metal');
@@ -295,7 +306,7 @@ function xm7(mats) {
     [[-0.33, 0.058], [-0.17, 0.052], [-0.17, 0.004], [-0.25, -0.04], [-0.315, -0.09], [-0.33, -0.09]],
     0.036, 0.004,
     [[[-0.3, 0.04], [-0.2, 0.036], [-0.2, 0.018], [-0.3, 0.01]]],
-  ), 'furniture');
+  ), 'stock');
   part(box(-0.345, -0.33, -0.094, 0.062, 0.04), 'dark');
   return {
     group, zones,
@@ -318,16 +329,17 @@ function phantom(mats) {
   part(extrude([[-0.02, -0.01], [0.22, -0.01], [0.22, 0.056], [0.1, 0.063], [0, 0.059], [-0.02, 0.046]], 0.036, 0.003), 'body');
   part(extrude([[0.04, 0.063], [0.53, 0.063], [0.545, 0.07], [0.535, 0.076], [0.05, 0.076]], 0.018, 0.0015), 'metal');
   part(extrude([[0.05, 0.076], [0.075, 0.076], [0.07, 0.09], [0.056, 0.09]], 0.016, 0.001), 'metal');
+  part(extrude([[0.5, 0.076], [0.524, 0.076], [0.52, 0.09], [0.506, 0.09]], 0.014, 0.001), 'metal');
   // Handguard with a lower fin, vertical foregrip, laser module with a blue lens.
-  part(extrude([[0.22, -0.01], [0.5, -0.006], [0.515, 0.012], [0.515, 0.056], [0.22, 0.056]], 0.046, 0.004), 'body');
+  part(extrude([[0.22, -0.01], [0.5, -0.006], [0.515, 0.012], [0.515, 0.056], [0.22, 0.056]], 0.046, 0.004), 'handguard');
   part(extrude([[0.34, -0.012], [0.52, -0.008], [0.53, -0.018], [0.36, -0.024]], 0.03, 0.002), 'metal');
-  part(extrude([[0.3, -0.012], [0.338, -0.012], [0.334, -0.11], [0.304, -0.112]], 0.026, 0.004), 'furniture');
-  part(box(0.43, 0.5, 0.012, 0.038, 0.016, -0.03), 'metal');
-  part(tube(0.006, 0.5, 0.504, 0.025).translate(0, 0, -0.03), 'glow');
-  part(box(0.504, 0.66, 0.0245, 0.0265, 0.0012, -0.0302), 'glow');
+  part(extrude([[0.3, -0.012], [0.338, -0.012], [0.334, -0.11], [0.304, -0.112]], 0.026, 0.004), 'foregrip');
+  part(box(0.43, 0.5, 0.012, 0.038, 0.018, -0.031), 'metal');
+  part(tube(0.007, 0.5, 0.505, 0.025).translate(0, 0, -0.031), 'glow');
+  part(box(0.505, 0.66, 0.0235, 0.0265, 0.002, -0.031), 'glow');
   for (const x of [0.25, 0.29, 0.39]) part(box(x, x + 0.03, 0.03, 0.04, 0.001, -0.0271), 'dark');
   // Integrated suppressor with end caps.
-  part(tube(0.021, 0.515, 0.79, Y), 'accent', { y: Y, r: 0.021 });
+  part(tube(0.021, 0.515, 0.79, Y), 'suppressor', { y: Y, r: 0.021 });
   part(tube(0.0225, 0.515, 0.53, Y), 'metal');
   part(tube(0.0225, 0.785, 0.8, Y), 'metal');
   part(tube(0.006, 0.8, 0.8005, Y), 'dark');
@@ -337,15 +349,15 @@ function phantom(mats) {
   part(box(0.078, 0.084, -0.068, -0.035, 0.012), 'metal');
   part(extrude([[0.05, -0.03], [0.057, -0.03], [0.06, -0.056], [0.054, -0.056]], 0.005, 0.0008), 'metal');
   // Box magazine, grip, and an adjustable stock with a cut-out.
-  part(extrude([[0.096, -0.04], [0.158, -0.04], [0.166, -0.19], [0.104, -0.194]], 0.03, 0.003), 'furniture');
+  part(extrude([[0.096, -0.04], [0.158, -0.04], [0.166, -0.19], [0.104, -0.194]], 0.03, 0.003), 'mag');
   part(box(0.1, 0.17, -0.204, -0.19, 0.034), 'dark');
-  part(extrude([[0.0, -0.028], [0.046, -0.028], [0.036, -0.075], [0.024, -0.135], [-0.018, -0.14], [-0.024, -0.1], [-0.01, -0.06]], 0.03, 0.004), 'furniture');
+  part(extrude([[0.0, -0.028], [0.046, -0.028], [0.036, -0.075], [0.024, -0.135], [-0.018, -0.14], [-0.024, -0.1], [-0.01, -0.06]], 0.03, 0.004), 'grip');
   part(tube(0.014, -0.13, -0.02, 0.035), 'metal');
   part(extrude(
     [[-0.37, 0.066], [-0.13, 0.06], [-0.13, 0.022], [-0.2, 0.004], [-0.33, -0.075], [-0.37, -0.075]],
     0.036, 0.004,
     [[[-0.34, 0.046], [-0.18, 0.042], [-0.2, 0.024], [-0.33, -0.04]]],
-  ), 'furniture');
+  ), 'stock');
   part(box(-0.385, -0.37, -0.079, 0.07, 0.04), 'dark');
   return {
     group, zones,
@@ -365,17 +377,20 @@ function awp(mats) {
   const { group, zones, part } = kit(mats);
   const Y = 0.03;
   const S = 0.098; // scope axis
-  // Thumbhole chassis: butt, comb, grip and forend in one piece.
+  // Thumbhole chassis: butt, comb, grip and forend in one piece, cheek riser.
   part(extrude(
     [[-0.53, 0.04], [-0.23, 0.035], [-0.17, 0.012], [0.44, 0.012], [0.455, -0.012], [0.44, -0.036], [0.02, -0.036], [0, -0.05], [-0.03, -0.135], [-0.075, -0.14], [-0.075, -0.1], [-0.2, -0.105], [-0.46, -0.14], [-0.53, -0.145]],
     0.04, 0.004,
     [[[-0.2, -0.03], [-0.1, -0.03], [-0.09, -0.08], [-0.21, -0.085]]],
   ), 'body');
-  part(box(-0.545, -0.53, -0.148, 0.043, 0.044), 'furniture');
-  // Action, bolt shroud, magazine, trigger guard.
+  part(box(-0.3, -0.2, 0.038, 0.052, 0.036), 'body');
+  part(box(-0.545, -0.53, -0.148, 0.043, 0.044), 'butt');
+  // Action, bolt shroud, bolt handle on the right, magazine, trigger guard.
   part(tube(0.021, -0.17, 0.2, Y), 'body', { y: Y, r: 0.021 });
   part(tube(0.016, -0.2, -0.17, Y), 'metal');
-  part(box(0.03, 0.1, -0.075, -0.036, 0.032), 'furniture');
+  part(new THREE.CylinderGeometry(0.005, 0.005, 0.05, 12).rotateX(1.2).translate(-0.115, Y - 0.012, 0.03), 'metal');
+  part(new THREE.SphereGeometry(0.009, 16, 12).translate(-0.115, Y - 0.032, 0.05), 'metal');
+  part(box(0.03, 0.1, -0.075, -0.036, 0.032), 'mag');
   part(box(-0.03, 0.03, -0.068, -0.062, 0.012), 'metal');
   part(box(0.024, 0.03, -0.068, -0.036, 0.012), 'metal');
   // Barrel and muzzle brake with ports.
@@ -387,10 +402,10 @@ function awp(mats) {
   }
   // Scope: rings, tube, bells, turrets, lenses.
   for (const x of [-0.02, 0.15]) part(box(x, x + 0.022, Y + 0.018, S - 0.008, 0.024), 'metal');
-  part(tube(0.0135, -0.07, 0.21, S), 'accent', { y: S, r: 0.0135 });
-  part(tube(0.0135, 0.21, 0.27, S, 0.025), 'accent', { y: S, r: 0.02 });
-  part(tube(0.025, 0.27, 0.32, S), 'accent', { y: S, r: 0.025 });
-  part(tube(0.021, -0.14, -0.07, S, 0.0135), 'accent', { y: S, r: 0.018 });
+  part(tube(0.0135, -0.07, 0.21, S), 'scope', { y: S, r: 0.0135 });
+  part(tube(0.0135, 0.21, 0.27, S, 0.025), 'scope', { y: S, r: 0.02 });
+  part(tube(0.025, 0.27, 0.32, S), 'scope', { y: S, r: 0.025 });
+  part(tube(0.021, -0.14, -0.07, S, 0.0135), 'scope', { y: S, r: 0.018 });
   part(new THREE.CylinderGeometry(0.009, 0.009, 0.018, 20).translate(0.07, S + 0.02, 0), 'metal');
   part(new THREE.CylinderGeometry(0.009, 0.009, 0.018, 20).rotateX(Math.PI / 2).translate(0.07, S, -0.02), 'metal');
   part(tube(0.0225, 0.32, 0.3205, S), 'glass');

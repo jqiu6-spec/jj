@@ -14,21 +14,39 @@ Operator.
 
 ## Run it
 
-It's a static site with no build step, but it uses ES modules, so you have to serve
-it over HTTP. Opening `index.html` straight from disk won't work.
+**Easiest, on a Mac or Windows PC:** download `dist/trackline.html` and
+double-click it. It's the whole trainer in one file and opens straight from disk
+in Chrome, Edge, Firefox or Safari. Your settings, skins and scores are saved in
+that browser.
+
+**From the source:** the site uses ES modules, so serve the folder over HTTP.
+Opening `index.html` straight from disk won't work.
 
 ```sh
+# macOS (python3 is built in) or Windows (install Python, or use `py`)
 python3 -m http.server 8000
-# or
-npx serve .
+# or, with Node
+npm start
 ```
 
 Then open <http://localhost:8000>. GitHub Pages can host the repository root as is.
+To rebuild the single file after changing the source: `npm install && npm run build`.
 
-You need a desktop browser and a mouse. Chrome and Edge on Windows give you raw,
-unaccelerated input (`unadjustedMovement`). In other browsers, set the OS pointer
-speed to default (6/11 on Windows) and turn off "Enhance pointer precision" so the
-sensitivity conversion comes out right.
+### Mac and Windows notes
+
+- You need a mouse and a desktop browser. The **fullscreen** button in the top bar
+  hides the browser chrome; press Esc to leave it.
+- **Raw input**: Chrome and Edge, on both macOS and Windows, report raw,
+  unaccelerated mouse counts, so the sensitivity conversion is exact. Safari and
+  Firefox apply the OS pointer acceleration, so the cm/360 figure is approximate
+  there. On Windows, set pointer speed to 6/11 and turn off "Enhance pointer
+  precision". The Settings tab tells you which mode you got.
+- **Scoping on a Mac trackpad**: right-click is a two-finger click. Ctrl+click and
+  the Shift key also scope, and Ctrl+click never fires the gun.
+- **Retina and slow laptops**: Settings has a render scale (100%, 75%, 50%). Drop
+  it if a 4K or Retina display makes the frame rate stutter.
+- Keys use the physical position (R, Space, Esc, Shift), so any keyboard layout
+  works, and Cmd/Ctrl shortcuts are left to the browser.
 
 ## Scenarios
 
@@ -136,8 +154,25 @@ come faster than that rate.
   tiger stripe, splatter or Damascus steel, each with three colours.
 - **Finish** (matte, satin, gloss, anodized, metallic), **wear** (0–1, adding
   scratches and chipped paint), **pattern scale** and **pattern seed**.
-- **Furniture** (stock, grip) and **accent** (suppressor, scope or magazine) can
-  wear the skin or a solid black, gunmetal, tan, wood, gold or steel finish.
+- **Parts**: every part a gun has (handguard, stock, grip, foregrip, magazine,
+  suppressor, scope, butt pad) wears the pattern or a solid finish: black, gunmetal,
+  tan, wood, gold or steel. The list changes with the gun.
+- **Fade direction**: run the fade back to front or front to back.
+- **Randomise** makes a new skin from one hue and its complement; **Apply this
+  skin to every gun** copies the pattern, colours, finish and fire effect (parts
+  and stickers stay per gun). A preview swatch shows the pattern at the gun's
+  scale.
+
+### Fire effects
+
+Each skin has a fire effect, the way Valorant skins do: **tracer**, **plasma
+bolt**, **flame**, **spectral** or **lightning**, in any colour, with an optional
+glow on the skin that brightens with every shot. The muzzle flash takes the
+effect's colour, shots fly from the muzzle to wherever they land (a target, a
+crate or the wall), a burst marks the impact, and kills pop in the effect's
+colour. **Test fire** previews the flash, glow and sound in the Weapon tab.
+Presets come with effects (Fade is a plasma bolt, Ember Tiger flame, Cobalt Hex
+lightning, Neon Splatter spectral).
 
 ### Stickers
 
@@ -176,7 +211,7 @@ before the scope settled.
 ## Controls
 
 - **Mouse 1**: fire (hold it in tracking scenarios, or turn on auto-fire in Settings)
-- **Mouse 2**: scope with the AWP in sniping scenarios
+- **Mouse 2**, **Shift**, or **Ctrl+click** on a Mac: scope with the AWP in sniping scenarios
 - **Esc**: pause. Press Esc again to go back to the scenario list
 - **R**: restart the current run
 - **Space / Enter** on the results screen: play again
@@ -207,9 +242,12 @@ js/stats.js           run history
 js/chart.js           pace chart and history sparkline (SVG)
 js/crosshair.js       crosshair drawing
 js/audio.js           synthesized sound effects and fire sounds
-js/guns.js            gun models, fire rates and sticker slots
-js/skins.js           skin patterns, presets and sticker designs
+js/guns.js            gun models, zones, fire rates and sticker slots
+js/skins.js           skin patterns, presets, random skins and sticker designs
+js/effects.js         fire effects: tracers, impacts, muzzle glow
 js/weapon.js          first-person gun view, skins, stickers, turntable
+build.mjs             bundles everything into dist/trackline.html
+dist/trackline.html   the single-file build, opens from disk
 vendor/               three.js r186 (MIT), bundled into one ES module
 ```
 

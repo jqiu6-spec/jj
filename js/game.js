@@ -1,11 +1,15 @@
 // 3D arena, first-person camera, targets, weapons and the run state machine.
-import * as THREE from 'three';
+import * as THREE from '../vendor/three.module.min.js';
 import { MOTIONS, AGENT, agentDims } from './motion.js';
 import { eyeOf, defaultSetup, setupKey, effectiveScenario, OPERATOR } from './scenarios.js';
 import { degPerCount, verticalFov } from './settings.js';
 import { sfx } from './audio.js';
 import { Viewmodel } from './weapon.js';
 import { GUNS } from './guns.js';
+import { Effects } from './effects.js';
+
+// macOS reports Ctrl+click as a left button; treat it as the right button.
+const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || '') || /Macintosh/.test(navigator.userAgent || '');
 
 const DEG = Math.PI / 180;
 const MAX_PITCH = 89 * DEG;
@@ -75,6 +79,8 @@ const _q = new THREE.Vector3();
 const _c = new THREE.Vector3();
 const _ray = new THREE.Ray();
 const _hit = new THREE.Vector3();
+const _from = new THREE.Vector3();
+const _to = new THREE.Vector3();
 
 // Distance along the ray to a sphere's surface, or -1 on a miss.
 function raySphere(o, d, cx, cy, cz, r) {
@@ -117,6 +123,8 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#161b23');
+    this.fx = new Effects(this.scene);
+    this.arenaBox = new THREE.Box3();
     this.camera = new THREE.PerspectiveCamera(70, 1, 0.05, 400);
     this.camera.rotation.order = 'YXZ';
     this.yaw = 0;
@@ -200,6 +208,9 @@ export class Game {
   refreshGun() {
     const id = this.inspect && this.state === 'menu' ? this.inspect : this.gunId;
     if (this.skins[id]) this.vm.setGun(id, this.skins[id]);
+    const eq = this.skins[this.gunId];
+    const fx = (eq && eq.fx) || { type: 'none' };
+    this.fx.setStyle(fx.type, fx.color);
   }
 
   // Turntable view of `gunId` in the menu; `at` is its centre in NDC.
@@ -223,6 +234,8 @@ export class Game {
   resize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
+    const scale = (this.settings && this.settings.render && this.settings.render.scale) || 1;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2) * scale);
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.hipFov = verticalFov(this.settings ? this.settings.fov : 103, w / h);
@@ -364,6 +377,8 @@ export class Game {
     const g = new THREE.Group();
     const depth = a.zMax - a.zMin;
     const cz = (a.zMin + a.zMax) / 2;
+    this.arenaBox.min.set(-a.w / 2, 0, a.zMin);
+    this.arenaBox.max.set(a.w / 2, a.h, a.zMax);
     const cell = 4; // one texture tile = 4 m
     const plane = (w, h, tex, setup) => {
       const t = tex.clone();
@@ -553,14 +568,8 @@ export class Game {
 
   onMouseDown(e) {
     if (document.pointerLockElement !== this.canvas) return;
-    const live = this.state === 'running' || this.state === 'countdown';
-    if (e.button === 2) {
-      // Only the sniper scopes. Toggle cycles 2.5x, 5x, off; hold is 2.5x.
-      if (!this.sniper || !live || this.run.reloadLeft > 0) return;
-      if (this.settings.sniper.scopeMode === 'hold') this.setZoom(1);
-      else this.setZoom((this.zoomLevel + 1) % 3);
-      return;
-    }
+    const right = e.button === 2 || (e.button === 0 && e.ctrlKey && IS_MAC);
+    if (right) { this.scopePress(); return; }
     if (e.button !== 0) return;
     this.firing = true;
     if (this.state !== 'running') return;
@@ -569,8 +578,21 @@ export class Game {
   }
 
   onMouseUp(e) {
-    if (e.button === 0) this.firing = false;
-    if (e.button === 2 && this.sniper && this.settings.sniper.scopeMode === 'hold') this.setZoom(0);
+    if (e.button === 0 && !(e.ctrlKey && IS_MAC)) this.firing = false;
+    if (e.button === 2 || (e.button === 0 && e.ctrlKey && IS_MAC)) this.scopeRelease();
+  }
+
+  // Right mouse button, Ctrl+click on a Mac, or the Shift key. Only the
+  // sniper scopes. Toggle cycles 2.5x, 5x, off; hold is 2.5x while held.
+  scopePress() {
+    const live = this.state === 'running' || this.state === 'countdown';
+    if (!this.sniper || !live || (this.run && this.run.reloadLeft > 0)) return;
+    if (this.settings.sniper.scopeMode === 'hold') this.setZoom(1);
+    else this.setZoom((this.zoomLevel + 1) % 3);
+  }
+
+  scopeRelease() {
+    if (this.sniper && this.settings.sniper.scopeMode === 'hold') this.setZoom(0);
   }
 
   updateForward() {
@@ -619,6 +641,7 @@ export class Game {
         if (s > 0 && s < bestD) { bestD = s; best = t; this.pickPart = 'body'; }
       }
     }
+    this.pickDist = best ? bestD : 0;
     return best;
   }
 
@@ -655,6 +678,7 @@ export class Game {
     if (this.settings.weapon.sounds) this.fireSound();
     else sfx.shot();
     const t = this.pick();
+    this.tracer(this.fwd, t ? this.pickDist : 0);
     if (t) {
       r.hits++;
       r.score += w.points;
@@ -662,6 +686,27 @@ export class Game {
     } else {
       r.score = Math.max(0, r.score - w.missPenalty);
     }
+  }
+
+  // Fire-effect tracer from the gun's muzzle to where the shot lands: the
+  // target hit, else the nearest crate or wall along `dir`.
+  tracer(dir, hitDist) {
+    if (!this.fx.active) return;
+    let dist = hitDist;
+    if (!(dist > 0)) {
+      _ray.set(this.eye, dir);
+      dist = Math.min(this.coverHit(this.eye, dir), _ray.intersectBox(this.arenaBox, _hit) ? _hit.distanceTo(this.eye) : 60);
+    }
+    _to.copy(this.eye).addScaledVector(dir, dist);
+    // Start low and to the gun-hand side, well off the view axis. The drawn
+    // muzzle sits only a few degrees from the crosshair, so a shot from there
+    // would fly straight away from the camera and read as a dot; from here the
+    // streak crosses the screen toward the impact, the way game tracers do.
+    const side = this.settings.weapon.hand === 'left' ? -0.3 : 0.3;
+    _from.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw)).multiplyScalar(side); // camera right
+    _from.add(this.eye).addScaledVector(this.fwd, 0.45);
+    _from.y -= 0.24;
+    this.fx.shot(_from, _to, hitDist > 0);
   }
 
   // Operator handling: 1.67 s between shots, 5 rounds, 3.7 s reload,
@@ -685,11 +730,12 @@ export class Game {
       // Uniform point in a cone around the aim direction.
       const a = Math.random() * Math.PI * 2;
       const rr = Math.sqrt(Math.random()) * Math.tan(spread);
-      _p.set(-Math.cos(this.yaw), 0, Math.sin(this.yaw)); // right
+      _p.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw)); // camera right
       _q.crossVectors(_p, dir).normalize(); // up
       dir.addScaledVector(_p, Math.cos(a) * rr).addScaledVector(_q, Math.sin(a) * rr).normalize();
     }
     const t = this.pick(dir);
+    this.tracer(dir, t ? this.pickDist : 0);
     if (t) {
       r.hits++;
       const part = this.pickPart;
@@ -729,7 +775,7 @@ export class Game {
     }
     p.life = 0.22;
     p.base = t.shape === 'agent' ? 0.45 : t.radius;
-    p.mesh.material.color.copy(this.hitColor);
+    p.mesh.material.color.copy(this.fx.active ? this.fx.color : this.hitColor);
     this.center(t, p.mesh.position);
     p.mesh.visible = true;
   }
@@ -784,6 +830,7 @@ export class Game {
     this.camera.rotation.set(this.pitch, this.yaw, 0);
     this.updateTargetVisuals(dt);
     this.updatePops(dt);
+    this.fx.update(dt);
     this.renderer.render(this.scene, this.camera);
 
     // The gun renders on top with its own camera, so it never clips walls.
@@ -869,6 +916,7 @@ export class Game {
       if (rounds) this.fireSound();
       r.fireTime += dt;
       const t = this.pick();
+      for (let i = 0; i < rounds; i++) this.tracer(this.fwd, t ? this.pickDist : 0);
       if (t) {
         r.onTime += dt;
         if (this.pickPart === 'head' && t.shape === 'agent') r.headTime += dt;

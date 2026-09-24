@@ -1,16 +1,22 @@
-import { Color, Fog, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
+import { Color, Fog, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
 import { horizontalToVerticalFov, VALORANT_YAW } from '../core/sensitivity.js';
 import { TrackingSession } from '../core/scoring.js';
 import { createRng } from '../core/random.js';
-import { buildHeadingMarkers, buildRoom, buildTargets } from './arena.js';
-import { directionFromAngles, hitTest } from './hit.js';
+import { damageFor, fireRateAt, getWeapon } from '../core/weapons.js';
+import { buildEnvironment, buildHeadingMarkers, buildRoom, buildTargets, ROOM } from './arena.js';
+import { createEffects } from './effects.js';
+import { directionFromAngles, hitTestDetailed, rayAabb } from './hit.js';
 import { EYE_HEIGHT, getScenario } from './scenarios.js';
-import { renderCrosshairOverlay } from './crosshair.js';
+import { HIT_MARKER_LIFE, renderCrosshairOverlay, renderHitMarkerOverlay } from './crosshair.js';
+import { createViewmodel } from './viewmodel.js';
 
 const MAX_PITCH = (89 * Math.PI) / 180;
 const MAX_FRAME_TIME = 0.1; // longer hitches slow the run down instead of teleporting targets
 const COUNTDOWN_SECONDS = 3;
-const SHOT_INTERVAL = 0.1; // hit sound cadence while tracking (≈ rifle fire rate)
+const RESUME_SECONDS = 1;
+const ENDING_SECONDS = 0.75;
+const FLASH_SECONDS = 0.6;
+const DAMAGE_TICKER_SECONDS = 0.9;
 const BACKGROUND = '#0b0f14';
 
 function isChromium() {
@@ -22,16 +28,17 @@ function isChromium() {
 /**
  * Owns the WebGL scene, pointer-locked mouse input and the run state machine:
  *
- *   idle → waiting (needs pointer lock) → countdown → running → finished
+ *   idle → waiting (needs pointer lock) → countdown → running → ending → finished
  *                     ↑__________ paused ←________|  (Esc / focus loss)
  *
  * The sensitivity check room uses the same flow with a `sandbox` state instead
  * of countdown/running.
  */
 export class Engine {
-  constructor({ canvas, crosshairCanvas, audio, settings, onState, onHud, onFinish, onLockError }) {
+  constructor({ canvas, crosshairCanvas, fxCanvas, audio, settings, onState, onHud, onFinish, onLockError }) {
     this.canvas = canvas;
     this.crosshairCanvas = crosshairCanvas;
+    this.fxCanvas = fxCanvas;
     this.audio = audio;
     this.settings = settings;
     this.onState = onState;
@@ -47,29 +54,46 @@ export class Engine {
     this.mouseDown = false;
     this.yaw = 0;
     this.pitch = 0;
+    this.frameYaw = 0;
+    this.framePitch = 0;
     this.run = null;
+    this.config = null;
+    this.weapon = getWeapon(settings.weapon);
     this.frameHandle = 0;
     this.lastTime = 0;
     this.glow = 0;
-    this.shotClock = 0;
     this.countdownLeft = 0;
+    this.endingLeft = 0;
+    this.flash = { text: '', life: 0 };
+    this.hitMarker = null;
+    this.fxDrawn = false;
+    this.damageTicker = { value: 0, life: 0, hits: 0 };
+    this.sandboxClock = 0;
     this.fps = 0;
     this.fpsFrames = 0;
     this.fpsTime = 0;
     this.sandbox = { counts: 0, countsY: 0, turned: 0 };
     this.hud = {};
+    this.direction = new Vector3();
+    this.hitPoint = new Vector3();
 
     this.renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    this.renderer.autoClear = false;
     this.scene = new Scene();
     this.scene.background = new Color(BACKGROUND);
-    this.scene.fog = new Fog(BACKGROUND, 35, 95);
+    this.scene.fog = new Fog(BACKGROUND, 40, 110);
     this.camera = new PerspectiveCamera(70, 16 / 9, 0.05, 200);
     this.camera.rotation.order = 'YXZ';
     this.camera.position.set(0, EYE_HEIGHT, 0);
 
-    buildRoom(this.scene, this.renderer.capabilities.getMaxAnisotropy());
+    const environment = buildEnvironment(this.renderer);
+    const room = buildRoom(this.scene, this.renderer.capabilities.getMaxAnisotropy(), environment);
+    this.props = room.props;
+    this.keyLight = room.keyLight;
     this.targets = buildTargets(this.scene);
     this.markers = buildHeadingMarkers(this.scene);
+    this.effects = createEffects(this.scene);
+    this.viewmodel = createViewmodel(environment);
     this.#hideTargets();
 
     this.frame = this.frame.bind(this);
@@ -82,6 +106,17 @@ export class Engine {
 
   applySettings(settings) {
     this.settings = settings;
+    const weapon = getWeapon(settings.weapon);
+    if (weapon !== this.weapon || !this.viewmodelReady) {
+      this.weapon = weapon;
+      this.viewmodel.setWeapon(weapon);
+      this.viewmodelReady = true;
+      // A weapon picked while paused applies to the rest of the run.
+      if (this.run) this.run.session.weapon = weapon;
+    }
+    this.viewmodel.setVisible(settings.showWeapon);
+    this.effects.setEnabled(settings.shotEffects);
+    this.keyLight.castShadow = settings.shadows;
     this.targets.setColor(settings.targetColor);
     this.audio.setVolume(settings.volume);
     this.resize();
@@ -96,6 +131,7 @@ export class Engine {
     this.renderer.setSize(width, height, false);
     this.#updateProjection();
     this.drawCrosshair();
+    renderHitMarkerOverlay(this.fxCanvas, null);
     if (this.state !== 'idle') this.render();
   }
 
@@ -107,6 +143,7 @@ export class Engine {
     const vertical = horizontalToVerticalFov(this.settings.fov, this.camera.aspect);
     this.camera.fov = Math.min(150, Math.max(20, vertical));
     this.camera.updateProjectionMatrix();
+    this.viewmodel.resize(this.camera.aspect);
   }
 
   drawCrosshair() {
@@ -127,6 +164,9 @@ export class Engine {
     document.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.mouseDown = false;
     });
+    window.addEventListener('blur', () => {
+      this.mouseDown = false;
+    });
     document.addEventListener('keydown', (e) => this.#onKeyDown(e));
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('resize', () => this.resize());
@@ -139,9 +179,13 @@ export class Engine {
     const dy = event.movementY * multiplier;
     const degreesPerCount = this.settings.sensitivity * VALORANT_YAW;
     const radiansPerCount = (degreesPerCount * Math.PI) / 180;
-    this.yaw -= dx * radiansPerCount;
+    const yawDelta = -dx * radiansPerCount;
     const ySign = this.settings.invertY ? -1 : 1;
-    this.pitch = Math.min(MAX_PITCH, Math.max(-MAX_PITCH, this.pitch - dy * radiansPerCount * ySign));
+    const nextPitch = Math.min(MAX_PITCH, Math.max(-MAX_PITCH, this.pitch - dy * radiansPerCount * ySign));
+    this.frameYaw += yawDelta;
+    this.framePitch += nextPitch - this.pitch;
+    this.yaw += yawDelta;
+    this.pitch = nextPitch;
     if (this.mode === 'sandbox') {
       this.sandbox.counts += dx;
       this.sandbox.countsY += dy;
@@ -213,7 +257,9 @@ export class Engine {
     if (this.mode === 'sandbox') {
       this.#setState('sandbox');
     } else if (this.resumeState === 'running') {
-      this.#setState('running');
+      // A short count so the player can find the target again before scoring resumes.
+      this.countdownLeft = RESUME_SECONDS;
+      this.#setState('countdown');
     } else {
       this.#beginCountdown();
     }
@@ -233,11 +279,12 @@ export class Engine {
       difficulty,
       duration,
       instance,
-      session: new TrackingSession({ duration, tracksHead: instance.target.kind === 'bot' }),
+      session: new TrackingSession({ duration, tracksHead: instance.target.kind === 'bot', weapon: this.weapon }),
     };
     this.markers.visible = false;
     this.glow = 0;
-    this.shotClock = 0;
+    this.effects.clear();
+    this.#clearFeedback();
     this.#resetView();
     this.#syncTargets();
     this.resumeState = null;
@@ -251,6 +298,8 @@ export class Engine {
     this.run = null;
     this.#hideTargets();
     this.markers.visible = true;
+    this.effects.clear();
+    this.#clearFeedback();
     this.#resetView();
     this.resetSandboxCounters();
     this.resumeState = null;
@@ -267,6 +316,8 @@ export class Engine {
     this.#setState('idle');
     this.exitLock();
     this.#stopLoop();
+    this.effects.clear();
+    this.#clearFeedback();
     this.run = null;
   }
 
@@ -279,15 +330,28 @@ export class Engine {
     this.pitch = 0;
   }
 
+  #clearFeedback() {
+    this.flash = { text: '', life: 0 };
+    this.hitMarker = null;
+    this.damageTicker = { value: 0, life: 0, hits: 0 };
+    this.sandboxClock = 0;
+    renderHitMarkerOverlay(this.fxCanvas, null);
+  }
+
   #beginCountdown() {
     if (!this.settings.countdown) {
-      this.#setState('running');
-      if (this.settings.uiSounds) this.audio.go();
+      this.#go();
       return;
     }
     this.countdownLeft = COUNTDOWN_SECONDS;
     if (this.settings.uiSounds) this.audio.countdown();
     this.#setState('countdown');
+  }
+
+  #go() {
+    this.#setState('running');
+    this.flash = { text: 'GO', life: FLASH_SECONDS };
+    if (this.settings.uiSounds) this.audio.go();
   }
 
   #finish() {
@@ -303,6 +367,8 @@ export class Engine {
       difficulty: difficulty.key,
       difficultyLabel: difficulty.label,
       duration,
+      weapon: session.weapon.id,
+      weaponName: session.weapon.name,
       rawInput: this.rawActive,
     });
   }
@@ -332,54 +398,148 @@ export class Engine {
     this.lastTime = now;
     const dt = Math.min(rawDt, MAX_FRAME_TIME);
     this.#measureFps(rawDt);
+    const motion = { yawRate: dt > 0 ? this.frameYaw / dt : 0, pitchRate: dt > 0 ? this.framePitch / dt : 0 };
+    this.frameYaw = 0;
+    this.framePitch = 0;
 
-    let zone = null;
+    let aim = { zone: null, t: -1 };
     if (this.state === 'countdown') {
       const before = Math.ceil(this.countdownLeft);
       this.countdownLeft -= dt;
       const after = Math.ceil(this.countdownLeft);
-      if (this.countdownLeft <= 0) {
-        this.#setState('running');
-        if (this.settings.uiSounds) this.audio.go();
-      } else if (after !== before && this.settings.uiSounds) {
-        this.audio.countdown();
-      }
-      zone = this.#aimZone();
+      if (this.countdownLeft <= 0) this.#go();
+      else if (after !== before && this.settings.uiSounds) this.audio.countdown();
+      aim = this.#aim();
     } else if (this.state === 'running' && this.run) {
       const { instance, session } = this.run;
       instance.update(dt);
-      zone = this.#aimZone();
+      aim = this.#aim();
       const firing = this.settings.fireMode === 'auto' || this.mouseDown;
-      session.update(dt, { firing, zone });
-      this.#hitSounds(dt, firing, zone);
+      const { shots } = session.update(dt, { firing, zone: aim.zone });
+      this.#fireShots(shots, aim);
       if (session.finished) {
-        this.#syncTargets(zone, dt);
-        this.#emitHud(zone);
+        this.endingLeft = ENDING_SECONDS;
+        this.flash = { text: 'TIME', life: ENDING_SECONDS };
+        this.#setState('ending');
+      }
+    } else if (this.state === 'ending' && this.run) {
+      // Let the target run out while "TIME" shows, then hand over to the results.
+      this.run.instance.update(dt);
+      aim = this.#aim();
+      this.endingLeft -= dt;
+      if (this.endingLeft <= 0) {
+        this.#syncTargets(null, dt);
+        this.#emitHud(aim);
         this.#finish();
         return;
       }
+    } else if (this.state === 'sandbox') {
+      this.#sandboxFire(dt);
     }
 
-    this.#syncTargets(zone, dt);
+    this.#tickFeedback(dt);
+    this.viewmodel.update(dt, motion);
+    this.effects.update(dt);
+    this.#syncTargets(aim.zone, dt);
     this.render();
-    this.#emitHud(zone);
+    this.#emitHud(aim);
   }
 
-  #aimZone() {
-    if (!this.run) return null;
+  #aim() {
+    if (!this.run) return { zone: null, t: -1 };
     const direction = directionFromAngles(this.yaw, this.pitch);
-    return hitTest(this.camera.position, direction, this.run.instance.target);
+    return hitTestDetailed(this.camera.position, direction, this.run.instance.target);
   }
 
-  #hitSounds(dt, firing, zone) {
-    if (!firing || !this.settings.hitSounds) {
-      this.shotClock = 0;
+  /** Hold left mouse in the check room to test the weapon (nothing is scored). */
+  #sandboxFire(dt) {
+    if (!this.mouseDown) {
+      this.sandboxClock = 0;
+      this.sandboxBurst = 0;
+      this.sandboxFiring = false;
       return;
     }
-    this.shotClock += dt;
-    while (this.shotClock >= SHOT_INTERVAL) {
-      this.shotClock -= SHOT_INTERVAL;
-      if (zone) this.audio.hit();
+    if (!this.sandboxFiring) {
+      this.sandboxFiring = true;
+      this.sandboxClock = 1 / fireRateAt(this.weapon, 0);
+    }
+    this.sandboxClock += dt;
+    this.sandboxBurst = (this.sandboxBurst ?? 0) + dt;
+    let shots = 0;
+    const interval = 1 / fireRateAt(this.weapon, this.sandboxBurst);
+    while (this.sandboxClock >= interval) {
+      this.sandboxClock -= interval;
+      shots += 1;
+    }
+    this.#fireShots(shots, { zone: null, t: -1 });
+  }
+
+  /** Effects, sounds and feedback for the shots the session (or the sandbox) fired this frame. */
+  #fireShots(count, aim) {
+    if (count <= 0) return;
+    const { settings, weapon } = this;
+    const hit = Boolean(aim.zone);
+    const origin = this.camera.position;
+    const dir = directionFromAngles(this.yaw, this.pitch);
+    this.direction.set(dir.x, dir.y, dir.z);
+
+    // Where the bullet lands: the target, else the nearest prop, else the room.
+    let distance = aim.t;
+    let normal = null;
+    if (!hit) {
+      let nearest = rayAabb(origin, dir, ROOM.min, ROOM.max);
+      for (const prop of this.props) {
+        const candidate = rayAabb(origin, dir, prop.min, prop.max);
+        if (candidate && (!nearest || candidate.t < nearest.t)) nearest = candidate;
+      }
+      distance = nearest?.t ?? 50;
+      normal = nearest?.normal ?? null;
+    }
+    this.hitPoint.copy(origin).addScaledVector(this.direction, distance);
+
+    for (let i = 0; i < count; i++) {
+      this.viewmodel.kick(weapon);
+      this.effects.shot({
+        from: this.viewmodel.muzzleWorld(this.camera, 1),
+        to: this.hitPoint,
+        hitTarget: hit,
+        zone: aim.zone,
+        normal,
+        color: settings.targetColor,
+      });
+    }
+    // One sound per frame is enough: two shots in a frame are 8 ms apart.
+    if (settings.weaponSounds) this.audio.shot(weapon);
+    if (!hit) return;
+
+    const head = aim.zone === 'head';
+    if (settings.hitSounds) (head ? this.audio.headshot : this.audio.hit)();
+    if (settings.hitMarker) this.hitMarker = { life: HIT_MARKER_LIFE, head };
+    if (settings.damageNumbers && this.state === 'running') {
+      const ticker = this.damageTicker;
+      ticker.value += damageFor(weapon, aim.zone) * count;
+      ticker.life = DAMAGE_TICKER_SECONDS;
+      ticker.hits += count;
+    }
+  }
+
+  #tickFeedback(dt) {
+    if (this.flash.life > 0) this.flash.life -= dt;
+    const ticker = this.damageTicker;
+    if (ticker.life > 0) {
+      ticker.life -= dt;
+      if (ticker.life <= 0) ticker.value = 0;
+    }
+    if (this.hitMarker) {
+      this.hitMarker.life -= dt;
+      if (this.hitMarker.life <= 0) this.hitMarker = null;
+    }
+    if (this.hitMarker) {
+      renderHitMarkerOverlay(this.fxCanvas, { age: 1 - this.hitMarker.life / HIT_MARKER_LIFE, head: this.hitMarker.head });
+      this.fxDrawn = true;
+    } else if (this.fxDrawn) {
+      renderHitMarkerOverlay(this.fxCanvas, null);
+      this.fxDrawn = false;
     }
   }
 
@@ -395,7 +555,7 @@ export class Engine {
 
   #hideTargets() {
     this.targets.sphere.visible = false;
-    this.targets.bot.visible = false;
+    this.targets.bot.group.visible = false;
     this.targets.shadow.visible = false;
   }
 
@@ -408,23 +568,22 @@ export class Engine {
     let height;
     if (target.kind === 'sphere') {
       sphere.visible = true;
-      bot.visible = false;
+      bot.group.visible = false;
       sphere.position.set(p.x, p.y, p.z);
       sphere.scale.setScalar(target.radius);
       footprint = target.radius * 1.5;
       height = p.y - target.radius;
     } else {
       sphere.visible = false;
-      bot.visible = true;
-      bot.position.set(p.x, p.y, p.z);
-      bot.scale.setScalar(target.scale);
-      footprint = 0.55 * target.scale;
+      bot.group.visible = true;
+      bot.applyPose(target);
+      footprint = 0.6 * target.scale;
       height = 0;
     }
     shadow.visible = true;
     shadow.position.set(p.x, 0.02, p.z);
     shadow.scale.setScalar(footprint * (1 + height * 0.08));
-    shadowMaterial.opacity = Math.max(0.15, 0.7 - height * 0.08);
+    shadowMaterial.opacity = Math.max(0.12, 0.55 - height * 0.07);
 
     const goal = zone && this.settings.hitFeedback ? 1 : 0;
     this.glow += (goal - this.glow) * (1 - Math.exp(-25 * dt));
@@ -433,17 +592,23 @@ export class Engine {
 
   render() {
     this.camera.rotation.set(this.pitch, this.yaw, 0);
+    this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
+    this.viewmodel.render(this.renderer);
   }
 
-  #emitHud(zone) {
+  #emitHud(aim) {
     const hud = this.hud;
     hud.state = this.state;
     hud.mode = this.mode;
     hud.fps = this.fps;
-    hud.onTarget = Boolean(zone);
-    hud.zone = zone;
+    hud.onTarget = Boolean(aim.zone);
+    hud.zone = aim.zone;
     hud.countdown = Math.ceil(this.countdownLeft);
+    hud.flash = this.flash.life > 0 ? this.flash.text : '';
+    hud.damage = this.damageTicker.life > 0 ? this.damageTicker.value : 0;
+    hud.damageHits = this.damageTicker.hits;
+    hud.weapon = this.weapon.name;
     hud.rawInput = this.rawActive;
     if (this.run) {
       const { session } = this.run;
@@ -451,6 +616,8 @@ export class Engine {
       hud.score = session.score;
       hud.accuracy = session.accuracy;
       hud.streak = session.streak;
+      hud.shots = session.shots;
+      hud.hits = session.hits;
     }
     if (this.mode === 'sandbox') {
       const heading = ((((-this.yaw * 180) / Math.PI) % 360) + 360) % 360;

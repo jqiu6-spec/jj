@@ -49,6 +49,58 @@ export function drawCrosshair(ctx, cx, cy, cfg) {
   }
 }
 
+const HIT_MARKER_LIFE = 0.11;
+
+/**
+ * Valorant-style hit marker: four diagonal ticks around the centre that fade
+ * out. `age` runs from 0 (fresh) to 1 (gone); head hits draw a bigger, red one.
+ */
+export function drawHitMarker(ctx, cx, cy, { age, head }, dpr = 1) {
+  if (age >= 1) return;
+  const alpha = 1 - age;
+  const gap = Math.round((head ? 7 : 5) * dpr) + Math.round(age * 3 * dpr);
+  const length = Math.round((head ? 8 : 6) * dpr);
+  const width = Math.max(1, Math.round(2 * dpr));
+  ctx.save();
+  ctx.lineCap = 'square';
+  ctx.lineWidth = width;
+  for (const [sx, sy] of [
+    [1, 1],
+    [-1, 1],
+    [1, -1],
+    [-1, -1],
+  ]) {
+    for (const [style, extra] of [
+      [`rgba(0, 0, 0, ${0.6 * alpha})`, width],
+      [head ? `rgba(255, 70, 70, ${alpha})` : `rgba(255, 255, 255, ${alpha})`, 0],
+    ]) {
+      ctx.strokeStyle = style;
+      ctx.lineWidth = width + extra;
+      ctx.beginPath();
+      ctx.moveTo(cx + sx * gap, cy + sy * gap);
+      ctx.lineTo(cx + sx * (gap + length), cy + sy * (gap + length));
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/** Draw the current hit marker (if any) on the effects overlay canvas. */
+export function renderHitMarkerOverlay(canvas, marker) {
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.round(canvas.clientWidth * dpr);
+  const height = Math.round(canvas.clientHeight * dpr);
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, width, height);
+  if (marker) drawHitMarker(ctx, Math.floor(width / 2) + 0.5, Math.floor(height / 2) + 0.5, marker, dpr);
+}
+
+export { HIT_MARKER_LIFE };
+
 /** Size a full-screen overlay canvas to device pixels and draw the crosshair at its centre. */
 export function renderCrosshairOverlay(canvas, cfg) {
   const dpr = window.devicePixelRatio || 1;

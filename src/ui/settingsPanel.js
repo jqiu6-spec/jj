@@ -15,6 +15,7 @@ import {
   clampSensitivity,
 } from '../core/sensitivity.js';
 import { CrosshairCodeError, parseCrosshairCode, toCrosshairCode } from '../core/crosshairCode.js';
+import { WEAPONS } from '../core/weapons.js';
 import { drawCrosshair } from '../game/crosshair.js';
 import { $$, h, setText } from './dom.js';
 import { createSensitivityControl } from './sensitivityControl.js';
@@ -445,9 +446,19 @@ function buildTabs(store) {
             { value: 'hold', label: 'Hold left mouse' },
           ],
         }),
+        segmentedField(store, {
+          path: 'weapon',
+          label: 'Weapon',
+          help: 'Valorant fire rates and close-range damage. Score does not depend on the weapon; hits and damage do.',
+          options: WEAPONS.map((w) => ({ value: w.id, label: w.name })),
+        }),
         toggleField(store, { path: 'countdown', label: '3-second countdown', help: 'Gives you time to find the target before scoring starts.' }),
         colorField(store, { path: 'targetColor', label: 'Target color', presets: TARGET_COLORS }),
-        toggleField(store, { path: 'hitFeedback', label: 'Glow while on target' }),
+        groupField('Feedback', [
+          toggleField(store, { path: 'hitFeedback', label: 'Glow while on target' }),
+          toggleField(store, { path: 'hitMarker', label: 'Hit marker', help: 'White ticks around the crosshair on a hit, red on a headshot.' }),
+          toggleField(store, { path: 'damageNumbers', label: 'Damage numbers', help: 'Running damage total beside the crosshair, like Valorant.' }),
+        ]),
         groupField('Custom difficulty', [
           staticField(h('p', { class: 'hint' }, 'Used when you pick “Custom” in the launch panel.')),
           rangeField(store, { path: 'customSpeed', label: 'Target speed', min: 0.25, max: 3, step: 0.05, format: times }),
@@ -468,6 +479,9 @@ function buildTabs(store) {
           format: pct,
           help: 'Lower it if your frame rate drops below your monitor’s refresh rate.',
         }),
+        toggleField(store, { path: 'shadows', label: 'Shadows', help: 'Turn off on weak GPUs or laptops if the frame rate drops.' }),
+        toggleField(store, { path: 'showWeapon', label: 'Show weapon', help: 'The first-person gun with recoil and muzzle flash. Turn it off for a clean view.' }),
+        toggleField(store, { path: 'shotEffects', label: 'Tracers and impacts' }),
         toggleField(store, { path: 'showFps', label: 'Show FPS counter' }),
         toggleField(store, {
           path: 'fullscreen',
@@ -475,7 +489,8 @@ function buildTabs(store) {
           help: 'Switches to fullscreen when a run starts and back when you return to the menu.',
         }),
         rangeField(store, { path: 'volume', label: 'Volume', min: 0, max: 1, step: 0.05, format: pct }),
-        toggleField(store, { path: 'hitSounds', label: 'Hit sounds', help: 'Soft ticks at rifle fire rate while you are on target.' }),
+        toggleField(store, { path: 'weaponSounds', label: 'Gunshots' }),
+        toggleField(store, { path: 'hitSounds', label: 'Hit sounds', help: 'A damage tick on every hit and a brighter ring on headshots.' }),
         toggleField(store, { path: 'uiSounds', label: 'Countdown and finish sounds' }),
       ],
     },

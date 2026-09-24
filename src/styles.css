@@ -1530,6 +1530,60 @@ body.is-locked .game {
   opacity: 0.92;
 }
 
+.hud-countdown.is-flash {
+  font-size: 64px;
+  letter-spacing: 0.12em;
+  animation: flash-in 0.6s ease-out both;
+}
+
+.hud-countdown.is-time {
+  color: var(--accent);
+}
+
+@keyframes flash-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -170%) scale(1.25);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -170%) scale(1);
+  }
+  100% {
+    opacity: 0.85;
+    transform: translate(-50%, -170%) scale(1);
+  }
+}
+
+.hud-damage {
+  position: absolute;
+  top: calc(50% - 46px);
+  left: calc(50% + 44px);
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 0.9),
+    0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.hud-damage.pop {
+  animation: damage-pop 0.18s ease-out;
+}
+
+@keyframes damage-pop {
+  0% {
+    transform: scale(1.3);
+    color: #ffe9b0;
+  }
+  100% {
+    transform: scale(1);
+    color: #fff;
+  }
+}
+
 .hud-fps {
   position: absolute;
   top: 14px;

@@ -9,7 +9,9 @@ function tile(label, value, sub) {
 /** Fill the results overlay for a finished run. */
 export function renderResults({ run, previousBest, isPersonalBest }) {
   $('#results-title').textContent = run.scenarioName;
-  $('#results-meta').textContent = `${run.difficultyLabel} · ${run.duration} s · ${run.fireMode === 'hold' ? 'Hold to fire' : 'Always firing'}`;
+  $('#results-meta').textContent = [run.difficultyLabel, `${run.duration} s`, run.weaponName, run.fireMode === 'hold' ? 'Hold to fire' : 'Always firing']
+    .filter(Boolean)
+    .join(' · ');
   $('#results-score').textContent = formatInt(run.score);
 
   const badge = $('#results-pb');
@@ -29,6 +31,11 @@ export function renderResults({ run, previousBest, isPersonalBest }) {
     ),
   ];
   if (run.headshotRate != null) tiles.push(tile('Head share', formatPercent(run.headshotRate), 'of time on target'));
+  if (run.shots > 0) {
+    tiles.push(
+      tile('Damage', formatInt(run.damage ?? 0), `${formatInt(run.hits ?? 0)} / ${formatInt(run.shots)} shots hit · ${formatPercent((run.hits ?? 0) / run.shots, 0)}`),
+    );
+  }
   $('#results-tiles').replaceChildren(...tiles);
 
   const timeline = run.timeline ?? [];

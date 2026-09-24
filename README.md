@@ -17,11 +17,19 @@ A browser aim trainer for **tracking** that uses your exact **Valorant sensitivi
     don't affect aim. There is also an input multiplier to calibrate other browsers.
   - A **Sensitivity check room** with heading markers every 45° and readouts for heading, total turn and physical
     mouse distance, so you can check a full 360 with a ruler.
-- **Six tracking scenarios:** Smooth Tracking, Strafe Bot (a humanoid bot A-D strafing at Valorant running speed,
-  with a head hitbox), Reactive Tracking, Air Tracking, Close-Range Micro and 360 Orbit.
+- **Six tracking scenarios:** Smooth Tracking, Strafe Bot (a humanoid bot A-D strafing at Valorant running speed),
+  Reactive Tracking, Air Tracking, Close-Range Micro and 360 Orbit.
+- **A precise target model.** The bot is built from the same numbers as its hitboxes (head, body with arms, and two
+  legs), so what you see is exactly what you can hit. It faces you, side-steps with animated legs the hitboxes
+  follow, and wears a Valorant-style outline in the target colour.
+- **Real firing.** Choose a Vandal, Phantom, Spectre or Odin: each fires at its Valorant rate with its close-range
+  damage. A first-person weapon kicks with recoil and muzzle flash, shots leave tracers, sparks on the target and
+  impact marks on the range, hits show a hit marker and a running damage number, and gunshots, damage ticks and
+  headshot rings are synthesised in the browser. Everything can be switched off for a clean view.
 - **Difficulty** presets (Easy, Normal, Hard, Insane) plus custom speed and size. Runs last **30, 60, 90 or 120 s**.
-- **Scoring:** accuracy, time on target, longest streak, average recovery time and head share. An
-  accuracy-over-time chart comes with a data table view.
+- **Scoring:** accuracy, time on target, longest streak, average recovery time and head share, plus shots, hits and
+  damage from the weapon simulation. Score stays weapon-independent so runs are comparable. An accuracy-over-time
+  chart comes with a data table view.
 - **Stats:** history saved in the browser, personal bests per scenario, difficulty and length, a score progress
   chart, filters and CSV export.
 - **Valorant-style crosshair editor:** color, outlines, center dot, inner and outer lines. Sizes are in real
@@ -29,7 +37,10 @@ A browser aim trainer for **tracking** that uses your exact **Valorant sensitivi
   your Tracklock crosshair back into Valorant.
 - **Gameplay options:** always-firing or hold-to-fire, countdown, target color presets, a glow while on target,
   hit sounds, render scale, fullscreen while playing and an FPS counter.
-- **Controls:** Esc pauses, R restarts, Enter plays again, M returns to the menu.
+- **Controls:** Esc pauses (resuming gives a 1-second count to re-find the target), R restarts, Enter plays again,
+  M returns to the menu. Hold the left mouse button in the check room to test-fire.
+- **The range:** a lit arena with image-based lighting, shadows, distance markers, pillars and a backstop for depth
+  cues. Shadows, render scale, the weapon and the shot effects are all optional for weaker GPUs.
 - **Privacy:** no accounts, no tracking and no server. Everything stays in `localStorage`.
 
 ## Sensitivity math
@@ -75,7 +86,8 @@ src/styles.css          All styles
 src/core/               Framework-free logic (unit tested)
   sensitivity.js        Valorant yaw, clamping, log slider, cm/360, conversions, FOV
   crosshairCode.js      Valorant crosshair profile code import/export
-  scoring.js            Tracking session: accuracy, streaks, recovery, timeline
+  scoring.js            Tracking session: accuracy, streaks, recovery, timeline, shots and damage
+  weapons.js            Valorant weapon fire rates and damage
   settings.js           Defaults and validation of every setting
   stats.js              Run history, personal bests, CSV export
   store.js / storage.js Observable settings, safe localStorage access
@@ -83,8 +95,11 @@ src/core/               Framework-free logic (unit tested)
 src/game/
   engine.js             three.js renderer, pointer-locked mouse input, run state machine
   scenarios.js          Target movement for the six scenarios, difficulties
-  hit.js                Ray–sphere / ray–capsule hit tests, bot hitboxes
-  arena.js              Room, targets and heading markers
+  hit.js                Ray–sphere / capsule / box tests, bot hitboxes and pose
+  bot.js                Humanoid target mesh built from the hitbox numbers
+  effects.js            Tracers, sparks, impact marks, muzzle light
+  viewmodel.js          First-person weapons with recoil, sway and muzzle flash
+  arena.js              The range: room, lighting, props, targets, heading markers
   crosshair.js          Pixel-exact crosshair drawing
 src/ui/                 Settings panel, sensitivity control, stats view, charts, results
 tests/                  Vitest suites

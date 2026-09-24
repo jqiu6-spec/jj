@@ -4,6 +4,7 @@
 export function createAudio() {
   let ctx = null;
   let master = null;
+  let noise = null;
   let volume = 0.5;
 
   function ensure() {
@@ -17,6 +18,15 @@ export function createAudio() {
     }
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     return ctx;
+  }
+
+  /** One second of white noise, shared by every gunshot. */
+  function noiseBuffer(audio) {
+    if (noise) return noise;
+    noise = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
+    const data = noise.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    return noise;
   }
 
   function tone({ freq, duration, type = 'sine', gain = 0.3, endFreq = freq, delay = 0 }) {
@@ -36,6 +46,28 @@ export function createAudio() {
     osc.stop(start + duration + 0.02);
   }
 
+  /** Filtered noise burst: the crack of a shot. */
+  function burst({ duration, gain, filterFreq, q = 0.8, type = 'bandpass' }) {
+    const audio = ensure();
+    if (!audio || volume <= 0) return;
+    const start = audio.currentTime;
+    const source = audio.createBufferSource();
+    source.buffer = noiseBuffer(audio);
+    source.loop = true;
+    source.loopStart = Math.random() * 0.5;
+    source.loopEnd = source.loopStart + 0.5;
+    const filter = audio.createBiquadFilter();
+    filter.type = type;
+    filter.frequency.value = filterFreq;
+    filter.Q.value = q;
+    const env = audio.createGain();
+    env.gain.setValueAtTime(gain, start);
+    env.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    source.connect(filter).connect(env).connect(master);
+    source.start(start, source.loopStart);
+    source.stop(start + duration + 0.02);
+  }
+
   return {
     /** Call from a user gesture so later sounds are allowed to play. */
     unlock: ensure,
@@ -43,8 +75,27 @@ export function createAudio() {
       volume = value;
       if (master) master.gain.value = value;
     },
+    /** A gunshot shaped by the weapon: suppressed ones are softer and duller. */
+    shot(weapon) {
+      const suppressed = Boolean(weapon?.suppressed);
+      const heavy = weapon?.kind === 'lmg';
+      burst({
+        duration: suppressed ? 0.07 : 0.11,
+        gain: suppressed ? 0.09 : heavy ? 0.2 : 0.16,
+        filterFreq: suppressed ? 900 : heavy ? 1500 : 2200,
+        q: 0.6,
+        type: suppressed ? 'lowpass' : 'bandpass',
+      });
+      tone({ freq: heavy ? 110 : 150, endFreq: 55, duration: suppressed ? 0.05 : 0.08, type: 'sine', gain: suppressed ? 0.12 : 0.28 });
+    },
+    /** Body hit: a short damage tick. */
     hit() {
-      tone({ freq: 2100, endFreq: 1500, duration: 0.035, type: 'triangle', gain: 0.12 });
+      tone({ freq: 1900, endFreq: 1300, duration: 0.03, type: 'triangle', gain: 0.14 });
+    },
+    /** Headshot: the brighter, ringing tick. */
+    headshot() {
+      tone({ freq: 2600, endFreq: 2100, duration: 0.05, type: 'triangle', gain: 0.18 });
+      tone({ freq: 3900, duration: 0.09, type: 'sine', gain: 0.08, delay: 0.005 });
     },
     countdown() {
       tone({ freq: 660, duration: 0.12, type: 'square', gain: 0.08 });

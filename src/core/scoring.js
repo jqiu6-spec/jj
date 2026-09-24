@@ -1,16 +1,21 @@
 // Scoring for a tracking run. The run is advanced with small time steps; each
 // step is credited to the target if the crosshair ray was on it while firing.
+// Score is time based (so it doesn't depend on frame rate or weapon); the
+// weapon adds a discrete shot simulation for hits, misses and damage numbers.
 
-/** Points per second of time on target, by hit zone. */
-export const ZONE_POINTS = { target: 100, body: 100, head: 200 };
+import { damageFor, fireRateAt } from './weapons.js';
+
+/** Points per second of time on target, by hit zone. Legs mirror Valorant's reduced leg damage. */
+export const ZONE_POINTS = { target: 100, body: 100, head: 200, legs: 85 };
 
 /** Off-target gaps shorter than this are edge jitter, not a lost target. */
 export const MIN_LOSS_DURATION = 0.1;
 
 export class TrackingSession {
-  constructor({ duration, tracksHead = false, bucketSize = 1 }) {
+  constructor({ duration, tracksHead = false, weapon = null, bucketSize = 1 }) {
     this.duration = duration;
     this.tracksHead = tracksHead;
+    this.weapon = weapon;
     this.bucketSize = bucketSize;
     this.elapsed = 0;
     this.firingTime = 0;
@@ -23,6 +28,14 @@ export class TrackingSession {
     this.hasAcquired = false;
     this.gap = 0;
     this.losses = [];
+    // Discrete shots
+    this.shots = 0;
+    this.hits = 0;
+    this.headHits = 0;
+    this.damage = 0;
+    this.wasFiring = false;
+    this.burstTime = 0;
+    this.shotClock = 0;
     this.buckets = Array.from({ length: Math.ceil(duration / bucketSize) }, () => ({
       firing: 0,
       onTarget: 0,
@@ -47,10 +60,11 @@ export class TrackingSession {
 
   /**
    * @param {number} dt seconds since the previous update
-   * @param {{firing: boolean, zone: null | 'target' | 'body' | 'head'}} frame
+   * @param {{firing: boolean, zone: null | 'target' | 'body' | 'head' | 'legs'}} frame
+   * @returns {{shots: number, hitZone: string | null}} shots fired during this step
    */
   update(dt, { firing, zone }) {
-    if (this.finished || !(dt > 0)) return;
+    if (this.finished || !(dt > 0)) return { shots: 0, hitZone: null };
     const step = Math.min(dt, this.duration - this.elapsed);
     const aimed = Boolean(zone);
     const hitting = firing && aimed;
@@ -80,6 +94,39 @@ export class TrackingSession {
     }
     this.onTarget = aimed;
     this.elapsed += step;
+
+    const shots = this.weapon ? this.#fireShots(step, firing, zone) : 0;
+    return { shots, hitZone: shots > 0 && aimed ? zone : null };
+  }
+
+  /** Fire at the weapon's rate: the first shot leaves the moment the trigger is pulled. */
+  #fireShots(step, firing, zone) {
+    if (!firing) {
+      this.wasFiring = false;
+      this.burstTime = 0;
+      this.shotClock = 0;
+      return 0;
+    }
+    let shots = 0;
+    if (!this.wasFiring) {
+      this.wasFiring = true;
+      this.shotClock = 1 / fireRateAt(this.weapon, 0);
+    }
+    this.shotClock += step;
+    this.burstTime += step;
+    let interval = 1 / fireRateAt(this.weapon, this.burstTime);
+    while (this.shotClock >= interval) {
+      this.shotClock -= interval;
+      shots += 1;
+      this.shots += 1;
+      if (zone) {
+        this.hits += 1;
+        if (zone === 'head') this.headHits += 1;
+        this.damage += damageFor(this.weapon, zone);
+      }
+      interval = 1 / fireRateAt(this.weapon, this.burstTime);
+    }
+    return shots;
   }
 
   #fillBuckets(step, firing, hitting) {
@@ -112,6 +159,10 @@ export class TrackingSession {
       avgRecovery: avg,
       targetLosses: this.losses.length,
       headshotRate: this.tracksHead && this.onTargetTime > 0 ? this.headTime / this.onTargetTime : null,
+      shots: this.shots,
+      hits: this.hits,
+      headHits: this.headHits,
+      damage: this.damage,
       timeline: this.buckets.map((b) => (b.firing > 0 ? Math.round((b.onTarget / b.firing) * 1000) / 1000 : null)),
     };
   }

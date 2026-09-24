@@ -1,4 +1,5 @@
 import { clampDpi, clampSensitivity, VALORANT_FOV } from './sensitivity.js';
+import { DEFAULT_WEAPON, WEAPONS } from './weapons.js';
 
 export const SETTINGS_KEY = 'tracklock.settings.v1';
 
@@ -51,18 +52,25 @@ export const DEFAULT_SETTINGS = Object.freeze({
   fov: VALORANT_FOV,
   // Gameplay
   fireMode: 'auto',
+  weapon: DEFAULT_WEAPON,
   countdown: true,
   targetColor: TARGET_COLORS[0].value,
   hitFeedback: true,
+  hitMarker: true,
+  damageNumbers: true,
+  showWeapon: true,
+  shotEffects: true,
   customSpeed: 1,
   customSize: 1,
   // Video
   renderScale: 1,
+  shadows: true,
   showFps: true,
   fullscreen: false,
   // Audio
   volume: 0.5,
   hitSounds: true,
+  weaponSounds: true,
   uiSounds: true,
   // Last launch choices
   scenario: 'smooth',
@@ -136,16 +144,23 @@ export function sanitizeSettings(raw) {
     inputMultiplier: num(s.inputMultiplier, d.inputMultiplier, 0.01, 10, 4),
     fov: num(s.fov, d.fov, 60, 130, 0),
     fireMode: oneOf(s.fireMode, d.fireMode, FIRE_MODES),
+    weapon: oneOf(s.weapon, d.weapon, WEAPONS.map((w) => w.id)),
     countdown: bool(s.countdown, d.countdown),
     targetColor: color(s.targetColor, d.targetColor),
     hitFeedback: bool(s.hitFeedback, d.hitFeedback),
+    hitMarker: bool(s.hitMarker, d.hitMarker),
+    damageNumbers: bool(s.damageNumbers, d.damageNumbers),
+    showWeapon: bool(s.showWeapon, d.showWeapon),
+    shotEffects: bool(s.shotEffects, d.shotEffects),
     customSpeed: num(s.customSpeed, d.customSpeed, 0.25, 3, 2),
     customSize: num(s.customSize, d.customSize, 0.25, 3, 2),
     renderScale: num(s.renderScale, d.renderScale, 0.5, 1.5, 2),
+    shadows: bool(s.shadows, d.shadows),
     showFps: bool(s.showFps, d.showFps),
     fullscreen: bool(s.fullscreen, d.fullscreen),
     volume: num(s.volume, d.volume, 0, 1, 2),
     hitSounds: bool(s.hitSounds, d.hitSounds),
+    weaponSounds: bool(s.weaponSounds, d.weaponSounds),
     uiSounds: bool(s.uiSounds, d.uiSounds),
     scenario: typeof s.scenario === 'string' ? s.scenario : d.scenario,
     difficulty: oneOf(s.difficulty, d.difficulty, DIFFICULTY_IDS),

@@ -11,6 +11,7 @@ import { clearStats, loadBests, loadHistory, recordRun, runKey } from './core/st
 import { createStorage } from './core/storage.js';
 import { createSettingsStore } from './core/store.js';
 import { DIFFICULTIES, getScenario, resolveDifficulty, SCENARIOS } from './game/scenarios.js';
+import { getWeapon, WEAPONS } from './core/weapons.js';
 import { $, $$, bindRovingRadios, h, markRadios, setText } from './ui/dom.js';
 import { formatCm, formatInt, formatPercent } from './ui/format.js';
 import { scenarioIcon } from './ui/icons.js';
@@ -35,6 +36,7 @@ const els = {
   game: $('#game'),
   canvas: $('#game-canvas'),
   crosshair: $('#crosshair-canvas'),
+  fx: $('#fx-canvas'),
   overlays: {
     waiting: $('#overlay-waiting'),
     paused: $('#overlay-paused'),
@@ -48,6 +50,7 @@ const els = {
     accuracy: $('#hud-accuracy'),
     score: $('#hud-score'),
     countdown: $('#hud-countdown'),
+    damage: $('#hud-damage'),
     fps: $('#hud-fps'),
     scenario: $('#hud-scenario'),
     sens: $('#hud-sens'),
@@ -87,6 +90,7 @@ function route() {
 const scenarioGrid = $('#scenario-grid');
 const difficultyPicker = $('#difficulty-picker');
 const durationPicker = $('#duration-picker');
+const weaponPicker = $('#weapon-picker');
 const scenarioCards = new Map();
 
 function currentDifficulty(state = store.get()) {
@@ -138,6 +142,24 @@ function buildPlayView() {
   );
   bindRovingRadios(durationPicker, (value) => store.set('duration', Number(value)));
 
+  weaponPicker.append(
+    ...WEAPONS.map((w) =>
+      h('button', { type: 'button', role: 'radio', class: 'seg', dataset: { value: w.id }, onclick: () => store.set('weapon', w.id) }, w.name),
+    ),
+  );
+  bindRovingRadios(weaponPicker, (value) => store.set('weapon', value));
+
+  $('#guide-weapons').append(
+    ...WEAPONS.flatMap((w) => [
+      h('dt', {}, w.name),
+      h(
+        'dd',
+        {},
+        `${w.fireRate}${w.spinUp ? `–${w.spinUp.fireRate}` : ''} rounds/s · ${w.damage.head} head · ${w.damage.body} body · ${w.damage.legs} legs${w.suppressed ? ' · suppressed' : ''}`,
+      ),
+    ]),
+  );
+
   $('#quick-sens').append(createSensitivityControl(store).root);
   $('#start-btn').addEventListener('click', () => startRun());
   $('#sandbox-btn').addEventListener('click', () => startSandbox());
@@ -158,6 +180,12 @@ function updatePlayView(state = store.get()) {
   markRadios(scenarioGrid, scenario.id);
   markRadios(difficultyPicker, state.difficulty);
   markRadios(durationPicker, state.duration);
+  markRadios(weaponPicker, state.weapon);
+  const weapon = getWeapon(state.weapon);
+  setText(
+    $('#weapon-hint'),
+    `${weapon.fireRate}${weapon.spinUp ? `–${weapon.spinUp.fireRate}` : ''} rounds/s · ${weapon.damage.head} / ${weapon.damage.body} / ${weapon.damage.legs} damage (head / body / legs)`,
+  );
 
   setText($('#launch-focus'), scenario.focus);
   setText($('#launch-name'), scenario.name);
@@ -178,13 +206,22 @@ function updatePlayView(state = store.get()) {
 
 // ---------------------------------------------------------------- game layer
 
-async function ensureEngine() {
-  if (engine) return engine;
+let engineBuild = null;
+
+/** Create the engine once; concurrent callers share the same build. */
+function ensureEngine() {
+  if (engine) return Promise.resolve(engine);
+  engineBuild ??= buildEngine();
+  return engineBuild;
+}
+
+async function buildEngine() {
   try {
     const { Engine } = await enginePromise;
     engine = new Engine({
       canvas: els.canvas,
       crosshairCanvas: els.crosshair,
+      fxCanvas: els.fx,
       audio,
       settings: store.get(),
       onState: handleState,
@@ -241,8 +278,9 @@ function updateCorners() {
   const state = store.get();
   const raw = engine?.locked ? (engine.rawActive ? 'raw input on' : 'raw input off') : '';
   setText(els.hud.sens, [sensSummary(state), raw].filter(Boolean).join(' · '));
-  if (engine?.mode === 'sandbox') setText(els.hud.scenario, 'Sensitivity check room');
-  else if (engine?.run) setText(els.hud.scenario, `${engine.run.scenario.name} · ${engine.run.difficulty.label}`);
+  const weapon = getWeapon(state.weapon).name;
+  if (engine?.mode === 'sandbox') setText(els.hud.scenario, `Sensitivity check room · ${weapon} (hold LMB to test-fire)`);
+  else if (engine?.run) setText(els.hud.scenario, `${engine.run.scenario.name} · ${engine.run.difficulty.label} · ${weapon}`);
   setText(els.hud.cm360, formatCm(cmPer360(state.sensitivity, state.dpi)));
 }
 
@@ -269,7 +307,10 @@ async function startRun() {
   audio.unlock();
   const state = store.get();
   showGame();
+  // Ask for fullscreen while the click's user activation is still fresh.
+  const fullscreen = enterFullscreen();
   const eng = await ensureEngine();
+  await fullscreen;
   if (!eng) return;
   eng.resize();
   const scenario = getScenario(state.scenario);
@@ -290,7 +331,9 @@ async function startRun() {
 async function startSandbox() {
   audio.unlock();
   showGame();
+  const fullscreen = enterFullscreen();
   const eng = await ensureEngine();
+  await fullscreen;
   if (!eng) return;
   eng.resize();
   setText($('#waiting-eyebrow'), 'No timer, no score');
@@ -311,7 +354,7 @@ function goToMenu() {
 }
 
 function handleState(state) {
-  document.body.classList.toggle('is-locked', state === 'countdown' || state === 'running' || state === 'sandbox');
+  document.body.classList.toggle('is-locked', state === 'countdown' || state === 'running' || state === 'ending' || state === 'sandbox');
   if (state === 'waiting') showOverlay('waiting');
   else if (state === 'paused') {
     setText($('#paused-desc'), engine.mode === 'sandbox' ? 'Resume to keep checking, or head back to the menu.' : 'Click resume to lock the mouse again.');
@@ -319,6 +362,10 @@ function handleState(state) {
   } else if (state === 'idle') hideGame();
   else hideOverlays();
   if (state !== 'countdown') setText(els.hud.countdown, '');
+  if (state === 'waiting' || state === 'paused' || state === 'idle' || state === 'finished') {
+    setText(els.hud.damage, '');
+    els.hud.countdown.classList.remove('is-flash', 'is-time');
+  }
   updateCorners();
 }
 
@@ -339,8 +386,21 @@ function updateHud(hud) {
   setText(els.hud.accuracy, formatPercent(hud.accuracy));
   setText(els.hud.score, formatInt(hud.score));
   els.hud.timer.parentElement.classList.toggle('on-target', hud.onTarget && hud.state === 'running');
-  setText(els.hud.countdown, hud.state === 'countdown' ? String(hud.countdown) : '');
+  const flash = hud.state === 'countdown' ? String(hud.countdown) : hud.flash;
+  setText(els.hud.countdown, flash);
+  els.hud.countdown.classList.toggle('is-flash', Boolean(hud.flash) && hud.state !== 'countdown');
+  els.hud.countdown.classList.toggle('is-time', hud.flash === 'TIME');
+  // Damage ticker: the total pops on every new hit.
+  setText(els.hud.damage, hud.damage > 0 ? formatInt(hud.damage) : '');
+  if (hud.damageHits !== lastDamageHits) {
+    lastDamageHits = hud.damageHits;
+    els.hud.damage.classList.remove('pop');
+    void els.hud.damage.offsetWidth; // restart the animation
+    els.hud.damage.classList.add('pop');
+  }
 }
+
+let lastDamageHits = 0;
 
 function handleFinish(result) {
   const state = store.get();
@@ -352,6 +412,8 @@ function handleFinish(result) {
     dpi: state.dpi,
     fov: state.fov,
     fireMode: state.fireMode,
+    weapon: result.weapon,
+    weaponName: result.weaponName,
   };
   const outcome = recordRun(storage, stats, run);
   stats = { history: outcome.history, bests: outcome.bests };
@@ -457,6 +519,11 @@ const finePointer = window.matchMedia?.('(pointer: fine)').matches ?? true;
 if (!finePointer || !('requestPointerLock' in Element.prototype)) $('#device-notice').hidden = false;
 
 enginePromise.catch((error) => console.error('Failed to load the game engine', error));
+
+// Build the renderer while the menu is idle so the first Start is instant.
+const warmUp = () => ensureEngine();
+if ('requestIdleCallback' in window) requestIdleCallback(warmUp, { timeout: 3000 });
+else setTimeout(warmUp, 800);
 
 // Dev-server only hook for poking at the engine from the console / browser tests.
 if (import.meta.env.DEV) {

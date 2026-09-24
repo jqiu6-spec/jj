@@ -3,6 +3,7 @@
 // looking down -Z. Movement code is free of three.js so it can be tested.
 
 import { randomBetween, randomSign } from '../core/random.js';
+import { BOT_SHAPE } from './hit.js';
 
 export const EYE_HEIGHT = 1.6;
 
@@ -118,6 +119,32 @@ function smooth({ rng, speed, size }) {
   };
 }
 
+/** Stride cycle rate in radians per metre travelled (about 2.6 steps per second at running speed). */
+const STRIDE_RATE = 2.4;
+const MAX_LEG_SWING = 0.42;
+
+/**
+ * Procedural side-step animation. The pose lives on the target so the hitboxes
+ * in hit.js and the mesh in bot.js read the same leg angles.
+ */
+export function animateBotPose(pose, velocity, dt, scale = 1) {
+  const speed = Math.hypot(velocity.x, velocity.z);
+  const stride = speed / scale;
+  pose.phase = (pose.phase + stride * STRIDE_RATE * dt) % (Math.PI * 2);
+  // Strength follows speed so the legs settle when the bot stops.
+  const amount = Math.min(1, stride / RUN_SPEED);
+  pose.amount += (amount - pose.amount) * (1 - Math.exp(-14 * dt));
+  const swing = MAX_LEG_SWING * pose.amount * Math.sin(pose.phase);
+  pose.legs[0] = 0.04 + Math.max(-0.04, -swing);
+  pose.legs[1] = 0.04 + Math.max(-0.04, swing);
+  pose.bob = BOT_SHAPE.bobHeight * pose.amount * Math.abs(Math.sin(pose.phase));
+  return pose;
+}
+
+export function createBotPose() {
+  return { legs: [0.04, 0.04], bob: 0, phase: 0, amount: 0 };
+}
+
 function strafe({ rng, speed, size }) {
   const bounds = { min: { x: -6.5, y: 0, z: -18 }, max: { x: 6.5, y: 0, z: -12 } };
   const position = { x: randomBetween(rng, -1, 1), y: 0, z: -15 };
@@ -129,8 +156,9 @@ function strafe({ rng, speed, size }) {
   let timer = randomBetween(rng, 0.3, 0.7);
   let depthTarget = 0;
   let depthTimer = 0;
+  const pose = createBotPose();
   return {
-    target: { kind: 'bot', position, scale: size },
+    target: { kind: 'bot', position, scale: size, pose },
     bounds,
     update(dt) {
       timer -= dt;
@@ -160,6 +188,7 @@ function strafe({ rng, speed, size }) {
       }
       vz = approach(vz, depthTarget, 8 * dt);
       position.z = clamp(position.z + vz * dt, bounds.min.z, bounds.max.z);
+      animateBotPose(pose, { x: vx, z: vz }, dt, size);
     },
   };
 }

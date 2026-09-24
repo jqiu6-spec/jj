@@ -92,6 +92,12 @@
                 <div class="segmented" id="duration-picker" role="radiogroup" aria-labelledby="duration-label"></div>
               </div>
 
+              <div class="field">
+                <span class="label" id="weapon-label">Weapon</span>
+                <div class="segmented" id="weapon-picker" role="radiogroup" aria-labelledby="weapon-label"></div>
+                <p class="hint" id="weapon-hint"></p>
+              </div>
+
               <div id="quick-sens"></div>
 
               <div class="pb-line" id="launch-pb"></div>
@@ -244,7 +250,9 @@
                 <dt>Accuracy</dt>
                 <dd>Time on target ÷ time spent firing. With <em>Always firing</em> on, that is the whole run.</dd>
                 <dt>Score</dt>
-                <dd>100 points per second on target. Time on the strafe bot’s head is worth 200.</dd>
+                <dd>100 points per second on target. Time on the strafe bot’s head is worth 200, time on its legs 85. The score does not depend on the weapon.</dd>
+                <dt>Hits and damage</dt>
+                <dd>Your weapon fires at its Valorant rate while you hold the trigger. Every shot is a hit or a miss, and hits add the weapon’s close-range damage: 160 for a Vandal headshot, 40 for a body shot.</dd>
                 <dt>Longest streak</dt>
                 <dd>The longest unbroken time you stayed on target.</dd>
                 <dt>Avg recovery</dt>
@@ -252,6 +260,13 @@
                 <dt>Personal best</dt>
                 <dd>Kept separately for each scenario, difficulty and run length, so you only compare like with like.</dd>
               </dl>
+            </article>
+
+            <article class="panel prose">
+              <h2>Weapons</h2>
+              <p>Pick a weapon in the launch panel. Fire rates and damage follow Valorant’s close-range numbers; the hitboxes on the bot are head, body (with arms) and legs.</p>
+              <dl class="def-list" id="guide-weapons"></dl>
+              <p>Hold the left mouse button in the sensitivity check room to test-fire without scoring.</p>
             </article>
 
             <article class="panel prose">
@@ -279,6 +294,7 @@
     <div class="game" id="game" hidden>
       <canvas id="game-canvas" class="game-canvas"></canvas>
       <canvas id="crosshair-canvas" class="crosshair-canvas" aria-hidden="true"></canvas>
+      <canvas id="fx-canvas" class="crosshair-canvas" aria-hidden="true"></canvas>
 
       <div class="hud" id="hud" aria-hidden="true">
         <div class="hud-top" id="hud-run">
@@ -312,6 +328,7 @@
         </div>
 
         <div class="hud-countdown" id="hud-countdown"></div>
+        <div class="hud-damage" id="hud-damage"></div>
         <div class="hud-fps" id="hud-fps"></div>
         <div class="hud-corner hud-left" id="hud-scenario"></div>
         <div class="hud-corner hud-right" id="hud-sens"></div>

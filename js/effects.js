@@ -25,8 +25,8 @@ const TYPES = {
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _c = new THREE.Vector3();
-const _q = new THREE.Quaternion();
 const UP = new THREE.Vector3(0, 1, 0);
+const WHITE = new THREE.Color(1, 1, 1);
 
 function glowTexture() {
   const c = document.createElement('canvas');
@@ -177,7 +177,7 @@ export class Effects {
     for (let i = 0; i < n; i++) {
       const s = this.take(this.sparks, () => ({ obj: new THREE.Sprite(this.spriteMat()), vel: new THREE.Vector3() }));
       s.obj.material.color.copy(this.color);
-      if (hit) s.obj.material.color.lerp(_a.setScalar(1), 0.35);
+      if (hit) s.obj.material.color.lerp(WHITE, 0.35);
       s.obj.position.copy(at);
       s.vel.set(Math.random() - 0.5, Math.random() - 0.3, Math.random() - 0.5).normalize().multiplyScalar(T.burstSpeed * (0.4 + Math.random()));
       s.size = T.width * (T.embers ? 1.2 : 2) * (0.5 + Math.random());
@@ -199,6 +199,8 @@ export class Effects {
     const T = TYPES[this.type];
     for (const b of this.bolts) {
       if (b.life <= 0) continue;
+      // The effect was switched off mid-flight: drop the bolt quietly.
+      if (!T) { b.life = 0; b.obj.visible = false; continue; }
       b.dist += T.speed * dt;
       if (b.dist >= b.total) {
         b.life = 0;

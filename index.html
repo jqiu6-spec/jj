@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tracklock · Tracking Aim Trainer</title>
+    <meta
+      name="description"
+      content="Free browser tracking aim trainer with Valorant-accurate sensitivity (0.0001 to 100), six tracking scenarios, a custom crosshair and progress stats."
+    />
+    <meta name="theme-color" content="#0b0f14" />
+    <meta name="color-scheme" content="dark" />
+    <meta property="og:title" content="Tracklock · Tracking Aim Trainer" />
+    <meta
+      property="og:description"
+      content="Train your tracking in the browser with your exact Valorant sensitivity."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div class="app" id="app">
+      <header class="topbar">
+        <a class="brand" href="#play" aria-label="Tracklock home">
+          <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+            <circle cx="32" cy="32" r="17" fill="none" stroke="currentColor" stroke-width="5" />
+            <rect x="29.5" y="4" width="5" height="14" rx="2.5" fill="currentColor" />
+            <rect x="29.5" y="46" width="5" height="14" rx="2.5" fill="currentColor" />
+            <rect x="4" y="29.5" width="14" height="5" rx="2.5" fill="currentColor" />
+            <rect x="46" y="29.5" width="14" height="5" rx="2.5" fill="currentColor" />
+            <circle cx="32" cy="32" r="5" fill="var(--target)" />
+          </svg>
+          <span>Tracklock</span>
+        </a>
+        <nav class="nav" aria-label="Main">
+          <a href="#play" data-view-link="play">Play</a>
+          <a href="#stats" data-view-link="stats">Stats</a>
+          <a href="#guide" data-view-link="guide">Guide</a>
+        </nav>
+        <button class="btn btn-ghost settings-btn" type="button" id="open-settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="icon">
+            <path
+              d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.4-2.3.05-1.2-.05-1.2 2-1.6-2-3.4-2.4.9a7.8 7.8 0 0 0-2.1-1.2L14.5 3h-5l-.4 2.5a7.8 7.8 0 0 0-2.1 1.2l-2.4-.9-2 3.4 2 1.6L4.55 12l.05 1.2-2 1.6 2 3.4 2.4-.9c.63.5 1.33.9 2.1 1.2L9.5 21h5l.4-2.5a7.8 7.8 0 0 0 2.1-1.2l2.4.9 2-3.4-2-1.6Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span>Settings</span>
+        </button>
+      </header>
+
+      <div class="notice" id="device-notice" role="status" hidden>
+        Tracklock needs a mouse and a desktop browser with pointer lock. For accurate sensitivity use Chrome or
+        Edge.
+      </div>
+
+      <main id="main">
+        <!-- PLAY -->
+        <section class="view" id="view-play" data-view="play" aria-labelledby="play-title">
+          <div class="play-grid">
+            <div class="scenario-area">
+              <div class="section-head">
+                <div>
+                  <h1 id="play-title">Tracking scenarios</h1>
+                  <p class="lede">
+                    Pick a drill, set your Valorant sensitivity and keep your crosshair on the target for the whole
+                    run.
+                  </p>
+                </div>
+              </div>
+              <div class="scenario-grid" id="scenario-grid" role="radiogroup" aria-label="Scenario"></div>
+            </div>
+
+            <aside class="panel launch" aria-labelledby="launch-name">
+              <div class="launch-head">
+                <span class="eyebrow" id="launch-focus"></span>
+                <h2 id="launch-name"></h2>
+                <p id="launch-desc" class="muted"></p>
+              </div>
+
+              <div class="field">
+                <span class="label" id="difficulty-label">Difficulty</span>
+                <div class="segmented" id="difficulty-picker" role="radiogroup" aria-labelledby="difficulty-label"></div>
+                <p class="hint" id="custom-hint" hidden></p>
+              </div>
+
+              <div class="field">
+                <span class="label" id="duration-label">Duration</span>
+                <div class="segmented" id="duration-picker" role="radiogroup" aria-labelledby="duration-label"></div>
+              </div>
+
+              <div id="quick-sens"></div>
+
+              <div class="pb-line" id="launch-pb"></div>
+
+              <button class="btn btn-primary btn-xl" type="button" id="start-btn">
+                Start <kbd>Enter</kbd>
+              </button>
+              <button class="btn btn-secondary" type="button" id="sandbox-btn">Sensitivity check room</button>
+              <p class="hint center">Esc pauses · R restarts · Fire mode: <span id="fire-mode-hint"></span></p>
+            </aside>
+          </div>
+        </section>
+
+        <!-- STATS -->
+        <section class="view" id="view-stats" data-view="stats" aria-labelledby="stats-title" hidden>
+          <div class="section-head">
+            <div>
+              <h1 id="stats-title">Stats</h1>
+              <p class="lede">Every run is saved in this browser. Compare runs with the same scenario, difficulty and length.</p>
+            </div>
+            <div class="actions">
+              <button class="btn btn-secondary" type="button" id="export-csv">Export CSV</button>
+              <button class="btn btn-danger-ghost" type="button" id="clear-stats">Clear history</button>
+            </div>
+          </div>
+
+          <div class="filters" role="group" aria-label="Filter runs">
+            <label class="select-field">
+              <span>Scenario</span>
+              <select id="filter-scenario"></select>
+            </label>
+            <label class="select-field">
+              <span>Difficulty</span>
+              <select id="filter-difficulty"></select>
+            </label>
+            <label class="select-field">
+              <span>Duration</span>
+              <select id="filter-duration"></select>
+            </label>
+          </div>
+
+          <div class="tiles" id="stats-tiles"></div>
+
+          <div class="panel chart-panel">
+            <div class="panel-head">
+              <h2>Score progress</h2>
+              <p class="muted" id="progress-caption"></p>
+            </div>
+            <div id="progress-chart" class="chart-host"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Runs</h2>
+              <p class="muted" id="runs-caption"></p>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="runs-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Scenario</th>
+                    <th scope="col">Difficulty</th>
+                    <th scope="col" class="num">Length</th>
+                    <th scope="col" class="num">Score</th>
+                    <th scope="col" class="num">Accuracy</th>
+                    <th scope="col" class="num">Longest streak</th>
+                    <th scope="col" class="num">Avg recovery</th>
+                    <th scope="col" class="num">Sens</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <p class="empty" id="runs-empty" hidden>No runs yet for this filter. Go play one.</p>
+          </div>
+        </section>
+
+        <!-- GUIDE -->
+        <section class="view guide" id="view-guide" data-view="guide" aria-labelledby="guide-title" hidden>
+          <div class="section-head">
+            <div>
+              <h1 id="guide-title">Guide</h1>
+              <p class="lede">How Tracklock matches your Valorant sensitivity, and how to get the most out of each drill.</p>
+            </div>
+          </div>
+
+          <div class="guide-grid">
+            <article class="panel prose">
+              <h2>Quick start</h2>
+              <ol>
+                <li>Type your <strong>Valorant sensitivity</strong> and <strong>mouse DPI</strong> in the launch panel. Anything from 0.0001 to 100 works.</li>
+                <li>Pick a scenario, a difficulty and a run length.</li>
+                <li>Press <strong>Start</strong>. The mouse locks to the game. Keep your crosshair on the target until the timer runs out.</li>
+                <li><kbd>Esc</kbd> pauses, <kbd>R</kbd> restarts, and <kbd>Enter</kbd> plays again from the results screen.</li>
+              </ol>
+            </article>
+
+            <article class="panel prose">
+              <h2>How sensitivity matching works</h2>
+              <p>
+                At sensitivity 1.0, Valorant turns <strong>0.07°</strong> for every count your mouse reports.
+                Tracklock uses the same formula, so the same number gives the same turn:
+              </p>
+              <p class="formula">degrees per count = sensitivity × 0.07</p>
+              <p class="formula">cm/360 = 360 ÷ (sensitivity × 0.07) ÷ DPI × 2.54</p>
+              <p>
+                For example, 0.4 at 800 DPI is 40.8 cm for a full turn in both games. The horizontal field of view
+                defaults to Valorant’s <strong>103°</strong>, so targets look the same size at the same distance.
+              </p>
+              <p>
+                Sensitivity accepts up to 4 decimals. The slider is logarithmic: each sixth of the track is one power
+                of ten, from 0.0001 to 100. Use <kbd>↑</kbd>/<kbd>↓</kbd> in the number box for fine steps. Add
+                <kbd>Shift</kbd> for steps ten times bigger.
+              </p>
+            </article>
+
+            <article class="panel prose">
+              <h2>Getting 1:1 mouse input</h2>
+              <ul>
+                <li>
+                  Use <strong>Chrome or Edge</strong> on Windows or macOS and leave <em>Raw input</em> on. The browser
+                  then reports raw mouse counts, like Valorant does, and ignores Windows pointer speed and “Enhance
+                  pointer precision”.
+                </li>
+                <li>
+                  Firefox, Safari and Linux browsers don’t offer raw input yet. Set the Windows pointer speed to the
+                  default (6 of 11) and turn off <em>Enhance pointer precision</em>. On macOS, turn off pointer
+                  acceleration in System Settings → Mouse.
+                </li>
+                <li>The in-game corner readout shows whether raw input is active.</li>
+              </ul>
+              <h3>Verify it</h3>
+              <p>
+                Open the <strong>Sensitivity check room</strong>. Line your crosshair up with the 0° marker, then
+                move your mouse exactly your cm/360 along a ruler. You should land back on 0°. You can also move the
+                mouse 10 cm and read <em>Mouse moved</em>. If it shows a different distance <em>X</em>, set
+                <em>Input multiplier</em> (Settings → Sensitivity) to 10 ÷ <em>X</em>.
+              </p>
+            </article>
+
+            <article class="panel prose">
+              <h2>Scenarios</h2>
+              <dl class="scenario-list" id="guide-scenarios"></dl>
+            </article>
+
+            <article class="panel prose">
+              <h2>Scoring</h2>
+              <dl class="def-list">
+                <dt>Accuracy</dt>
+                <dd>Time on target ÷ time spent firing. With <em>Always firing</em> on, that is the whole run.</dd>
+                <dt>Score</dt>
+                <dd>100 points per second on target. Time on the strafe bot’s head is worth 200.</dd>
+                <dt>Longest streak</dt>
+                <dd>The longest unbroken time you stayed on target.</dd>
+                <dt>Avg recovery</dt>
+                <dd>How long it takes you to get back on the target after losing it for more than 0.1 s.</dd>
+                <dt>Personal best</dt>
+                <dd>Kept separately for each scenario, difficulty and run length, so you only compare like with like.</dd>
+              </dl>
+            </article>
+
+            <article class="panel prose">
+              <h2>Tracking tips</h2>
+              <ul>
+                <li>Aim for smoothness over speed. Match the target’s speed instead of chasing it.</li>
+                <li>Loosen your grip. Tense muscles cause jitter, which shows up as a low streak.</li>
+                <li>Stay on one sensitivity for weeks. Consistency beats constant tweaking.</li>
+                <li>Mix drills. Smooth and Strafe build control. Reactive and Micro build fast corrections.</li>
+                <li>Watch the accuracy-over-time chart. A drop late in the run means focus or fatigue.</li>
+              </ul>
+              <h3>Privacy</h3>
+              <p>No accounts and no tracking. Settings and stats stay in this browser’s local storage.</p>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>Tracklock is a fan-made practice tool. It is not affiliated with or endorsed by Riot Games. VALORANT is a trademark of Riot Games, Inc.</span>
+      </footer>
+    </div>
+
+    <!-- GAME LAYER -->
+    <div class="game" id="game" hidden>
+      <canvas id="game-canvas" class="game-canvas"></canvas>
+      <canvas id="crosshair-canvas" class="crosshair-canvas" aria-hidden="true"></canvas>
+
+      <div class="hud" id="hud" aria-hidden="true">
+        <div class="hud-top" id="hud-run">
+          <div class="hud-stat">
+            <span class="hud-label">Accuracy</span>
+            <span class="hud-value" id="hud-accuracy">0.0%</span>
+          </div>
+          <div class="hud-timer">
+            <span class="hud-value" id="hud-timer">60.0</span>
+            <span class="hud-progress"><span id="hud-progress-fill"></span></span>
+          </div>
+          <div class="hud-stat">
+            <span class="hud-label">Score</span>
+            <span class="hud-value" id="hud-score">0</span>
+          </div>
+        </div>
+
+        <div class="hud-sandbox" id="hud-sandbox" hidden>
+          <span class="hud-label">Sensitivity check</span>
+          <dl>
+            <dt>Heading</dt>
+            <dd id="sb-heading">0.0°</dd>
+            <dt>Turned</dt>
+            <dd id="sb-turned">0.0°</dd>
+            <dt>Mouse moved</dt>
+            <dd id="sb-moved">0.00 cm</dd>
+            <dt>Your cm/360</dt>
+            <dd id="sb-cm360"></dd>
+          </dl>
+          <p><kbd>Space</kbd> reset counters · <kbd>R</kbd> recenter · <kbd>Esc</kbd> pause</p>
+        </div>
+
+        <div class="hud-countdown" id="hud-countdown"></div>
+        <div class="hud-fps" id="hud-fps"></div>
+        <div class="hud-corner hud-left" id="hud-scenario"></div>
+        <div class="hud-corner hud-right" id="hud-sens"></div>
+      </div>
+
+      <div class="overlay" id="overlay-waiting" hidden>
+        <div class="overlay-card clickable" id="waiting-card" role="button" tabindex="0" aria-describedby="waiting-desc">
+          <span class="eyebrow" id="waiting-eyebrow"></span>
+          <h2 id="waiting-title"></h2>
+          <p class="big-cta">Click to start</p>
+          <p class="muted" id="waiting-desc"></p>
+          <p class="lock-error" id="waiting-error" role="alert" hidden></p>
+          <div class="overlay-actions">
+            <button class="btn btn-ghost" type="button" data-action="menu">Back to menu</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="overlay-paused" hidden>
+        <div class="overlay-card" role="dialog" aria-labelledby="paused-title">
+          <h2 id="paused-title">Paused</h2>
+          <p class="muted" id="paused-desc">Click resume to lock the mouse again.</p>
+          <p class="lock-error" id="paused-error" role="alert" hidden></p>
+          <div class="overlay-actions column">
+            <button class="btn btn-primary btn-xl" type="button" data-action="resume">Resume</button>
+            <button class="btn btn-secondary" type="button" data-action="restart">Restart</button>
+            <button class="btn btn-secondary" type="button" data-action="settings">Settings</button>
+            <button class="btn btn-ghost" type="button" data-action="menu">Quit to menu</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="overlay-results" hidden>
+        <div class="overlay-card results-card" role="dialog" aria-labelledby="results-title">
+          <div class="results-head">
+            <div>
+              <span class="eyebrow" id="results-meta"></span>
+              <h2 id="results-title"></h2>
+            </div>
+            <div class="results-score">
+              <span class="hero-label">Score</span>
+              <span class="hero-value" id="results-score">0</span>
+              <span class="pb-badge" id="results-pb"></span>
+            </div>
+          </div>
+          <div class="tiles compact" id="results-tiles"></div>
+          <div class="chart-block">
+            <div class="panel-head">
+              <h3>Accuracy over time</h3>
+              <p class="muted">Share of each second spent on target</p>
+            </div>
+            <div id="results-chart" class="chart-host short"></div>
+            <details class="data-details">
+              <summary>Show data table</summary>
+              <div class="table-wrap">
+                <table class="data-table" id="results-table">
+                  <thead>
+                    <tr><th scope="col">Second</th><th scope="col" class="num">Accuracy</th></tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+          <p class="lock-error" id="results-error" role="alert" hidden></p>
+          <div class="overlay-actions">
+            <button class="btn btn-primary btn-xl" type="button" data-action="restart">Play again <kbd>Enter</kbd></button>
+            <button class="btn btn-secondary" type="button" data-action="settings">Settings</button>
+            <button class="btn btn-ghost" type="button" data-action="menu">Menu <kbd>M</kbd></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <dialog class="settings" id="settings-dialog" aria-labelledby="settings-title">
+      <div class="settings-card">
+        <header class="settings-head">
+          <h2 id="settings-title">Settings</h2>
+          <button class="btn btn-icon" type="button" data-close aria-label="Close settings">✕</button>
+        </header>
+        <div class="tabs" role="tablist" id="settings-tabs"></div>
+        <div class="settings-body" id="settings-panels"></div>
+        <footer class="settings-foot">
+          <button class="btn btn-danger-ghost" type="button" id="reset-settings">Reset all settings</button>
+          <button class="btn btn-primary" type="button" data-close>Done</button>
+        </footer>
+      </div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

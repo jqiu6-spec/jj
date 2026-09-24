@@ -85,3 +85,18 @@ export function verticalFov(hfovDeg, aspect) {
   const h = (hfovDeg * Math.PI) / 180;
   return (2 * Math.atan(Math.tan(h / 2) / aspect) * 180) / Math.PI;
 }
+
+// Per-scenario setups (target count, health, hitbox), keyed by scenario id.
+const SETUP_KEY = 'trackline.setups.v1';
+
+export function loadSetups() {
+  try {
+    return JSON.parse(localStorage.getItem(SETUP_KEY)) || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+export function saveSetups(s) {
+  try { localStorage.setItem(SETUP_KEY, JSON.stringify(s)); } catch (e) { /* ignore */ }
+}

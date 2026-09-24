@@ -9,8 +9,7 @@ const randIn = (range) => rand(range[0], range[1]);
 const sign = () => (Math.random() < 0.5 ? -1 : 1);
 
 function farEnough(t, pos, ctx) {
-  const sep = ctx.scn.minSep || 0;
-  if (!sep) return true;
+  const sep = ctx.scn.minSep ?? 2;
   for (const o of ctx.targets) {
     if (o === t || !o.alive) continue;
     if (o.pos.distanceTo(pos) < sep) return false;
@@ -128,6 +127,159 @@ const strafe = {
   },
 };
 
+// Valorant-style agent movement. Speeds are community-measured Valorant values
+// (run, shift-walk, crouch); acceleration, jump and crouch timings are tuned to
+// feel like them rather than copied from the game.
+export const AGENT = {
+  run: 6.75, // m/s
+  walk: 3.73,
+  crouch: 2.03,
+  accel: 60, // m/s², reaches full run speed in about 0.11 s
+  decel: 90, // counter-strafe / release: a dead stop in about 0.075 s
+  airAccel: 6, // weak air control, so a jump commits the bot to its arc
+  jumpVel: 6.4, // with gravity 21: about 1 m apex, 0.6 s in the air
+  gravity: 21,
+  crouchTime: 0.12, // s to go fully down or up
+  radius: 0.3, // body capsule
+  bodyStand: 1.46, // top of the body capsule, standing
+  bodyCrouch: 1.02, // ... crouched (head drops 0.44 m)
+  neck: 0.05,
+  head: 0.14, // head hitbox radius
+};
+
+// Body top and head centre height (above the feet) for the current crouch.
+export function agentDims(t) {
+  const c = t.m.crouch || 0;
+  const top = AGENT.bodyStand + (AGENT.bodyCrouch - AGENT.bodyStand) * c;
+  return { top, headY: top + AGENT.neck + AGENT.head };
+}
+
+// What each action looks like from the other side of a duel.
+export const AGENT_MOVES = {
+  strafe: 'ADAD strafes',
+  stop: 'counter-strafe stops',
+  swing: 'wide swings',
+  walk: 'shift-walks',
+  crouchWalk: 'crouch-walks',
+  crouchSpam: 'crouch spam',
+  jump: 'jumps',
+};
+
+// The bot picks weighted actions (motion.mix) back to back, the way a player
+// chains ADAD, stops to shoot, crouches, walks and jumps. Positions are feet.
+const agent = {
+  spawn(t, ctx) {
+    const m = ctx.scn.motion;
+    for (let i = 0; i < 40; i++) {
+      t.pos.set(randIn(m.x), 0, randIn(m.z));
+      if (farEnough(t, t.pos, ctx)) break;
+    }
+    t.vel.set(0, 0, 0);
+    Object.assign(t.m, {
+      action: 'stop', timer: rand(0.05, 0.35), ix: 0, iz: 0, mode: 'run',
+      crouchWant: false, crouch: 0, spam: 0, lastDir: sign(), grounded: true,
+    });
+  },
+
+  decide(t, m) {
+    const s = t.m;
+    let total = 0;
+    for (const k in m.mix) total += m.mix[k];
+    let roll = Math.random() * total;
+    let act = 'strafe';
+    for (const k in m.mix) {
+      roll -= m.mix[k];
+      if (roll <= 0) { act = k; break; }
+    }
+    // Near a side wall, always head back toward the middle.
+    const edge = t.pos.x < m.x[0] + 1 ? 1 : t.pos.x > m.x[1] - 1 ? -1 : 0;
+    const dir = (reverse) => {
+      if (edge) return edge;
+      if (reverse && Math.random() < (m.adad ?? 0.8)) return -s.lastDir;
+      return sign();
+    };
+
+    s.action = act;
+    s.mode = 'run';
+    s.crouchWant = false;
+    s.spam = 0;
+    s.ix = 0;
+    s.iz = 0;
+    switch (act) {
+      case 'strafe': s.ix = dir(true); s.timer = randIn(m.strafeTime); break;
+      case 'swing': s.ix = dir(false); s.timer = rand(0.5, 1.1); break;
+      case 'walk': s.ix = dir(false); s.mode = 'walk'; s.timer = rand(0.35, 1.0); break;
+      case 'crouchWalk': s.ix = dir(false); s.crouchWant = true; s.timer = rand(0.35, 0.9); break;
+      case 'crouchSpam':
+        // Often mid-strafe, so speed flickers between run and crouch speed.
+        s.ix = Math.random() < (m.spamStrafe ?? 0.5) ? dir(true) : 0;
+        s.crouchWant = true;
+        s.spam = rand(0.1, 0.2);
+        s.timer = rand(0.5, 1.1);
+        break;
+      case 'jump':
+        s.ix = Math.random() < (m.jumpStrafe ?? 0.7) ? dir(true) : 0;
+        t.vel.y = AGENT.jumpVel;
+        s.grounded = false;
+        s.timer = 0.05; // the next action waits for the landing
+        break;
+      default: // stop
+        s.crouchWant = Math.random() < (m.crouchOnStop || 0);
+        s.timer = randIn(m.stopTime);
+    }
+    if (s.ix) s.lastDir = s.ix;
+    // Some moves add W or S so the range keeps changing.
+    if (s.ix && Math.random() < (m.depth || 0)) {
+      s.iz = t.pos.z < m.z[0] + 1 ? 1 : t.pos.z > m.z[1] - 1 ? -1 : sign();
+    }
+  },
+
+  update(t, dt, ctx) {
+    const m = ctx.scn.motion;
+    const s = t.m;
+    const A = AGENT;
+    s.timer -= dt;
+    if (s.spam > 0) {
+      s.spam -= dt;
+      if (s.spam <= 0) { s.crouchWant = !s.crouchWant; s.spam = rand(0.1, 0.22); }
+    }
+    if (s.timer <= 0 && s.grounded) this.decide(t, m);
+    if ((t.pos.x < m.x[0] && s.ix < 0) || (t.pos.x > m.x[1] && s.ix > 0)) { s.ix = -s.ix; s.lastDir = s.ix; }
+    if ((t.pos.z < m.z[0] && s.iz < 0) || (t.pos.z > m.z[1] && s.iz > 0)) s.iz = 0;
+
+    const want = s.crouchWant ? 1 : 0;
+    const cstep = dt / A.crouchTime;
+    s.crouch += Math.max(-cstep, Math.min(cstep, want - s.crouch));
+
+    const speed = s.crouch > 0.5 ? A.crouch : s.mode === 'walk' ? A.walk : A.run;
+    let wx = s.ix;
+    let wz = s.iz;
+    const wl = Math.hypot(wx, wz);
+    if (wl > 0) { wx = (wx / wl) * speed; wz = (wz / wl) * speed; }
+    const dvx = wx - t.vel.x;
+    const dvz = wz - t.vel.z;
+    const dl = Math.hypot(dvx, dvz);
+    if (dl > 1e-6) {
+      let rate = A.accel;
+      if (!s.grounded) rate = A.airAccel;
+      else if (wl === 0 || wx * t.vel.x + wz * t.vel.z < 0) rate = A.decel;
+      const k = Math.min(1, (rate * dt) / dl);
+      t.vel.x += dvx * k;
+      t.vel.z += dvz * k;
+    }
+    if (!s.grounded) t.vel.y -= A.gravity * dt;
+    t.pos.addScaledVector(t.vel, dt);
+    if (!s.grounded && t.pos.y <= 0) { t.pos.y = 0; t.vel.y = 0; s.grounded = true; }
+
+    const lo = m.x[0] - 0.5;
+    const hi = m.x[1] + 0.5;
+    if (t.pos.x < lo) { t.pos.x = lo; t.vel.x = 0; }
+    if (t.pos.x > hi) { t.pos.x = hi; t.vel.x = 0; }
+    if (t.pos.z < m.z[0] - 0.5) { t.pos.z = m.z[0] - 0.5; t.vel.z = 0; }
+    if (t.pos.z > m.z[1] + 0.5) { t.pos.z = m.z[1] + 0.5; t.vel.z = 0; }
+  },
+};
+
 // Ballistic hops with mid-air direction changes.
 const air = {
   spawn(t, ctx) {
@@ -240,4 +392,4 @@ const still = {
   update() {},
 };
 
-export const MOTIONS = { wander, strafe, air, orbit, bounce, static: still };
+export const MOTIONS = { wander, strafe, agent, air, orbit, bounce, static: still };

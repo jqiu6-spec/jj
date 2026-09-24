@@ -1,7 +1,7 @@
 // 3D arena, first-person camera, targets, weapons and the run state machine.
 import * as THREE from 'three';
-import { MOTIONS } from './motion.js';
-import { eyeOf } from './scenarios.js';
+import { MOTIONS, AGENT, agentDims } from './motion.js';
+import { eyeOf, defaultSetup, setupKey } from './scenarios.js';
 import { degPerCount, verticalFov } from './settings.js';
 import { sfx } from './audio.js';
 
@@ -50,23 +50,23 @@ const _w = new THREE.Vector3();
 const _v = new THREE.Vector3();
 const _p = new THREE.Vector3();
 const _q = new THREE.Vector3();
+const _c = new THREE.Vector3();
 
-// Distance along the ray to the target surface, or -1 on a miss.
-function rayHit(o, d, t) {
-  const r = t.radius;
-  if (t.shape === 'sphere') {
-    _w.subVectors(o, t.pos);
-    const b = _w.dot(d);
-    const c = _w.lengthSq() - r * r;
-    const disc = b * b - c;
-    if (disc < 0) return -1;
-    const s = -b - Math.sqrt(disc);
-    return s > 0 ? s : -1;
-  }
-  // Vertical capsule: closest approach between the ray and its core segment.
-  const half = t.half;
-  const ax = t.pos.x, ay = t.pos.y - half, az = t.pos.z;
-  _v.set(0, 2 * half, 0);
+// Distance along the ray to a sphere's surface, or -1 on a miss.
+function raySphere(o, d, cx, cy, cz, r) {
+  _w.set(o.x - cx, o.y - cy, o.z - cz);
+  const b = _w.dot(d);
+  const c = _w.lengthSq() - r * r;
+  const disc = b * b - c;
+  if (disc < 0) return -1;
+  const s = -b - Math.sqrt(disc);
+  return s > 0 ? s : -1;
+}
+
+// Vertical capsule whose core runs from (ax, ay, az) up by `len`:
+// closest approach between the ray and the core segment.
+function rayCapsule(o, d, ax, ay, az, len, r) {
+  _v.set(0, len, 0);
   _w.set(o.x - ax, o.y - ay, o.z - az);
   const B = d.dot(_v);
   const C = _v.dot(_v);
@@ -77,9 +77,9 @@ function rayHit(o, d, t) {
   let s;
   if (den < 1e-9) { tr = -D; s = 0; } else { tr = (B * E - C * D) / den; s = (E - B * D) / den; }
   if (s < 0) { s = 0; tr = -D; } else if (s > 1) { s = 1; tr = B - D; }
-  if (tr < 0) { tr = 0; s = Math.max(0, Math.min(1, E / C)); }
+  if (tr < 0) { tr = 0; s = C > 0 ? Math.max(0, Math.min(1, E / C)) : 0; }
   _p.copy(d).multiplyScalar(tr).add(o);
-  _q.set(ax, ay + s * 2 * half, az);
+  _q.set(ax, ay + s * len, az);
   return _p.distanceToSquared(_q) <= r * r ? Math.max(tr, 0.001) : -1;
 }
 
@@ -147,7 +147,6 @@ export class Game {
     this.targetColor = new THREE.Color(s.targetColor);
     this.hitColor = new THREE.Color(s.hitColor);
     this.resize();
-    for (const t of this.targets) t.mesh.material.color.copy(this.targetColor);
   }
 
   resize() {
@@ -160,50 +159,103 @@ export class Game {
   }
 
   // ------------------------------------------------------------ scenario
-  load(scn) {
+  // `setup` is the player's choice of target count, health and hitbox.
+  load(scn, setup = defaultSetup(scn)) {
     this.scn = scn;
+    this.setup = setup;
+    this.loadedKey = `${scn.id}|${setupKey(setup)}`;
     this.buildArena(scn.arena);
     const [ex, ey, ez] = eyeOf(scn);
     this.eye.set(ex, ey, ez);
     this.camera.position.copy(this.eye);
-    for (const t of this.targets) {
-      this.scene.remove(t.mesh, t.shadow);
-      t.mesh.geometry.dispose();
-      t.mesh.material.dispose();
-    }
+    for (const t of this.targets) this.disposeTarget(t);
     this.targets = [];
-    const spec = scn.target;
-    for (let i = 0; i < scn.count; i++) {
-      const geo = spec.shape === 'capsule'
-        ? new THREE.CapsuleGeometry(spec.radius, spec.height - spec.radius * 2, 8, 20)
-        : new THREE.SphereGeometry(spec.radius, 40, 24);
-      const mat = new THREE.MeshStandardMaterial({
-        color: this.targetColor, roughness: 0.42, metalness: 0.0,
-        emissive: this.targetColor, emissiveIntensity: 0.22,
-      });
-      const mesh = new THREE.Mesh(geo, mat);
-      const shadow = new THREE.Mesh(
-        new THREE.PlaneGeometry(1, 1),
-        new THREE.MeshBasicMaterial({ map: this.tex.blob, transparent: true, depthWrite: false }),
-      );
-      shadow.rotation.x = -Math.PI / 2;
-      this.scene.add(mesh, shadow);
-      this.targets.push({
-        mesh, shadow,
-        shape: spec.shape,
-        radius: spec.radius,
-        half: spec.shape === 'capsule' ? spec.height / 2 - spec.radius : 0,
-        hp: spec.hp || Infinity,
-        maxHp: spec.hp || Infinity,
-        pos: mesh.position,
-        vel: new THREE.Vector3(),
-        m: {},
-        alive: true,
-        flash: 0,
-      });
-    }
+    for (let i = 0; i < setup.count; i++) this.targets.push(this.makeTarget(scn.target, setup.hp));
     this.resetTargets();
     this.lookAtTargets(true);
+  }
+
+  makeTarget(spec, hp) {
+    const mat = () => new THREE.MeshStandardMaterial({
+      color: this.targetColor, roughness: 0.42, metalness: 0.0,
+      emissive: this.targetColor, emissiveIntensity: 0.22,
+    });
+    const t = {
+      shape: spec.shape,
+      radius: spec.shape === 'agent' ? AGENT.radius : spec.radius,
+      half: spec.shape === 'capsule' ? spec.height / 2 - spec.radius : 0, // capsule core half-length
+      hp: hp || Infinity,
+      maxHp: hp || Infinity,
+      vel: new THREE.Vector3(),
+      m: {},
+      alive: true,
+      flash: 0,
+      respawnAt: null,
+      body: mat(),
+      head: null,
+    };
+    if (spec.shape === 'agent') {
+      // Body capsule built from a cylinder and two caps so crouching can
+      // shorten it without squashing the ends; a separate head sphere.
+      const r = AGENT.radius;
+      const root = new THREE.Group();
+      const cap = new THREE.SphereGeometry(r, 24, 14);
+      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1, 24, 1, true), t.body);
+      const capB = new THREE.Mesh(cap, t.body);
+      const capT = new THREE.Mesh(cap, t.body);
+      capB.position.y = r;
+      t.head = mat();
+      const head = new THREE.Mesh(new THREE.SphereGeometry(AGENT.head, 28, 18), t.head);
+      root.add(cyl, capB, capT, head);
+      t.parts = { cyl, capT, head };
+      t.root = root;
+    } else if (spec.shape === 'capsule') {
+      t.root = new THREE.Mesh(new THREE.CapsuleGeometry(spec.radius, spec.height - spec.radius * 2, 8, 20), t.body);
+    } else {
+      t.root = new THREE.Mesh(new THREE.SphereGeometry(spec.radius, 40, 24), t.body);
+    }
+    t.pos = t.root.position;
+    t.shadow = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ map: this.tex.blob, transparent: true, depthWrite: false }),
+    );
+    t.shadow.rotation.x = -Math.PI / 2;
+    this.scene.add(t.root, t.shadow);
+    if (t.maxHp !== Infinity) {
+      // Health bar that always faces the camera.
+      const w = spec.shape === 'sphere' ? Math.max(0.8, spec.radius * 2.2) : 0.8;
+      const bar = new THREE.Group();
+      const bg = new THREE.Mesh(
+        new THREE.PlaneGeometry(w + 0.04, 0.11),
+        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55, depthWrite: false }),
+      );
+      const fill = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, 0.07).translate(w / 2, 0, 0),
+        new THREE.MeshBasicMaterial({ color: 0xf2f5f9 }),
+      );
+      fill.position.set(-w / 2, 0, 0.001);
+      bar.add(bg, fill);
+      this.scene.add(bar);
+      t.bar = { group: bar, fill };
+    }
+    return t;
+  }
+
+  disposeTarget(t) {
+    for (const o of [t.root, t.shadow, t.bar && t.bar.group]) {
+      if (!o) continue;
+      this.scene.remove(o);
+      o.traverse((x) => {
+        if (x.isMesh) { x.geometry.dispose(); x.material.dispose(); }
+      });
+    }
+  }
+
+  // Point the aim metrics use: the head in head-only mode, else the chest.
+  center(t, out) {
+    if (t.shape !== 'agent') return out.copy(t.pos);
+    const { top, headY } = agentDims(t);
+    return out.set(t.pos.x, t.pos.y + (this.setup.headOnly ? headY : top * 0.6), t.pos.z);
   }
 
   buildArena(a) {
@@ -244,8 +296,9 @@ export class Game {
     t.alive = true;
     t.hp = t.maxHp;
     t.flash = 0;
+    t.respawnAt = null;
     motion.spawn(t, this.ctx());
-    t.mesh.visible = true;
+    t.root.visible = true;
   }
 
   resetTargets() {
@@ -258,7 +311,7 @@ export class Game {
     // Menu preview: ease the camera toward the average target position.
     if (!this.targets.length) return;
     _v.set(0, 0, 0);
-    for (const t of this.targets) _v.add(t.pos);
+    for (const t of this.targets) _v.add(this.center(t, _p));
     _v.multiplyScalar(1 / this.targets.length).sub(this.eye);
     const yaw = Math.atan2(-_v.x, -_v.z);
     const pitch = Math.atan2(_v.y, Math.hypot(_v.x, _v.z));
@@ -287,6 +340,7 @@ export class Game {
       leadSum: 0,
       errSum: 0,
       leadTime: 0,
+      headTime: 0,
       timeline: [],
       tickTimer: 0,
     };
@@ -330,6 +384,7 @@ export class Game {
     while (r.timeline.length < this.scn.duration) r.timeline.push(Math.round(r.score));
     const result = {
       scenario: this.scn.id,
+      setup: setupKey(this.setup),
       date: Date.now(),
       score: Math.round(r.score),
       accuracy,
@@ -341,6 +396,7 @@ export class Game {
       ttk: r.kills ? r.ttkSum / r.kills : null,
       lead: r.leadTime > 0.5 ? r.leadSum / r.leadTime / DEG : null,
       err: r.leadTime > 0.5 ? r.errSum / r.leadTime / DEG : null,
+      headShare: this.scn.target.shape === 'agent' && r.onTime > 0 ? r.headTime / r.onTime : null,
       timeline: r.timeline,
       fps: Math.round(this.fps),
     };
@@ -373,14 +429,29 @@ export class Game {
     this.fwd.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
   }
 
+  // Nearest target under the crosshair; sets this.pickPart to 'head' or 'body'.
   pick() {
     this.updateForward();
+    const o = this.eye;
+    const d = this.fwd;
     let best = null;
     let bestD = Infinity;
     for (const t of this.targets) {
       if (!t.alive) continue;
-      const d = rayHit(this.eye, this.fwd, t);
-      if (d > 0 && d < bestD) { bestD = d; best = t; }
+      if (t.shape === 'agent') {
+        const { top, headY } = agentDims(t);
+        const r = AGENT.radius;
+        const h = raySphere(o, d, t.pos.x, t.pos.y + headY, t.pos.z, AGENT.head);
+        const b = this.setup.headOnly ? -1 : rayCapsule(o, d, t.pos.x, t.pos.y + r, t.pos.z, top - 2 * r, r);
+        if (h > 0 && h < bestD && (b < 0 || h <= b)) { bestD = h; best = t; this.pickPart = 'head'; }
+        else if (b > 0 && b < bestD) { bestD = b; best = t; this.pickPart = 'body'; }
+      } else if (t.shape === 'capsule') {
+        const c = rayCapsule(o, d, t.pos.x, t.pos.y - t.half, t.pos.z, 2 * t.half, t.radius);
+        if (c > 0 && c < bestD) { bestD = c; best = t; this.pickPart = 'body'; }
+      } else {
+        const s = raySphere(o, d, t.pos.x, t.pos.y, t.pos.z, t.radius);
+        if (s > 0 && s < bestD) { bestD = s; best = t; this.pickPart = 'body'; }
+      }
     }
     return best;
   }
@@ -397,7 +468,9 @@ export class Game {
     this.updateForward();
     this.aimPoint = this.eye.clone().addScaledVector(this.fwd, this.eye.distanceTo(t.pos));
     t.alive = false;
-    this.spawn(t);
+    t.root.visible = false;
+    if (this.scn.respawn) t.respawnAt = r.elapsed + this.scn.respawn;
+    else this.spawn(t);
   }
 
   shoot() {
@@ -428,9 +501,9 @@ export class Game {
       this.scene.add(mesh);
     }
     p.life = 0.22;
-    p.base = t.radius;
+    p.base = t.shape === 'agent' ? 0.45 : t.radius;
     p.mesh.material.color.copy(this.hitColor);
-    p.mesh.position.copy(t.pos);
+    this.center(t, p.mesh.position);
     p.mesh.visible = true;
   }
 
@@ -475,35 +548,68 @@ export class Game {
       for (const t of this.targets) motion.update(t, dt, ctx);
     }
 
-    // Visual state of targets.
+    this.camera.position.copy(this.eye);
+    this.camera.rotation.set(this.pitch, this.yaw, 0);
+    this.updateTargetVisuals(dt);
+    this.updatePops(dt);
+    this.renderer.render(this.scene, this.camera);
+
+    if (this.state === 'running' || this.state === 'countdown') this.hooks.onHud(this.hud());
+  }
+
+  updateTargetVisuals(dt) {
+    const dim = this.setup && this.setup.headOnly;
     for (const t of this.targets) {
-      const m = t.mesh.material;
       t.flash = Math.max(0, t.flash - dt * 6);
       const hpK = t.maxHp === Infinity ? 1 : 0.45 + 0.55 * (t.hp / t.maxHp);
-      m.color.copy(this.targetColor).multiplyScalar(hpK).lerp(this.hitColor, t.flash);
-      m.emissive.copy(m.color);
-      m.emissiveIntensity = 0.22 + t.flash * 0.5;
-      const h = Math.max(0, t.pos.y - t.radius - t.half);
+      const paint = (m, k, f) => {
+        m.color.copy(this.targetColor).multiplyScalar(hpK * k).lerp(this.hitColor, f);
+        m.emissive.copy(m.color);
+        m.emissiveIntensity = 0.22 + f * 0.5;
+      };
+      let feet = t.pos.y - t.radius - t.half;
+      let top = t.pos.y + t.radius + t.half;
+      if (t.shape === 'agent') {
+        // Only the part being hit lights up. In head-only mode the body goes
+        // dark so the head reads as the target.
+        const onHead = t.flashPart === 'head';
+        paint(t.body, dim ? 0.3 : 1, onHead ? 0 : t.flash);
+        paint(t.head, 1, onHead ? t.flash : 0);
+        const r = AGENT.radius;
+        const d = agentDims(t);
+        const core = Math.max(0.001, d.top - 2 * r);
+        t.parts.cyl.scale.y = core;
+        t.parts.cyl.position.y = r + core / 2;
+        t.parts.capT.position.y = r + core;
+        t.parts.head.position.y = d.headY;
+        feet = t.pos.y;
+        top = t.pos.y + d.headY + AGENT.head;
+      } else {
+        paint(t.body, 1, t.flash);
+      }
+      const h = Math.max(0, feet);
       const s = (t.radius * 2.6) * (1 + h * 0.08);
       t.shadow.position.set(t.pos.x, 0.01, t.pos.z);
       t.shadow.scale.set(s, s, 1);
       t.shadow.material.opacity = Math.max(0.15, 1 - h * 0.12);
       t.shadow.visible = t.alive;
+      if (t.bar) {
+        t.bar.group.visible = t.alive;
+        t.bar.group.position.set(t.pos.x, top + 0.25, t.pos.z);
+        t.bar.group.quaternion.copy(this.camera.quaternion);
+        t.bar.fill.scale.x = Math.max(0.001, t.hp / t.maxHp);
+      }
     }
-    this.updatePops(dt);
-
-    this.camera.position.copy(this.eye);
-    this.camera.rotation.set(this.pitch, this.yaw, 0);
-    this.renderer.render(this.scene, this.camera);
-
-    if (this.state === 'running' || this.state === 'countdown') this.hooks.onHud(this.hud());
   }
 
   step(dt, motion, ctx) {
     const r = this.run;
     const w = this.scn.weapon;
     r.elapsed += dt;
-    for (const t of this.targets) if (t.alive) motion.update(t, dt, ctx);
+    for (const t of this.targets) {
+      if (t.alive) motion.update(t, dt, ctx);
+      else if (t.respawnAt !== null && r.elapsed >= t.respawnAt) this.spawn(t);
+    }
 
     const firing = this.firing || (w.type === 'beam' && this.settings.autoFire);
     if (w.type === 'beam' && firing) {
@@ -511,12 +617,14 @@ export class Game {
       const t = this.pick();
       if (t) {
         r.onTime += dt;
+        if (this.pickPart === 'head' && t.shape === 'agent') r.headTime += dt;
         let dmg = w.dps * dt;
         if (t.hp !== Infinity) dmg = Math.min(dmg, t.hp);
         t.hp -= dmg;
         r.damage += dmg;
         r.score += dmg;
         t.flash = 1;
+        t.flashPart = this.pickPart;
         r.tickTimer -= dt;
         if (r.tickTimer <= 0) { sfx.tick(); r.tickTimer = 0.09; }
         if (t.hp <= 0) this.kill(t);
@@ -536,15 +644,16 @@ export class Game {
     this.updateForward();
     let best = null;
     let bestCos = Math.cos(10 * DEG);
+    const c0 = _c;
     for (const t of this.targets) {
       if (!t.alive) continue;
-      _v.subVectors(t.pos, this.eye).normalize();
+      _v.subVectors(this.center(t, _p), this.eye).normalize();
       const c = _v.dot(this.fwd);
-      if (c > bestCos) { bestCos = c; best = t; }
+      if (c > bestCos) { bestCos = c; best = t; c0.copy(_p); }
     }
     if (!best) return;
-    const dist = this.eye.distanceTo(best.pos);
-    _v.subVectors(best.pos, this.eye).normalize(); // u
+    const dist = this.eye.distanceTo(c0);
+    _v.subVectors(c0, this.eye).normalize(); // u
     _p.copy(best.vel).addScaledVector(_v, -best.vel.dot(_v)); // tangential velocity
     const angSpeed = _p.length() / dist;
     if (angSpeed < 0.2) return;

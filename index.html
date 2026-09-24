@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Trackline Aim Trainer</title>
-<meta name="description" content="A browser aim trainer in the style of KovaaK's, built around tracking. Smoothbot, strafe tracking, air tracking, target switching and clicking drills, with game-matched sensitivity.">
+<meta name="description" content="A browser aim trainer in the style of KovaaK's, built around tracking: bots that strafe, crouch and jump like Valorant players, multi-target tracking with an adjustable target count, orb tracking and clicking drills.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%2311161d'/%3E%3Ccircle cx='12' cy='12' r='7' fill='none' stroke='%23f4d35e' stroke-width='2'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23f4d35e'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,6 +47,30 @@
       <h1 id="d-name"></h1>
       <p class="blurb" id="d-blurb"></p>
       <dl class="specs" id="d-specs"></dl>
+      <div class="setup">
+        <div class="setup-row">
+          <div class="setup-item">
+            <span class="lbl" id="d-count-lbl">Targets</span>
+            <div class="stepper" role="group" aria-labelledby="d-count-lbl">
+              <button type="button" id="d-count-dec" aria-label="Fewer targets">−</button>
+              <output id="d-count" aria-live="polite">1</output>
+              <button type="button" id="d-count-inc" aria-label="More targets">+</button>
+            </div>
+          </div>
+          <div class="setup-item" id="d-hp-wrap">
+            <label class="lbl" for="d-hp">Health</label>
+            <select id="d-hp"></select>
+          </div>
+          <div class="setup-item" id="d-hitbox-wrap">
+            <span class="lbl" id="d-hitbox-lbl">Hitbox</span>
+            <div class="seg seg-sm" role="radiogroup" aria-labelledby="d-hitbox-lbl">
+              <label><input type="radio" name="hitbox" id="d-hit-full" value="full"><span>Head + body</span></label>
+              <label><input type="radio" name="hitbox" id="d-hit-head" value="head"><span>Head only</span></label>
+            </div>
+          </div>
+        </div>
+        <p class="hint setup-note"><span id="d-setup-note"></span> <button type="button" class="link-btn" id="d-setup-reset">Restore default</button></p>
+      </div>
       <div class="history">
         <div class="history-nums">
           <div><span class="lbl">Personal best</span><b id="d-pb">—</b></div>
@@ -140,6 +164,7 @@
   <div class="glass card results-card">
     <p class="eyebrow" id="r-cat"></p>
     <h2 id="r-name"></h2>
+    <p class="hint r-setup" id="r-setup"></p>
     <div class="r-score"><b id="r-score"></b><span id="r-delta" class="delta"></span></div>
     <dl class="r-stats" id="r-stats"></dl>
     <p class="coach" id="r-coach"></p>

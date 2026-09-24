@@ -2,7 +2,10 @@
 
 A browser aim trainer in the style of KovaaK's, focused on tracking. It runs in a
 3D arena with first-person mouse look, sensitivity matched to your game, a
-customisable crosshair, and score history kept for each scenario.
+customisable crosshair, and score history kept for each scenario. A set of
+Valorant-movement scenarios uses agent-sized bots that run, counter-strafe,
+crouch and jump like Valorant players. You can set the number of targets in
+every scenario.
 
 ## Run it
 
@@ -38,12 +41,50 @@ sensitivity conversion comes out right.
 | Clicking | Wide Flick | 3 targets spread across a wide wall |
 | Clicking | Bounce Shot | 5 targets drifting and bouncing on a wall |
 | Clicking | Micro Flick | One tiny target at a time |
+| Valorant movement | ADAD Strafes | Short run strafes with counter-strafe stops |
+| Valorant movement | Crouch Spam | Strafes, stops and crouch spam; the head drops 0.44 m |
+| Valorant movement | Jump Peeks | Strafes and jumps with weak air control |
+| Valorant movement | Duel Mix | 3 agents with 150 HP and every movement type |
+| Valorant movement | Close Duel | 2 agents with 150 HP at 5–8 m |
+
+### Valorant movement bots
+
+Each bot is a 1.79 m agent with a separate head hitbox (0.28 m across) on top of
+a body capsule. It chains weighted actions the way a player does in a duel:
+
+- **ADAD strafes and wide swings** at run speed (6.75 m/s)
+- **Counter-strafe stops**: from full speed to a dead stop in about 75 ms
+- **Shift-walks** (3.73 m/s) and **crouch-walks** (2.03 m/s)
+- **Crouch spam**, often mid-strafe, so speed flickers between run and crouch
+  speed and the head drops 0.44 m each time
+- **Jumps**: about 1 m high and 0.6 s in the air, with weak air control, so the
+  arc is committed once the bot leaves the ground
+
+The run, walk and crouch speeds are community-measured Valorant values. The
+acceleration, jump and crouch timings are tuned to feel like the game, not
+taken from it.
+
+### Setup: target count, health and hitbox
+
+The scenario panel has a setup row:
+
+- **Targets**: 1–10 in tracking scenarios, 1–12 in clicking scenarios. With
+  several targets you are doing multi-target tracking.
+- **Health** (tracking only): unlimited, or 50–500 HP. A killed target respawns
+  somewhere else.
+- **Hitbox** (Valorant bots only): head and body, or head only. In head-only mode
+  the body turns dark and only time on the head counts.
+
+Personal bests and history are kept separately for each setup, so a 5-target run
+is never compared with a 3-target run.
 
 Tracking scenarios use a beam that fires while you hold mouse 1 and does 100 damage
 per second on target. Your score is the damage you deal, and accuracy is time on
 target divided by time firing. The results screen also reports your average offset
 from the target's centre, and whether you tend to trail or lead the target along
-its path.
+its path. Against Valorant bots it also shows how much of your time on target was
+on the head. The Valorant beam does 150 damage per second, so a 150 HP agent
+takes one second of tracking.
 
 Clicking scenarios are hitscan: a kill is worth +100 and a miss costs −20.
 
@@ -73,7 +114,7 @@ index.html            page shell, HUD and menus
 css/style.css         styles
 js/main.js            UI wiring: menus, settings, results
 js/game.js            renderer, arena, camera, weapons, run state machine
-js/motion.js          target movement models (wander, strafe, air, orbit, bounce)
+js/motion.js          target movement models (wander, strafe, Valorant agent, air, orbit, bounce)
 js/scenarios.js       scenario definitions
 js/settings.js        settings storage and sensitivity maths
 js/stats.js           run history

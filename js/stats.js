@@ -1,7 +1,9 @@
-// Run history, stored per scenario in localStorage.
+// Run history, stored per scenario in localStorage. Each run records the setup
+// it was played with (target count, health, hitbox) as a key; runs saved before
+// setups existed count as the scenario's default setup.
 
 const KEY = 'trackline.runs.v1';
-const CAP = 200;
+const CAP = 300;
 let cache = null;
 
 function load() {
@@ -18,20 +20,21 @@ function save() {
   try { localStorage.setItem(KEY, JSON.stringify(cache)); } catch (e) { /* ignore */ }
 }
 
-export function runsFor(id) {
-  return load()[id] || [];
+// Runs of one scenario played with setup `key`; `defKey` is the default setup.
+export function runsFor(id, key, defKey) {
+  return (load()[id] || []).filter((r) => (r.setup || defKey) === key);
 }
 
-export function bestRun(id) {
+export function bestRun(id, key, defKey) {
   let best = null;
-  for (const r of runsFor(id)) if (!best || r.score > best.score) best = r;
+  for (const r of runsFor(id, key, defKey)) if (!best || r.score > best.score) best = r;
   return best;
 }
 
-// Stores the run and reports how it compares with earlier ones.
-export function addRun(run) {
+// Stores the run and reports how it compares with earlier runs of the same setup.
+export function addRun(run, defKey) {
   const all = load();
-  const prevBest = bestRun(run.scenario);
+  const prevBest = bestRun(run.scenario, run.setup, defKey);
   const list = all[run.scenario] || (all[run.scenario] = []);
   list.push(run);
   if (list.length > CAP) list.splice(0, list.length - CAP);

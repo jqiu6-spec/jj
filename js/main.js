@@ -1,7 +1,9 @@
 import { Game } from './game.js';
-import { SCENARIOS, CATEGORIES, describe } from './scenarios.js';
 import {
-  loadSettings, saveSettings, DEFAULTS, GAMES, CROSSHAIR_STYLES, degPerCount, cmPer360,
+  SCENARIOS, CATEGORIES, HP_CHOICES, describe, defaultSetup, normalizeSetup, setupKey, setupLabel, countLimit,
+} from './scenarios.js';
+import {
+  loadSettings, saveSettings, loadSetups, saveSetups, DEFAULTS, GAMES, CROSSHAIR_STYLES, degPerCount, cmPer360,
 } from './settings.js';
 import { drawCrosshair } from './crosshair.js';
 import { initAudio, setVolume } from './audio.js';
@@ -14,6 +16,7 @@ const pct = (x) => `${(x * 100).toFixed(1)}%`;
 const catOf = (id) => CATEGORIES.find((c) => c.id === id);
 
 let settings = loadSettings();
+const setups = loadSetups();
 let selected = SCENARIOS[0];
 let rawInput = null; // true / false once pointer lock has been taken
 let lastResult = null;
@@ -29,6 +32,31 @@ const game = new Game(canvas, settings, {
   onFinish: showResults,
   onHit: flashHitmarker,
 });
+
+// ------------------------------------------------------------------ setups
+const setupFor = (s) => normalizeSetup(s, setups[s.id]);
+const keyFor = (s) => setupKey(setupFor(s));
+const defKeyFor = (s) => setupKey(defaultSetup(s));
+
+// Load the scenario into the arena with the player's setup, if not already.
+function ensureLoaded(s) {
+  const v = setupFor(s);
+  if (game.loadedKey !== `${s.id}|${setupKey(v)}`) game.load(s, v);
+}
+
+function changeSetup(patch) {
+  const s = selected;
+  setups[s.id] = normalizeSetup(s, { ...setupFor(s), ...patch });
+  saveSetups(setups);
+  ensureLoaded(s);
+  renderDetail();
+  const row = document.querySelector(`.scn-row[data-id="${s.id}"] .pb`);
+  if (row) {
+    const best = bestRun(s.id, keyFor(s), defKeyFor(s));
+    row.textContent = best ? fmt(best.score) : '—';
+    row.classList.toggle('has', !!best);
+  }
+}
 
 // ------------------------------------------------------------ pointer lock
 async function lockPointer() {
@@ -53,7 +81,7 @@ async function lockPointer() {
 
 async function play(scn) {
   initAudio();
-  if (scn !== game.scn) game.load(scn);
+  ensureLoaded(scn);
   try {
     await lockPointer();
   } catch (err) {
@@ -140,7 +168,7 @@ function renderList() {
     group.style.setProperty('--c', `var(--cat-${cat.id})`);
     group.innerHTML = `<div class="cat-head">${cat.name}<span class="n">${items.length}</span></div>`;
     for (const s of items) {
-      const best = bestRun(s.id);
+      const best = bestRun(s.id, keyFor(s), defKeyFor(s));
       const b = document.createElement('button');
       b.className = 'scn-row';
       b.type = 'button';
@@ -160,7 +188,7 @@ function renderList() {
 function select(s) {
   if (s === selected && game.scn === s) return;
   selected = s;
-  game.load(s);
+  ensureLoaded(s);
   for (const b of document.querySelectorAll('.scn-row')) {
     b.setAttribute('aria-current', String(b.dataset.id === s.id));
   }
@@ -169,7 +197,8 @@ function select(s) {
 
 function renderDetail() {
   const s = selected;
-  const d = describe(s);
+  const v = setupFor(s);
+  const d = describe(s, v);
   const cat = catOf(s.category);
   const eyebrow = $('d-cat');
   eyebrow.textContent = cat.name;
@@ -177,28 +206,44 @@ function renderDetail() {
   $('d-name').textContent = s.name;
   $('d-blurb').textContent = s.blurb;
   const rows = [
-    ['Duration', `${s.duration} s`],
-    ['Targets', `${d.targets} × ${d.size}`],
-    ['Distance', `~${d.distance}`],
-    ['Angular size', `${d.angular} at that range`],
-    ['Movement', d.speed],
-    ['Weapon', d.fire],
-    ['Scoring', d.scoring],
+    ['Targets', `${v.count} × ${d.size}`],
+    ['Health', d.health],
+    ['Range', `~${d.distance}, ${d.angular}`],
+    ['Speed', d.speed],
   ];
-  $('d-specs').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
-  const runs = runsFor(s.id);
-  const best = bestRun(s.id);
+  if (d.moves) rows.push(['Moves', d.moves]);
+  rows.push(['Weapon', `${d.fire}`], ['Scoring', d.scoring]);
+  $('d-specs').innerHTML = rows.map(([k, val]) => `<dt>${k}</dt><dd>${val}</dd>`).join('');
+
+  const beam = s.weapon.type === 'beam';
+  const max = countLimit(s);
+  $('d-count').textContent = v.count;
+  $('d-count-dec').disabled = v.count <= 1;
+  $('d-count-inc').disabled = v.count >= max;
+  $('d-hp-wrap').hidden = !beam;
+  $('d-hp').value = String(v.hp);
+  $('d-hitbox-wrap').hidden = s.target.shape !== 'agent';
+  $('d-hit-full').checked = !v.headOnly;
+  $('d-hit-head').checked = v.headOnly;
+  const isDefault = setupKey(v) === defKeyFor(s);
+  $('d-setup-reset').hidden = isDefault;
+  $('d-setup-note').textContent = isDefault
+    ? 'Default setup. Scores are compared only with runs on the same setup.'
+    : `Custom setup: ${setupLabel(s, v)}. Scores are compared only with runs on the same setup.`;
+
+  const runs = runsFor(s.id, setupKey(v), defKeyFor(s));
+  const best = bestRun(s.id, setupKey(v), defKeyFor(s));
   const avg = average(runs, 'score');
   $('d-pb').textContent = best ? fmt(best.score) : '—';
   $('d-avg').textContent = avg === null ? '—' : fmt(avg);
   $('d-runs').textContent = runs.length;
-  $('btn-start').textContent = `Start ${s.name}`;
+  $('btn-start').textContent = `Start ${s.name} · ${s.duration}s`;
   sparkline($('d-spark'), runs.slice(-20).map((r) => r.score));
 }
 
 // ----------------------------------------------------------------- results
 function showResults(result) {
-  const { prevBest, isPB } = addRun(result);
+  const { prevBest, isPB } = addRun(result, defKeyFor(game.scn));
   lastResult = result;
   lastPrevBest = prevBest;
   const s = game.scn;
@@ -207,6 +252,7 @@ function showResults(result) {
   $('r-cat').textContent = cat.name;
   $('r-cat').dataset.cat = cat.id;
   $('r-name').textContent = s.name;
+  $('r-setup').textContent = setupLabel(s, game.setup);
   $('r-score').textContent = fmt(result.score);
   const delta = $('r-delta');
   if (isPB) {
@@ -221,8 +267,9 @@ function showResults(result) {
   if (beam) {
     stats.push(['On target', pct(result.accuracy)]);
     stats.push(['Damage', fmt(result.damage)]);
-    if (s.target.hp) stats.push(['Kills', result.kills]);
+    if (game.setup.hp) stats.push(['Kills', result.kills]);
     else stats.push(['Time on target', `${result.onTime.toFixed(1)}<small>s</small>`]);
+    if (result.headShare !== null && !game.setup.headOnly) stats.push(['On head', pct(result.headShare)]);
     stats.push(['Avg. offset', result.err === null ? '–' : `${result.err.toFixed(2)}<small>°</small>`]);
   } else {
     stats.push(['Accuracy', pct(result.accuracy)]);
@@ -231,7 +278,7 @@ function showResults(result) {
     stats.push(['Avg. kill time', result.ttk === null ? '–' : `${Math.round(result.ttk * 1000)}<small>ms</small>`]);
   }
   $('r-stats').innerHTML = stats.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
-  $('r-coach').innerHTML = coaching(result, s);
+  $('r-coach').innerHTML = coaching(result, s, game.setup);
 
   $('results').hidden = false;
   // A lone series needs no legend; the chart title names it.
@@ -239,14 +286,21 @@ function showResults(result) {
   paceChart($('r-chart'), result.timeline, prevBest ? prevBest.timeline : null, s.duration);
 }
 
-function coaching(r, s) {
+function coaching(r, s, v) {
   if (s.weapon.type === 'beam') {
     if (r.lead === null) return 'Hold mouse 1 while tracking so Trackline can measure how closely you follow the target.';
     const lag = r.lead;
     const amt = `${Math.abs(lag).toFixed(2)}°`;
-    if (lag < -0.15) return `On average your crosshair <b>trailed the target by ${amt}</b> along its path. Anticipate direction changes and let your aim run slightly ahead.`;
-    if (lag > 0.15) return `On average your crosshair <b>ran ${amt} ahead</b> of the target. Ease off after direction changes and let it come back to you.`;
-    return `Your crosshair was <b>level with the target</b> along its path (${lag >= 0 ? '+' : '−'}${amt}). Keep the offset low and push the on-target time up.`;
+    let text;
+    if (lag < -0.15) text = `On average your crosshair <b>trailed the target by ${amt}</b> along its path. Anticipate direction changes and let your aim run slightly ahead.`;
+    else if (lag > 0.15) text = `On average your crosshair <b>ran ${amt} ahead</b> of the target. Ease off after direction changes and let it come back to you.`;
+    else text = `Your crosshair was <b>level with the target</b> along its path (${lag >= 0 ? '+' : '−'}${amt}). Keep the offset low and push the on-target time up.`;
+    if (r.headShare !== null && !v.headOnly && r.onTime > 1) {
+      text += r.headShare < 0.25
+        ? ` Only <b>${pct(r.headShare)}</b> of your time on target was on the head. Hold the crosshair at head height and let the body be the fallback.`
+        : ` <b>${pct(r.headShare)}</b> of your time on target was on the head.`;
+    }
+    return text;
   }
   if (r.shots === 0) return 'No shots fired. Click while the crosshair is over a target.';
   if (r.accuracy < 0.75) return `Accuracy was <b>${pct(r.accuracy)}</b>. Each miss costs ${s.weapon.missPenalty} points, so slow down slightly and confirm before clicking.`;
@@ -364,6 +418,7 @@ function showTab(name) {
 
 // ------------------------------------------------------------------ wiring
 fillSelect($('s-game'), GAMES);
+$('d-hp').innerHTML = HP_CHOICES.map((hp) => `<option value="${hp}">${hp ? `${hp} HP` : 'Unlimited'}</option>`).join('');
 fillSelect($('s-x-style'), CROSSHAIR_STYLES);
 syncForm();
 setVolume(settings.volume / 100);
@@ -375,6 +430,12 @@ $('tab-scenarios').addEventListener('click', () => showTab('scenarios'));
 $('tab-settings').addEventListener('click', () => showTab('settings'));
 $('sens-chip').addEventListener('click', () => showTab('settings'));
 $('btn-start').addEventListener('click', () => play(selected));
+$('d-count-dec').addEventListener('click', () => changeSetup({ count: setupFor(selected).count - 1 }));
+$('d-count-inc').addEventListener('click', () => changeSetup({ count: setupFor(selected).count + 1 }));
+$('d-hp').addEventListener('change', (e) => changeSetup({ hp: parseInt(e.target.value, 10) }));
+$('d-hit-full').addEventListener('change', () => changeSetup({ headOnly: false }));
+$('d-hit-head').addEventListener('change', () => changeSetup({ headOnly: true }));
+$('d-setup-reset').addEventListener('click', () => changeSetup(defaultSetup(selected)));
 $('btn-again').addEventListener('click', () => play(game.scn));
 $('btn-menu').addEventListener('click', () => game.toMenu());
 $('btn-quit').addEventListener('click', () => { document.exitPointerLock?.(); game.toMenu(); });
@@ -432,5 +493,5 @@ const noLock = !('requestPointerLock' in Element.prototype) || matchMedia('(poin
 $('device-notice').hidden = !noLock;
 
 drawCrosshair(xhair, settings.crosshair);
-game.load(selected);
+ensureLoaded(selected);
 onGameState('menu');

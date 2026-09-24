@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRng } from '../src/core/random.js';
 import { crosshairRects } from '../src/game/crosshair.js';
-import { BOT_HEIGHT, BOT_SHAPE, botFrame, botHitboxes, directionFromAngles, hitTest, hitTestDetailed, rayAabb, rayCapsule, raySphere } from '../src/game/hit.js';
+import { BOT_HEIGHT, BOT_SHAPE, botFrame, botHitboxes, botSkeleton, directionFromAngles, hitTest, hitTestDetailed, rayAabb, rayCapsule, raySphere } from '../src/game/hit.js';
 import { animateBotPose, createBotPose, DIFFICULTIES, EYE_HEIGHT, resolveDifficulty, RUN_SPEED, SCENARIOS } from '../src/game/scenarios.js';
 import { DEFAULT_CROSSHAIR } from '../src/core/settings.js';
 
@@ -43,41 +43,59 @@ describe('ray tests', () => {
 
   it('separates head, body and legs on the bot', () => {
     const bot = { kind: 'bot', position: { x: 0, y: 0, z: -15 }, scale: 1 };
-    const { head, body, legs } = botHitboxes(bot);
+    const { head, torso, legs, hands, feet } = botHitboxes(bot);
     expect(hitTest(eye, aimAt(head.center), bot)).toBe('head');
-    expect(hitTest(eye, aimAt({ x: 0, y: (body.a.y + body.b.y) / 2, z: -15 }), bot)).toBe('body');
+    expect(hitTest(eye, aimAt({ x: 0, y: BOT_SHAPE.neck.bottom + 0.06, z: -15 }), bot)).toBe('head');
+    expect(hitTest(eye, aimAt({ x: 0, y: BOT_SHAPE.collar.top, z: -15 }), bot)).toBe('body');
+    expect(hitTest(eye, aimAt({ x: 0, y: (torso[0].a.y + torso[0].b.y) / 2, z: -15 }), bot)).toBe('body');
     expect(hitTest(eye, aimAt({ x: legs[0].a.x, y: 0.5, z: -15 }), bot)).toBe('legs');
     expect(hitTest(eye, aimAt({ x: legs[1].a.x, y: 0.5, z: -15 }), bot)).toBe('legs');
-    // Between the legs, above the head and beside the body are misses.
-    expect(hitTest(eye, aimAt({ x: 0, y: 0.5, z: -15 }), bot)).toBeNull();
+    expect(hitTest(eye, aimAt({ x: feet[1].b.x, y: feet[1].b.y, z: feet[1].b.z }), bot)).toBe('legs');
+    // Between the shins, above the head and beside the body are misses.
+    expect(hitTest(eye, aimAt({ x: 0, y: 0.3, z: -15 }), bot)).toBeNull();
     expect(hitTest(eye, aimAt({ x: 0, y: BOT_HEIGHT + 0.05, z: -15 }), bot)).toBeNull();
     expect(hitTest(eye, aimAt({ x: 1, y: 1, z: -15 }), bot)).toBeNull();
-    // Arms hang beside the torso and count as body.
-    const { arms } = botHitboxes(bot);
-    expect(hitTest(eye, aimAt({ x: arms[1].b.x, y: arms[1].b.y, z: -15 }), bot)).toBe('body');
-    expect(arms[1].b.x).toBeGreaterThan(BOT_SHAPE.bodyRadius);
+    // Arms and hands hang beside the torso and count as body.
+    expect(hitTest(eye, aimAt(hands[1].b), bot)).toBe('body');
+    expect(hands[1].b.x).toBeGreaterThan(BOT_SHAPE.chest.radius);
     const orb = { kind: 'sphere', position: { x: 2, y: 2, z: -8 }, radius: 0.4 };
     expect(hitTest(eye, aimAt(orb.position), orb)).toBe('target');
     expect(hitTestDetailed(eye, aimAt(orb.position), orb).t).toBeCloseTo(Math.hypot(2, 0.4, 8) - 0.4, 6);
   });
 
+  it('stands on the floor with a human height', () => {
+    const { primitives } = botSkeleton();
+    let lowest = Infinity;
+    for (const prim of primitives) {
+      const ys = prim.kind === 'sphere' ? [prim.center.y] : [prim.a.y, prim.b.y];
+      lowest = Math.min(lowest, ...ys.map((y) => y - prim.radius));
+    }
+    expect(lowest).toBeCloseTo(0, 2);
+    expect(BOT_HEIGHT).toBeGreaterThan(1.75);
+    expect(BOT_HEIGHT).toBeLessThan(1.95);
+    expect(primitives.length).toBeGreaterThan(20);
+  });
+
   it('scales the bot and its hitboxes together', () => {
     const big = { kind: 'bot', position: { x: 0, y: 0, z: -15 }, scale: 1.3 };
     const { head } = botHitboxes(big);
-    expect(head.center.y).toBeCloseTo(BOT_SHAPE.headY * 1.3, 8);
-    expect(head.radius).toBeCloseTo(BOT_SHAPE.headRadius * 1.3, 8);
+    expect(head.center.y).toBeCloseTo(BOT_SHAPE.head.y * 1.3, 8);
+    expect(head.radius).toBeCloseTo(BOT_SHAPE.head.radius * 1.3, 8);
   });
 
   it('keeps the bot facing the player', () => {
     expect(botFrame({ x: 0, y: 0, z: -15 }).yaw).toBeCloseTo(0, 8);
     expect(botFrame({ x: 5, y: 0, z: -15 }).yaw).toBeCloseTo(Math.atan2(-5, 15), 8);
-    const { right } = botFrame({ x: 15, y: 0, z: 0 });
-    // Bot to the right of the player: its sideways axis runs along -z.
+    const { right, forward } = botFrame({ x: 15, y: 0, z: 0 });
+    // Bot to the right of the player: it faces -x and its sideways axis runs along z.
+    expect(forward.x).toBeCloseTo(-1, 8);
     expect(right.x).toBeCloseTo(0, 8);
     expect(Math.abs(right.z)).toBeCloseTo(1, 8);
     const bot = { kind: 'bot', position: { x: 15, y: 0, z: 0 }, scale: 1 };
-    const { legs } = botHitboxes(bot);
-    expect(Math.abs(legs[0].a.z - legs[1].a.z)).toBeCloseTo(2 * BOT_SHAPE.hipSpread, 8);
+    const { legs, feet } = botHitboxes(bot);
+    expect(Math.abs(legs[0].a.z - legs[1].a.z)).toBeCloseTo(2 * BOT_SHAPE.hip.x, 8);
+    // Toes point at the player.
+    expect(feet[0].b.x).toBeLessThan(feet[0].a.x);
   });
 
   it('moves the leg hitboxes with the walking pose', () => {
@@ -89,8 +107,11 @@ describe('ray tests', () => {
     const spread = (h) => Math.abs(h.legs[0].b.x - h.legs[1].b.x);
     expect(spread(moving)).not.toBeCloseTo(spread(still), 3);
     expect(moving.head.center.y).toBeGreaterThanOrEqual(still.head.center.y);
-    for (const leg of moving.legs) expect(leg.b.y).toBeGreaterThanOrEqual(0);
-    // Stopping settles the legs back to a stance.
+    for (const prim of moving.primitives) {
+      const ys = prim.kind === 'sphere' ? [prim.center.y] : [prim.a.y, prim.b.y];
+      for (const y of ys) expect(y - prim.radius).toBeGreaterThanOrEqual(-0.03);
+    }
+    // Stopping settles the limbs back to a stance.
     for (let i = 0; i < 120; i++) animateBotPose(pose, { x: 0, z: 0 }, 1 / 60);
     expect(pose.amount).toBeLessThan(0.02);
   });

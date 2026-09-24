@@ -121,28 +121,35 @@ function smooth({ rng, speed, size }) {
 
 /** Stride cycle rate in radians per metre travelled (about 2.6 steps per second at running speed). */
 const STRIDE_RATE = 2.4;
-const MAX_LEG_SWING = 0.42;
+const MAX_LEG_SWING = 0.38;
 
 /**
  * Procedural side-step animation. The pose lives on the target so the hitboxes
- * in hit.js and the mesh in bot.js read the same leg angles.
+ * in hit.js and the mesh in bot.js read the same joint angles.
  */
 export function animateBotPose(pose, velocity, dt, scale = 1) {
   const speed = Math.hypot(velocity.x, velocity.z);
   const stride = speed / scale;
   pose.phase = (pose.phase + stride * STRIDE_RATE * dt) % (Math.PI * 2);
-  // Strength follows speed so the legs settle when the bot stops.
+  // Strength follows speed so the limbs settle when the bot stops.
   const amount = Math.min(1, stride / RUN_SPEED);
   pose.amount += (amount - pose.amount) * (1 - Math.exp(-14 * dt));
-  const swing = MAX_LEG_SWING * pose.amount * Math.sin(pose.phase);
-  pose.legs[0] = 0.04 + Math.max(-0.04, -swing);
-  pose.legs[1] = 0.04 + Math.max(-0.04, swing);
-  pose.bob = BOT_SHAPE.bobHeight * pose.amount * Math.abs(Math.sin(pose.phase));
+  const wave = Math.sin(pose.phase);
+  const swing = MAX_LEG_SWING * pose.amount * wave;
+  // One leg reaches out while the other tucks in; the tucking leg lifts its knee.
+  pose.hipSwing[0] = 0.05 + Math.max(-0.08, -swing);
+  pose.hipSwing[1] = 0.05 + Math.max(-0.08, swing);
+  pose.kneeBend[0] = 0.06 + 0.3 * pose.amount * Math.max(0, wave);
+  pose.kneeBend[1] = 0.06 + 0.3 * pose.amount * Math.max(0, -wave);
+  // Arms sway a little, opposite to the legs.
+  pose.armSwing[0] = 0.05 + 0.16 * pose.amount * Math.max(0, wave);
+  pose.armSwing[1] = 0.05 + 0.16 * pose.amount * Math.max(0, -wave);
+  pose.bob = BOT_SHAPE.bobHeight * pose.amount * Math.abs(wave);
   return pose;
 }
 
 export function createBotPose() {
-  return { legs: [0.04, 0.04], bob: 0, phase: 0, amount: 0 };
+  return { phase: 0, amount: 0, bob: 0, hipSwing: [0.05, 0.05], kneeBend: [0.06, 0.06], armSwing: [0.05, 0.05] };
 }
 
 function strafe({ rng, speed, size }) {

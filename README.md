@@ -19,11 +19,16 @@ A browser aim trainer for **tracking** that uses your exact **Valorant sensitivi
     mouse distance, so you can check a full 360 with a ruler.
 - **Six tracking scenarios:** Smooth Tracking, Strafe Bot (a humanoid bot A-D strafing at Valorant running speed),
   Reactive Tracking, Air Tracking, Close-Range Micro and 360 Orbit.
-- **A precise target model.** The bot is built from the same numbers as its hitboxes (head, body with arms, and two
-  legs), so what you see is exactly what you can hit. It faces you, side-steps with animated legs the hitboxes
-  follow, and wears a Valorant-style outline in the target colour.
+- **A precise target model.** The bot is an articulated range mannequin generated from a skeleton (head, neck,
+  torso, shoulders, elbows, wrists, hips, knees, ankles) with high segment counts, painted panel seams and a
+  visor. Its hitboxes are the same spheres and capsules the mesh is built from, so what you see is exactly what
+  you can hit: head and neck count as head, torso and arms as body, legs and feet as legs. It faces you,
+  side-steps with animated legs and arms the hitboxes follow, and wears a Valorant-style outline.
 - **Real firing.** Choose a Vandal, Phantom, Spectre or Odin: each fires at its Valorant rate with its close-range
-  damage. A first-person weapon kicks with recoil and muzzle flash, shots leave tracers, sparks on the target and
+  damage. Each weapon is a distinct detailed model built from bevelled side-profile outlines (an AK-style Vandal
+  with a curved magazine and gas tube, an angular Phantom with a skeleton stock and integrated suppressor, a
+  Spectre with a vented suppressor shroud and wire stock, an Odin with a carry handle, box magazine, vented barrel
+  shroud and bipod) with brushed-metal and stippled-polymer surfaces. It kicks with recoil and muzzle flash, shots leave tracers, sparks on the target and
   impact marks on the range, hits show a hit marker and a running damage number, and gunshots, damage ticks and
   headshot rings are synthesised in the browser. Everything can be switched off for a clean view.
 - **Difficulty** presets (Easy, Normal, Hard, Insane) plus custom speed and size. Runs last **30, 60, 90 or 120 s**.

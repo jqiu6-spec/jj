@@ -125,7 +125,15 @@ export class Game {
     this.canvas = canvas;
     this.hooks = hooks; // { onHud, onState, onFinish, onHit }
     this.state = 'menu'; // menu | countdown | running | paused | results
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    // Low latency: a desynchronized context draws straight to the screen
+    // instead of waiting a frame for the page compositor, so the view keeps
+    // up with the mouse (Chrome and Edge; other browsers ignore it).
+    const low = !settings.render || settings.render.lowLatency !== false;
+    const context = canvas.getContext('webgl2', {
+      antialias: true, alpha: false, depth: true, stencil: false, premultipliedAlpha: true,
+      preserveDrawingBuffer: false, powerPreference: 'high-performance', desynchronized: low,
+    });
+    this.renderer = new THREE.WebGLRenderer({ canvas, context: context || undefined, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#161b23');
@@ -179,7 +187,6 @@ export class Game {
     this.zoomLevel = 0; // 0 unscoped, 1 first zoom, 2 second zoom
     this.scopeT = 0; // 0..1 progress into the current zoom
     this.scopeAge = 0; // seconds since scoping in from unscoped
-    this.resumeLevel = 0; // zoom to return to when the bolt is back (CS2)
     this.slot = 'gun'; // 'gun' or 'knife': what the player holds in a run
     this.lastWheel = 0;
     this.vm = new Viewmodel(this.renderer);
@@ -442,7 +449,6 @@ export class Game {
     this.loadedKey = `${scn.id}|${setupKey(setup)}`;
     this.buildArena(scn.arena);
     this.setZoom(0);
-    this.resumeLevel = 0;
     this.refreshGun();
     const [ex, ey, ez] = eyeOf(scn);
     this.eye.set(ex, ey, ez);
@@ -642,7 +648,6 @@ export class Game {
     this.firing = false;
     this.wasFiring = false;
     if (next !== 'gun' || !this.sniper) this.setZoom(0); // only the AWP scopes
-    this.resumeLevel = 0;
     this.refreshGun();
   }
 
@@ -695,7 +700,6 @@ export class Game {
     };
     this.firing = false;
     this.setZoom(0);
-    this.resumeLevel = 0;
     this.wasFiring = false;
     this.pressAt = null;
     // Every run starts from the scenario's spot, standing still.
@@ -740,7 +744,6 @@ export class Game {
   toMenu() {
     this.firing = false;
     this.setZoom(0);
-    this.resumeLevel = 0;
     this.run = null;
     this.setState('menu');
     this.resetTargets();
@@ -752,7 +755,6 @@ export class Game {
     const accuracy = beam ? (r.fireTime > 0 ? r.onTime / r.fireTime : 0) : (r.shots ? r.hits / r.shots : 0);
     while (r.timeline.length < this.scn.duration) r.timeline.push(Math.round(r.score));
     this.setZoom(0);
-    this.resumeLevel = 0;
     const result = {
       scenario: this.scn.id,
       setup: setupKey(this.setup),
@@ -833,7 +835,6 @@ export class Game {
   scopePress() {
     const live = this.state === 'running' || this.state === 'countdown';
     if (!this.awpHeld || !live) return;
-    this.resumeLevel = 0; // the player has taken over the scope
     if (this.settings.sniper.scopeMode === 'hold') this.setZoom(1);
     else this.setZoom((this.zoomLevel + 1) % 3);
   }
@@ -1026,11 +1027,8 @@ export class Game {
     } else {
       r.score = Math.max(0, r.score - w.missPenalty);
     }
-    if (this.settings.sniper.unscope) {
-      // CS2 zooms back in by itself once the bolt is back.
-      if (spec.resumeZoom && this.zoomLevel && this.settings.sniper.scopeMode === 'toggle') this.resumeLevel = this.zoomLevel;
-      this.setZoom(0);
-    }
+    // Out of the scope after the shot; you scope in again yourself.
+    if (this.settings.sniper.unscope) this.setZoom(0);
   }
 
   // One round from a rifle in a sniping run. A headshot kills; body and leg
@@ -1178,11 +1176,6 @@ export class Game {
     }
 
     if (this.zoomLevel) this.scopeAge += dt;
-    if (this.resumeLevel && this.run && this.state === 'running' && this.awpHeld
-      && this.run.elapsed - this.run.lastShot >= this.sniperSpec.fireInterval) {
-      this.setZoom(this.resumeLevel);
-      this.resumeLevel = 0;
-    }
     if (this.zoomLevel && this.scopeT < 1) {
       const zoomTime = this.sniperSpec.zoomTime || this.settings.sniper.scopeTime;
       this.scopeT = Math.min(1, this.scopeT + dt / Math.max(0.01, zoomTime));

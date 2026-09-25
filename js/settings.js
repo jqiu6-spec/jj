@@ -32,6 +32,7 @@ export const DEFAULTS = {
   render: {
     auto: true, // lower the resolution by itself when the frame rate drops
     scale: 1, // fixed fraction of the device pixel ratio (capped at 2) when not auto
+    lowLatency: true, // draw straight to the screen (desynchronized canvas): about a frame less lag
   },
   weapon: {
     show: true, // gun model in first person
@@ -41,6 +42,7 @@ export const DEFAULTS = {
     sounds: true,
     headshot: true, // CS:GO's headshot sound on hits to the head
     recoil: true, // spray patterns: AK-47 strong, M4A1-S and Phantom slight
+    sway: false, // the gun trails the view when you move the mouse (off: locked to the view)
     models: 'detailed', // 'detailed' real meshes, or 'simple' built-in models
   },
   sniper: {
@@ -48,7 +50,7 @@ export const DEFAULTS = {
     scopeMode: 'toggle', // 'toggle' cycles 2.5x, 5x, off; 'hold' keeps 2.5x while held
     scopedSens: 1, // CS2: zoom_sensitivity_ratio; Operator: multiplier on top of the zoom
     scopeTime: 0.25, // Operator seconds to scope in (estimate; not published)
-    unscope: true, // drop out of scope after each shot (CS2 zooms back in after the bolt)
+    unscope: true, // drop out of scope after each shot; scoping in again is up to you
   },
   crosshair: {
     style: 'crossdot',

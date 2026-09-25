@@ -16,7 +16,7 @@ export const CATEGORIES = [
 // then a 10° field of view (CS2's 4:3 horizontal degrees, whatever your own
 // FOV); scoped sensitivity = sensitivity x zoom_sensitivity_ratio x zoom FOV
 // / 90, as in CS2; accurate about 0.1 s after scoping in, so quick-scopes
-// work; after a shot it unscopes and zooms back in when the bolt is back.
+// work; after a shot it drops out of the scope and you scope in again.
 // The zoom time and settle time are estimates.
 //
 // Valorant Operator: 0.6 rounds/s, 2.5x and 5x zoom, scoped sensitivity
@@ -37,7 +37,6 @@ export const SNIPERS = {
     hipSpread: 8, // degrees; a no-scope is a gamble
     hp: 100,
     damage: { head: 459, body: 115, legs: 86 },
-    resumeZoom: true,
   },
   operator: {
     name: 'Valorant Operator',

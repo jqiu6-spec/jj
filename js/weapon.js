@@ -864,6 +864,11 @@ export class Viewmodel {
   }
 
   applyView(w) {
+    this.swayOn = !!w.sway;
+    if (!this.swayOn) {
+      this.swayX = 0;
+      this.swayY = 0;
+    }
     this.hand.scale.x = w.hand === 'left' ? -1 : 1;
     this.fov = w.fov;
     this.detailed = w.models !== 'simple';
@@ -875,10 +880,13 @@ export class Viewmodel {
     this.camera.updateProjectionMatrix();
   }
 
-  // Look delta in radians; the gun lags behind the view a little.
+  // Look delta in radians. Off by default, the gun is locked to the view;
+  // with sway on it trails the view a little (gently, so small hand
+  // movements don't shake it).
   addSway(dx, dy) {
-    this.swayX = Math.max(-0.06, Math.min(0.06, this.swayX + dx * 0.5));
-    this.swayY = Math.max(-0.05, Math.min(0.05, this.swayY + dy * 0.5));
+    if (!this.swayOn) return;
+    this.swayX = Math.max(-0.025, Math.min(0.025, this.swayX + dx * 0.2));
+    this.swayY = Math.max(-0.02, Math.min(0.02, this.swayY + dy * 0.2));
   }
 
   // `heavy` is a sniper shot: a bigger, longer blast, a hard kick and smoke.

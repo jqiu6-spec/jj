@@ -430,8 +430,9 @@ with the AWP).
   lands here.
 - **Quick-scopes work**: a shot is fully accurate once the scope has been up
   0.1 s. Earlier shots, and no-scopes, carry up to 8° of spread.
-- **1.455 s** between shots. After a shot it unscopes and zooms back in to the
-  same level when the bolt is back, as in CS2.
+- **1.455 s** between shots. After a shot it drops out of the scope and stays
+  out: right click to scope in again (no automatic re-scope). Settings can keep
+  you scoped instead.
 - The zoom-in time (0.06 s) and the settle time are estimates.
 
 **Valorant Operator**: 0.6 shots a second (1.67 s apart), 2.5x and 5x zoom,
@@ -467,6 +468,19 @@ before the scope settled.
 - **Crosshair**: style, colour, length, thickness, gap, dot size and outline, with
   a live preview.
 - **Target and on-hit colours**, volume, auto-fire, and an FPS counter.
+- **Low-latency rendering** (on by default): the game draws straight to the
+  screen (a desynchronized canvas) instead of waiting a frame for the page
+  compositor, so the view keeps up with the mouse. Chrome and Edge honour it;
+  it can tear slightly, and a change applies when the page reloads.
+
+**Mouse input.** Trackline adds no acceleration or smoothing of its own: the
+view turns by exactly the mouse counts times your sensitivity, applied the
+moment they arrive. It also asks the browser for raw input, which bypasses
+the system's pointer acceleration (Chrome and Edge give it). When a browser
+can't (Safari, Firefox), the countdown says so and how to turn acceleration
+off in the system settings. The first-person gun no longer trails the view by
+default (**Gun sway** in the Weapon tab brings a gentle sway back), so small
+hand movements don't set it wobbling.
 
 Settings and run history are saved in `localStorage`.
 

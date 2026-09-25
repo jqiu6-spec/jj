@@ -20,6 +20,7 @@ import {
 import { FX_TYPES } from './effects.js';
 
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || '') || /Macintosh/.test(navigator.userAgent || '');
+const IS_SAFARI = /^((?!chrome|chromium|crios|fxios|edg|android).)*safari/i.test(navigator.userAgent || '');
 import { runsFor, bestRun, addRun, clearRuns, average } from './stats.js';
 import { paceChart, sparkline } from './chart.js';
 
@@ -83,7 +84,8 @@ async function lockPointer() {
   try {
     const p = canvas.requestPointerLock({ unadjustedMovement: true });
     if (p && p.then) await p;
-    rawInput = !!(p && p.then);
+    // Safari returns a promise but ignores the request for raw input.
+    rawInput = !!(p && p.then) && !IS_SAFARI;
   } catch (err) {
     if (err && err.name === 'NotSupportedError') {
       const p = canvas.requestPointerLock();
@@ -158,6 +160,13 @@ function onGameState(s) {
         : `Right click scopes to ${z1}, again for ${z2}. Left click fires. 2 for a rifle (again for the next), 1 the AWP.`;
     }
     $('countdown-hint').textContent = hint;
+    // Trackline adds no acceleration of its own, but without raw input the
+    // system's pointer acceleration still applies: say so, and how to stop it.
+    const accel = $('countdown-accel');
+    accel.hidden = rawInput !== false;
+    accel.textContent = IS_MAC
+      ? 'Mouse acceleration is on: this browser can\'t read the raw mouse. Use Chrome or Edge, or turn off System Settings › Mouse › Advanced › Pointer acceleration.'
+      : 'Mouse acceleration is on: this browser can\'t read the raw mouse. Use Chrome or Edge, or turn off Enhance pointer precision in the Windows mouse settings.';
   }
 }
 
@@ -391,6 +400,7 @@ function syncForm() {
   $('s-fov').value = s.fov;
   $('s-renderScale').value = s.render.auto !== false ? 'auto' : String(s.render.scale);
   $('s-invertY').checked = s.invertY;
+  $('s-lowLatency').checked = s.render.lowLatency !== false;
   $('s-x-style').value = s.crosshair.style;
   $('s-x-color').value = s.crosshair.color;
   $('s-x-length').value = s.crosshair.length;
@@ -424,7 +434,7 @@ function renderSniperSettings() {
     : `Valorant Operator: 0.6 shots/s (${spec.fireInterval.toFixed(2)} s apart) · 2.5x and 5x zoom · one hit anywhere kills · infinite rounds`;
   $('s-scopedSens-lbl').textContent = cs2 ? 'Zoom sensitivity ratio (CS2 zoom_sensitivity_ratio)' : 'Scoped sensitivity multiplier';
   $('s-scopeTime-wrap').hidden = cs2;
-  $('s-unscope-lbl').textContent = cs2 ? 'Unscope after each shot, and zoom back in when the bolt is back' : 'Drop out of scope after each shot';
+  $('s-unscope-lbl').textContent = 'Drop out of scope after each shot';
   $('s-scope-toggle-lbl').textContent = `Right click cycles ${z1}x, ${z2}x, off`;
   $('s-scope-hold-lbl').textContent = `Hold right click for ${z1}x`;
   $('s-sniper-hint').textContent = cs2
@@ -456,7 +466,7 @@ function renderSensReadout() {
   $('sens-chip').textContent = `${cm.toFixed(1)} cm/360 · ${settings.fov}° FOV`;
   const status = $('raw-status');
   if (rawInput === true) status.textContent = 'Raw input is active: the browser reports unaccelerated mouse counts, so the conversion is exact.';
-  else if (rawInput === false && IS_MAC) status.textContent = 'This browser does not offer raw input, so macOS pointer acceleration applies and the cm/360 figure is approximate. Chrome and Edge on macOS give raw input.';
+  else if (rawInput === false && IS_MAC) status.textContent = 'This browser does not offer raw input, so macOS pointer acceleration applies and the cm/360 figure is approximate. Chrome and Edge on macOS give raw input; otherwise turn off System Settings › Mouse › Advanced › Pointer acceleration.';
   else if (rawInput === false) status.textContent = 'This browser does not offer raw input, so OS pointer speed and acceleration apply. On Windows, set pointer speed to 6/11 and turn off Enhance pointer precision. Chrome and Edge on Windows give raw input.';
   else status.textContent = IS_MAC
     ? 'Chrome and Edge on macOS give raw, unaccelerated input. Safari and Firefox apply macOS pointer acceleration, so the conversion is approximate there.'
@@ -478,6 +488,7 @@ function readForm() {
   s.render.auto = $('s-renderScale').value === 'auto';
   if (!s.render.auto) s.render.scale = parseFloat($('s-renderScale').value) || 1;
   s.invertY = $('s-invertY').checked;
+  s.render.lowLatency = $('s-lowLatency').checked;
   s.crosshair.style = $('s-x-style').value;
   s.crosshair.color = $('s-x-color').value;
   s.crosshair.length = parseFloat($('s-x-length').value);
@@ -631,6 +642,7 @@ function renderWeapon() {
   $('w-sounds').checked = settings.weapon.sounds;
   $('w-headshot').checked = settings.weapon.headshot !== false;
   $('w-recoil').checked = settings.weapon.recoil !== false;
+  $('w-sway').checked = settings.weapon.sway === true;
   $('w-hand-right').checked = settings.weapon.hand !== 'left';
   $('w-hand-left').checked = settings.weapon.hand === 'left';
   $('w-fov').value = settings.weapon.fov;
@@ -1051,6 +1063,7 @@ viewInput('w-show', (el) => { settings.weapon.show = el.checked; });
 viewInput('w-sounds', (el) => { settings.weapon.sounds = el.checked; });
 viewInput('w-headshot', (el) => { settings.weapon.headshot = el.checked; });
 viewInput('w-recoil', (el) => { settings.weapon.recoil = el.checked; });
+viewInput('w-sway', (el) => { settings.weapon.sway = el.checked; });
 viewInput('w-hand-right', () => { settings.weapon.hand = 'right'; });
 viewInput('w-hand-left', () => { settings.weapon.hand = 'left'; });
 viewInput('w-fov', (el) => { settings.weapon.fov = parseInt(el.value, 10); });

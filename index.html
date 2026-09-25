@@ -24,7 +24,7 @@
 <div id="hud-fps" hidden></div>
 <div id="scope" aria-hidden="true"><i class="scope-h"></i><i class="scope-v"></i><i class="scope-dot"></i></div>
 <div id="hud-ammo" hidden><b id="hud-ammo-n">∞</b><span id="hud-ammo-info"></span></div>
-<div id="countdown" hidden><b id="countdown-num">3</b><span id="countdown-hint"></span></div>
+<div id="countdown" hidden><b id="countdown-num">3</b><span id="countdown-hint"></span><span id="countdown-accel" hidden></span></div>
 
 <section id="menu">
   <header class="topbar">
@@ -217,6 +217,7 @@
           <label class="check"><input type="checkbox" id="w-show"><span>Show the gun during runs</span></label>
           <label class="check"><input type="checkbox" id="w-sounds"><span>Gun sounds</span></label>
           <label class="check"><input type="checkbox" id="w-recoil"><span>Recoil: strong on the AK-47, slight on the M4A1-S and Phantom</span></label>
+          <label class="check"><input type="checkbox" id="w-sway"><span>Gun sway: the gun trails the view as you move the mouse (off keeps it locked to the view)</span></label>
           <div class="f">
             <span class="lbl-plain" id="w-hand-lbl">Hand</span>
             <div class="seg seg-sm" role="radiogroup" aria-labelledby="w-hand-lbl">
@@ -260,6 +261,7 @@
           <label class="f wide"><span>Horizontal FOV <output id="o-fov"></output></span><input type="range" id="s-fov" name="fov" min="60" max="130" step="1"></label>
           <label class="f"><span>Render scale</span><select id="s-renderScale" name="renderScale"><option value="auto">Auto (keeps the frame rate up)</option><option value="1">Full (Retina / HiDPI)</option><option value="0.75">75%</option><option value="0.5">50%, for slow laptops</option></select></label>
           <label class="check"><input type="checkbox" id="s-invertY" name="invertY"><span>Invert vertical look</span></label>
+          <label class="check"><input type="checkbox" id="s-lowLatency" name="lowLatency"><span>Low-latency rendering: about a frame less input lag in Chrome and Edge (may tear slightly; applies when the page reloads)</span></label>
         </div>
       </fieldset>
 

@@ -192,9 +192,12 @@ under First-person view in the Weapon tab.
   barrel and furniture included; set a part to **Factory** to keep, say, the
   AK's wood. Skins saved on these presets' old layout (furniture left as it
   was) move to the new one by themselves.
-- **Light bars**: glowing tubes on the gun, after VALORANT's Afterglow. They
-  are real 3D tubes (3 mm thick, with rounded ends and a soft halo), the
-  outermost layer: they sit just off the surface, on top of the pattern, every
+- **Light bars**: glowing tubes on the gun, after VALORANT's Afterglow. Each
+  is built like an LED tube light: a frosted diffuser 3 mm thick that glows
+  brightest and palest down its middle and deeper in colour toward its edges,
+  under a glossy clear plastic shell that catches highlights and reflects the
+  room, with a black anodised end cap on each end and a soft glow around it.
+  They are the outermost layer: they sit just off the surface, on top of the pattern, every
   part's finish and the stickers, so nothing covers them. They run along both
   sides of the gun where the surface is longest and smoothest (receiver,
   handguard, stock), jog at 45° here and there and follow the surface in and
@@ -216,9 +219,13 @@ under First-person view in the Weapon tab.
 - **Pattern**: original textures, Champions 2021, Case Hardened, solid, fade,
   woodland camo, digital camo, carbon fibre, hex grid, tiger stripe, splatter
   or Damascus steel, each with up to three colours. On the detailed models the paint keeps the model's normal maps, so
-  it follows every machined edge and screw.
+  it follows every machined edge and screw. Carbon fibre is real 2x2 twill
+  at its real size (2 mm tows; pattern scale makes it bigger or smaller) in
+  the skin's weave and sheen colours, with the weave in the surface and each
+  tow shining along its own length, so it shimmers as the gun moves.
 - **Finish** (matte, satin, gloss, anodized, metallic, or clear glossy
-  plastic), **wear** (0–1, adding scratches and chipped paint), **pattern
+  plastic; gloss is lacquered with a clear coat, and anodized and metallic get
+  a thinner one), **wear** (0–1, adding scratches and chipped paint), **pattern
   scale** and **pattern seed**. Clear glossy plastic turns the paint into
   see-through plastic tinted by the pattern, with a clear coat: you see the
   gun's insides through it, and it gets denser and shinier toward the edges and
@@ -227,15 +234,46 @@ under First-person view in the Weapon tab.
   suppressor, scope, butt pad, and **Barrel & metal parts**: barrel, sights,
   trigger; the AWP adds its grip, forend, receiver, barrel, scope mounts and
   bipod, and the Phantom its top rail, upper receiver and butt pad) wears the
-  pattern or a finish: black, gunmetal, silver, tan, wood,
-  gold, steel, clear plastic, or clear plastic tinted with the skin's first
-  colour (a see-through magazine, for example); **your own colour** in matte,
-  gloss or metallic, picked per part; a **neon glow** in your colour; or
-  **RGB lights** cycling the rainbow. Lit parts flare with every shot. Detailed
+  pattern or a finish: black, gunmetal, silver, tan, gold, steel, clear
+  plastic, or clear plastic tinted with the skin's first colour (a
+  see-through magazine, for example); a **real material** (below); **your own
+  colour** in matte, gloss or metallic, picked per part; a **neon glow** in
+  your colour; or **RGB lights** cycling the rainbow. Lit parts flare with every shot. Detailed
   models add **Factory**, the part's own textures, so you can paint the
   receiver and keep the AK's real wood. Barrel & metal parts start on Factory
   except in the presets that cover the whole gun. **Pattern on every part**
   puts the pattern on all of them at once. The list changes with the gun.
+- **Real materials** for any part, drawn in code at their real size (the
+  models' texture coordinates are in metres), each with a colour map, a
+  surface (normal) map and a roughness map, and for fibres and brushing the
+  direction its sheen runs. On the detailed models the material's surface
+  goes on top of the part's own normal map, so the screws and machined
+  edges stay.
+  - **Carbon fibre, gloss**: 2x2 twill of 2 mm tows under a clear coat;
+    each tow shines along its length, so the weave shimmers as it turns.
+    **Carbon fibre, matte** is the same without the coat. **Forged carbon**:
+    chopped strips of fibre pressed into black resin every which way, each
+    catching the light on its own.
+  - **Metal**: polished chrome (a mirror of the room), brushed steel and
+    brushed aluminium (fine lines along the gun with stretched highlights),
+    bead-blasted aluminium, blued steel (deep blue-black oxide under a
+    film of oil), Parkerized phosphate, knurled steel (a diamond knurl, 1 mm
+    pitch), polished brass and burnt titanium (heat-tinted bands of straw,
+    bronze, purple and blue).
+  - **Coatings, grips and wood**: Cerakote in your colour (Flat Dark Earth to
+    start; a fine orange-peel texture), stippled polymer in your colour
+    (melted-in dimples, black to start), textured rubber, walnut (straight
+    grain and open pores under an oil finish) and laminated wood (glued
+    layers in three tones).
+- **Reflections**: everything shiny on the gun reflects the room you're in.
+  The arena is captured around the player when a scenario loads, with strip
+  lights along its ceiling and walls and softboxes round the player that
+  show only in reflections, and it turns as you look around, so the ceiling
+  lights slide along the top of the gun and what's behind you shows on the
+  side you see. Chrome and polished brass mirror it, brushed metal streaks
+  it, and gloss paint, clear coats, carbon and the light bars' plastic
+  catch it. The gun is tone mapped (Khronos PBR Neutral): colours stay as
+  they are and bright reflections roll off instead of clipping flat white.
 - **Fade direction**: run the fade back to front or front to back.
 - **Randomise** makes a new skin from one hue and its complement; **Apply this
   skin to every gun** copies the pattern, colours, finish, light bars and fire
@@ -510,6 +548,8 @@ js/models.js          detailed gun models: loading, skin zones, sticker decals
 js/knife.js           karambit animations: draw, slashes, stab, inspect
 js/gun-sounds.js      recorded shots: Champions Vandal, M4A1-S (base64 WAV)
 js/skins.js           skin patterns, presets, random skins and sticker designs
+js/materials.js       real materials for parts: carbon fibre, metals, coatings, wood
+js/lightbars.js       light bars: LED tubes laid along the gun's surface
 js/effects.js         fire effects: tracers, impacts, muzzle glow
 js/weapon.js          first-person gun view, skins, stickers, turntable
 models/               detailed gun meshes (.glb)

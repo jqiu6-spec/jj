@@ -2,6 +2,11 @@
 // Afterglow. They are real geometry, so they have volume and sit on top of
 // everything else: the pattern, part finishes and stickers.
 //
+// Each bar is built like an LED tube light: a frosted diffuser that glows
+// brightest down its middle, under a glossy clear shell that picks up
+// reflections and highlights, with a black metal cap on each end and a soft
+// glow around it.
+//
 // Where they go: the gun's triangles are rasterised into a depth map of each
 // side (the nearest surface seen from -z and from +z, per 2.5 mm cell). Bars
 // run along the rows of that map with the longest smooth stretches of
@@ -14,6 +19,12 @@ import { rng } from './skins.js';
 
 const CELL = 0.0025; // depth-map resolution, m
 const RADIUS = 0.0016; // tube radius, m
+const CAP_IN = 2; // end cap: length over the tube, in tube radii
+const CAP_OUT = 0.8; // and past its end
+const CAP_R = 1.14; // and its radius
+const HALO = 2.8; // glow radius, in tube radii
+const CORE_GLOW = 0.95; // diffuser brightness
+const HALO_GLOW = 0.55; // glow brightness
 const LIFT = 0.0006; // gap between the surface and the tube
 const MIN_RUN = 20; // shortest bar, in cells (5 cm)
 
@@ -200,11 +211,23 @@ function smooth(path) {
   });
 }
 
-// One tube with rounded ends through `points`.
-function tube(points, radius, out) {
+// One tube through `points` into `out`, with a flat cap on each end into
+// `caps` (or rounded ends when there are no caps, for the glow).
+function tube(points, radius, out, caps, radial) {
   const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal');
-  out.push(new THREE.TubeGeometry(curve, Math.max(4, points.length * 2), radius, 8, false));
-  for (const p of [points[0], points[points.length - 1]]) out.push(new THREE.SphereGeometry(radius, 8, 6).translate(p.x, p.y, p.z));
+  out.push(new THREE.TubeGeometry(curve, Math.max(4, points.length * 2), radius, radial, false));
+  const ends = [[points[0], curve.getTangentAt(0).negate()], [points[points.length - 1], curve.getTangentAt(1)]];
+  for (const [p, t] of ends) {
+    if (!caps) {
+      out.push(new THREE.SphereGeometry(radius, radial, Math.ceil(radial * 0.75)).translate(p.x, p.y, p.z));
+      continue;
+    }
+    // A short cylinder over the end of the tube, its axis along the tube.
+    const cap = new THREE.CylinderGeometry(radius * CAP_R, radius * CAP_R, radius * (CAP_IN + CAP_OUT), radial, 1, false);
+    cap.translate(0, radius * (CAP_OUT - CAP_IN) / 2, 0);
+    cap.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), t));
+    caps.push(cap.translate(p.x, p.y, p.z));
+  }
 }
 
 // Position and normal only, all in one geometry.
@@ -233,6 +256,55 @@ function merge(list) {
   return geo;
 }
 
+// The diffuser: a frosted tube lit from inside, brightest and palest down
+// the middle and deeper in colour toward its edges, under a clear glossy
+// shell (the clearcoat) that reflects the room.
+function diffuser() {
+  const m = new THREE.MeshPhysicalMaterial({
+    color: 0x000000, emissive: 0xffffff, emissiveIntensity: CORE_GLOW, roughness: 0.5, metalness: 0,
+    clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 1.3,
+  });
+  m.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  {
+    float facing = clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0);
+    totalEmissiveRadiance *= mix(0.55, 1.0, facing);
+    float peak = max(max(totalEmissiveRadiance.r, totalEmissiveRadiance.g), totalEmissiveRadiance.b);
+    totalEmissiveRadiance = mix(totalEmissiveRadiance, vec3(peak), smoothstep(0.8, 1.0, facing) * 0.15);
+  }`);
+  };
+  return m;
+}
+
+// The glow around a tube: light added on screen, strongest at the tube's
+// edge and fading out to the halo's, only faint over the tube itself.
+function glow() {
+  return new THREE.ShaderMaterial({
+    uniforms: { color: { value: new THREE.Color() }, strength: { value: HALO_GLOW }, core: { value: 1 / HALO } },
+    vertexShader: `varying vec3 vN;
+varying vec3 vV;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vV = -mv.xyz;
+  vN = normalMatrix * normal;
+  gl_Position = projectionMatrix * mv;
+}`,
+    fragmentShader: `uniform vec3 color;
+uniform float strength;
+uniform float core;
+varying vec3 vN;
+varying vec3 vV;
+void main() {
+  float f = clamp(abs(dot(normalize(vN), normalize(vV))), 0.0, 1.0);
+  float d = sqrt(1.0 - f * f); // how far out from the middle, in halo radii
+  float a = d < core ? 0.08 : pow(1.0 - (d - core) / (1.0 - core), 2.2);
+  gl_FragColor = vec4(color * strength * a, 1.0);
+  #include <colorspace_fragment>
+}`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+}
+
 // Build the light bars for the model under `group`, in `root`'s space.
 // `lights` is the skin's { type, color, accent, seed }. Returns
 // { group, mats } (the materials, for the colour cycle), or null.
@@ -243,25 +315,29 @@ export function buildLightBars(root, group, lights) {
   const rand = rng(lights.seed || 1);
   const bars = [];
   const segs = [];
+  const caps = [];
   const halo = [];
   const segHalo = [];
   for (const s of [-1, 1]) {
     const L = layout(D, s, rand);
     for (const p of L.bars) {
-      tube(p, RADIUS, bars);
-      tube(p, RADIUS * 2.6, halo);
+      tube(p, RADIUS, bars, caps, 16);
+      tube(p, RADIUS * HALO, halo, null, 12);
     }
     for (const p of L.segments) {
-      tube(p, RADIUS * 1.25, segs);
-      tube(p, RADIUS * 3, segHalo);
+      tube(p, RADIUS * 1.25, segs, caps, 16);
+      tube(p, RADIUS * 1.25 * HALO, segHalo, null, 12);
     }
   }
   if (!bars.length && !segs.length) return null;
-  const color = new THREE.Color('#ffffff');
-  const accent = new THREE.Color('#ffffff');
-  const core = (c) => new THREE.MeshStandardMaterial({ color: c.clone().multiplyScalar(0.35), emissive: c, emissiveIntensity: 1.6, roughness: 0.25, metalness: 0 });
-  const glow = (c) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false });
-  const mats = { bar: core(color), seg: core(accent), barHalo: glow(color), segHalo: glow(accent) };
+  const mats = {
+    bar: diffuser(),
+    seg: diffuser(),
+    // Black anodised aluminium.
+    cap: new THREE.MeshStandardMaterial({ color: 0x151619, roughness: 0.32, metalness: 0.8 }),
+    barHalo: glow(),
+    segHalo: glow(),
+  };
   const out = new THREE.Group();
   const add = (list, mat, order) => {
     if (!list.length) return;
@@ -271,6 +347,7 @@ export function buildLightBars(root, group, lights) {
   };
   add(bars, mats.bar, 0);
   add(segs, mats.seg, 0);
+  add(caps, mats.cap, 0);
   add(halo, mats.barHalo, 2);
   add(segHalo, mats.segHalo, 2);
   out.userData.lightBars = true;
@@ -279,18 +356,33 @@ export function buildLightBars(root, group, lights) {
   return L;
 }
 
+const _c = new THREE.Color();
+function colorLight(core, halo, c) {
+  core.emissive.copy(c);
+  core.color.copy(c).multiplyScalar(0.2);
+  halo.uniforms.color.value.copy(c);
+}
+
 // Colour a light-bar set without rebuilding it: neon takes the bar and
-// segment colours; RGB is coloured each frame by the viewmodel.
+// segment colours; RGB is coloured each frame by glowLightBars.
 export function tintLightBars(L, lights) {
   L.type = lights.type;
   if (lights.type === 'rgb') return;
-  const set = (core, halo, c) => {
-    core.emissive.set(c);
-    core.color.set(c).multiplyScalar(0.35);
-    halo.color.set(c);
-  };
-  set(L.mats.bar, L.mats.barHalo, lights.color);
-  set(L.mats.seg, L.mats.segHalo, lights.accent);
+  colorLight(L.mats.bar, L.mats.barHalo, _c.set(lights.color));
+  colorLight(L.mats.seg, L.mats.segHalo, _c.set(lights.accent));
+}
+
+// Each frame: `flare` brightens the lights (1 at rest, more with each
+// shot); an RGB set takes the colour-cycle `hue` (0..1).
+export function glowLightBars(L, flare, hue) {
+  const { bar, seg, barHalo, segHalo } = L.mats;
+  if (L.type === 'rgb') {
+    _c.setHSL(hue, 1, 0.55);
+    colorLight(bar, barHalo, _c);
+    colorLight(seg, segHalo, _c);
+  }
+  bar.emissiveIntensity = seg.emissiveIntensity = CORE_GLOW * flare;
+  barHalo.uniforms.strength.value = segHalo.uniforms.strength.value = HALO_GLOW * flare;
 }
 
 // Dispose of a light-bar set.

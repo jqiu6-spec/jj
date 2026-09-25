@@ -13,7 +13,7 @@ import {
 import { GUNS, ZONE_LABELS, zoneChoice } from './guns.js';
 import { MODEL_INFO } from './models.js';
 import {
-  SKIN_PRESETS, PATTERNS, COLOR_ROLES, FINISHES, ZONE_FINISHES, ZONE_COLOR_DEFAULT, STICKERS, STICKER_FINISHES, SKIN_KEYS,
+  SKIN_PRESETS, PATTERNS, COLOR_ROLES, FINISHES, ZONE_FINISHES, ZONE_COLOR_DEFAULT, ZONE_GROUPS, STICKERS, STICKER_FINISHES, SKIN_KEYS,
   LIGHT_TYPES, NO_LIGHTS,
   stickerCanvas, wearLabel, randomSkin, loadCustomStickers, addCustomSticker, removeCustomSticker, onStickerImages,
 } from './skins.js';
@@ -671,9 +671,9 @@ function renderZones() {
   const host = $('w-zones');
   host.textContent = '';
   const detailed = game.vm.isDetailed(weaponGun);
-  const opts = ['skin', ...(detailed ? ['factory'] : []), 'black', 'gray', 'silver', 'tan', 'wood', 'gold', 'steel', 'clear', 'clearTint',
-    'paint', 'paintGloss', 'paintMetal', 'neon', 'rgb'];
-  $('w-zones-hint').textContent = `Each part wears the pattern, ${detailed ? 'its factory textures, ' : ''}a solid finish, your own colour, or neon or RGB lights.`;
+  const groups = ZONE_GROUPS.map(([name, keys]) => [name, keys.filter((k) => detailed || k !== 'factory')]);
+  const opts = groups.flatMap(([, keys]) => keys);
+  $('w-zones-hint').textContent = `Each part wears the pattern, ${detailed ? 'its factory textures, ' : ''}a solid finish, carbon fibre, a real metal or coating, your own colour, or neon or RGB lights.`;
   if (!sk.zoneColors) sk.zoneColors = {};
   for (const zone of game.vm.zonesFor(weaponGun)) {
     const label = document.createElement('label');
@@ -685,10 +685,12 @@ function renderZones() {
     const sel = document.createElement('select');
     sel.id = `w-zone-${zone}`;
     const cur = zoneChoice(weaponGun, sk.zones, zone);
-    const list = opts.includes(cur) ? opts : [...opts, cur];
-    sel.innerHTML = list.map((k) => `<option value="${k}">${ZONE_FINISHES[k].label}</option>`).join('');
+    const option = (k) => `<option value="${k}">${ZONE_FINISHES[k].label}</option>`;
+    sel.innerHTML = groups.map(([name, keys]) => `<optgroup label="${name}">${keys.map(option).join('')}</optgroup>`).join('')
+      + (opts.includes(cur) ? '' : option(cur));
     sel.value = cur;
-    // The part's own colour, for the custom-colour and neon finishes.
+    // The part's own colour, for the custom-colour, Cerakote, stippled and
+    // neon finishes.
     const col = document.createElement('input');
     col.type = 'color';
     col.id = `w-zone-${zone}-color`;

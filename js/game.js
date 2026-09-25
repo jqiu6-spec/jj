@@ -458,6 +458,7 @@ export class Game {
     for (let i = 0; i < setup.count; i++) this.targets.push(this.makeTarget(scn.target, setup.hp));
     this.resetTargets();
     this.lookAtTargets(true);
+    this.captureReflections();
   }
 
   makeTarget(spec, hp) {
@@ -547,7 +548,7 @@ export class Game {
     if (this.arena) {
       this.scene.remove(this.arena);
       this.arena.traverse((o) => {
-        if (o.isMesh) { o.geometry.dispose(); o.material.map.dispose(); o.material.dispose(); }
+        if (o.isMesh) { o.geometry.dispose(); if (o.material.map) o.material.map.dispose(); o.material.dispose(); }
       });
     }
     const g = new THREE.Group();
@@ -585,6 +586,71 @@ export class Game {
     }
     this.arena = g;
     this.scene.add(g);
+  }
+
+  // What the gun reflects: the room around the player (without the
+  // targets), captured once per arena from the eye, with lights that show
+  // only in reflections: strips along the ceiling and round the walls, and
+  // softboxes round the player like a photo studio's. The viewmodel turns it
+  // with the view, so the room stays put in the reflections as you look
+  // around.
+  captureReflections() {
+    const a = this.scn.arena;
+    const rig = new THREE.Group();
+    const e = this.eye;
+    const light = (w, h, k, x, y, z, face) => {
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.98, 0.95).multiplyScalar(k), side: THREE.DoubleSide }),
+      );
+      m.position.set(x, y, z);
+      if (face) m.lookAt(face);
+      rig.add(m);
+    };
+    const depth = a.zMax - a.zMin;
+    const cz = (a.zMin + a.zMax) / 2;
+    const across = Math.max(2, Math.round(a.w / 9));
+    for (let i = 0; i < across; i++) {
+      light(0.7, depth - 2, 6, (i + 0.5 - across / 2) * (a.w / across), a.h - 0.05, cz, null);
+      rig.children[rig.children.length - 1].rotation.x = Math.PI / 2;
+    }
+    const band = Math.min(3.4, a.h * 0.4);
+    const inside = (x, z) => new THREE.Vector3(x, band, z);
+    light(a.w - 1, 0.35, 3, 0, band, a.zMin + 0.05, inside(0, cz));
+    light(a.w - 1, 0.35, 3, 0, band, a.zMax - 0.05, inside(0, cz));
+    light(depth - 1, 0.35, 3, -a.w / 2 + 0.05, band, cz, inside(0, cz));
+    light(depth - 1, 0.35, 3, a.w / 2 - 0.05, band, cz, inside(0, cz));
+    // Softboxes: one overhead and one on each side of the player, with a
+    // long low strip under each that polished metal shows as a horizon.
+    // All round, so the gun looks as bright whichever way you face.
+    const back = Math.min(3.5, a.zMax - e.z - 0.2);
+    light(2.4, 0.8, 3, e.x, e.y + 2.6, e.z - 0.5, e);
+    for (const [dx, dz] of [[0, back], [0, -3.5], [-3.5, 0], [3.5, 0]]) {
+      light(3, 1.3, 1.5, e.x + dx, e.y + 0.75, e.z + dz, e);
+      light(6, 0.25, 1.2, e.x + dx, e.y - 0.15, e.z + dz, e);
+    }
+    const hidden = [];
+    const lights = [];
+    for (const o of this.scene.children) {
+      if (o.isLight) lights.push([o, o.intensity]);
+      if (o === this.arena || o.isLight || !o.visible) continue;
+      o.visible = false;
+      hidden.push(o);
+    }
+    // The room lit up brighter than it's drawn, so polished metal reads as
+    // polished metal rather than as a dark mirror.
+    for (const [l, k] of lights) l.intensity = k * 2.2;
+    this.scene.add(rig);
+    try {
+      if (!this.pmrem) this.pmrem = new THREE.PMREMGenerator(this.renderer);
+      this.vm.setEnvironment(this.pmrem.fromScene(this.scene, 0, 0.05, 400, { position: e }));
+    } catch (err) {
+      console.warn('Trackline: no room reflections', err);
+    }
+    this.scene.remove(rig);
+    rig.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+    for (const o of hidden) o.visible = true;
+    for (const [l, k] of lights) l.intensity = k;
   }
 
   ctx() {
@@ -1196,6 +1262,7 @@ export class Game {
     const mode = viewMode();
     if (mode) {
       if (mode !== posed) this.vm.update(0, mode);
+      this.vm.viewFrom(this.camera);
       this.renderer.autoClear = false;
       this.renderer.clearDepth();
       this.vm.render(this.renderer);

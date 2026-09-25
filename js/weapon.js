@@ -7,9 +7,10 @@ import { MODEL_INFO, loadDetailedGun, decals } from './models.js';
 import { Effects } from './effects.js';
 import { sampleKnife, knifeLength } from './knife.js';
 import { AWP_BOLT_AT } from './audio.js';
-import { buildLightBars, disposeLightBars, tintLightBars } from './lightbars.js';
+import { buildLightBars, disposeLightBars, glowLightBars, tintLightBars } from './lightbars.js';
+import { materialTextures } from './materials.js';
 import {
-  SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, woodCanvas, stickerCanvas, STICKERS, stickerRevision, championsWordmark,
+  SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, stickerCanvas, STICKERS, stickerRevision, championsWordmark,
   ZONE_COLOR_DEFAULT, lightsOn,
 } from './skins.js';
 
@@ -71,17 +72,6 @@ function aimAt(pos, boreY, dist) {
   return { yaw, pitch };
 }
 
-let woodTexture = null;
-function wood() {
-  if (!woodTexture) {
-    woodTexture = new THREE.CanvasTexture(woodCanvas());
-    woodTexture.colorSpace = THREE.SRGBColorSpace;
-    woodTexture.wrapS = woodTexture.wrapT = THREE.RepeatWrapping;
-    woodTexture.repeat.set(3, 3);
-  }
-  return woodTexture;
-}
-
 function flashTexture() {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
@@ -138,11 +128,28 @@ function stickerMaterial(finish, map) {
   return new THREE.MeshStandardMaterial({ ...base, roughness: 0.85, metalness: 0 });
 }
 
-// Clear plastic: see-through in the middle, denser toward the edges and
-// wherever it catches a reflection, the way clear polymer looks. Paints and
-// finishes share this shader hook; the CLEAR_PLASTIC define switches it on.
-function plasticShader(shader) {
-  shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+// Paints and finishes share this shader hook; defines switch its parts on.
+//
+// DETAIL_NORMAL: a real material's surface (a carbon weave, brushing,
+// stippling) on top of a detailed part's own normal map, so the material
+// follows every machined edge and screw. It reads the material's normal
+// map on the metric UVs the colour map uses.
+//
+// CLEAR_PLASTIC: see-through in the middle, denser toward the edges and
+// wherever it catches a reflection, the way clear polymer looks.
+function materialShader(shader, mat) {
+  shader.uniforms.detailNormalMap = mat.userData.detail;
+  shader.fragmentShader = shader.fragmentShader.replace('#include <normalmap_pars_fragment>', `#include <normalmap_pars_fragment>
+#ifdef DETAIL_NORMAL
+uniform sampler2D detailNormalMap;
+#endif`).replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+#ifdef DETAIL_NORMAL
+{
+  mat3 dtbn = getTangentFrame( - vViewPosition, normal, vMapUv );
+  vec3 dn = texture2D( detailNormalMap, vMapUv ).xyz * 2.0 - 1.0;
+  normal = normalize( dtbn * dn );
+}
+#endif`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
 #ifdef CLEAR_PLASTIC
   float facing = clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0);
   float edge = pow(1.0 - facing, 2.5);
@@ -157,8 +164,44 @@ function plasticShader(shader) {
 
 function physical(params) {
   const m = new THREE.MeshPhysicalMaterial(params);
-  m.onBeforeCompile = plasticShader;
+  m.defines = {};
+  m.userData.detail = { value: null };
+  m.onBeforeCompile = function onBeforeCompile(shader) { materialShader(shader, this); };
   return m;
+}
+
+// Put a real material's textures `t` (materials.js) on `mat`: its colour,
+// roughness and sheen direction, and its normal map, over `base` (a
+// detailed part's own normal map) when there is one. `roughness` is the
+// material's base roughness (the map varies it around that).
+function applyTextures(mat, t, base, roughness) {
+  mat.map = t.map;
+  mat.roughnessMap = t.roughnessMap;
+  mat.roughness = Math.min(1, roughness * 1.5);
+  mat.anisotropyMap = t.anisotropyMap;
+  if (base) {
+    mat.normalMap = base;
+    mat.userData.detail.value = t.normalMap;
+    mat.defines.DETAIL_NORMAL = '';
+  } else {
+    mat.normalMap = t.normalMap;
+    mat.normalScale.set(1, 1);
+    mat.userData.detail.value = null;
+    delete mat.defines.DETAIL_NORMAL;
+  }
+  mat.needsUpdate = true;
+}
+
+// Back to a plain surface with `base` (the part's own normal map, or null).
+function clearTextures(mat, base, baseScale) {
+  mat.roughnessMap = null;
+  mat.anisotropyMap = null;
+  mat.anisotropy = 0;
+  mat.normalMap = base || null;
+  if (base) mat.normalScale.copy(baseScale);
+  mat.userData.detail.value = null;
+  delete mat.defines.DETAIL_NORMAL;
+  mat.needsUpdate = true;
 }
 
 // Turn a material into glossy clear plastic, or back to an opaque finish.
@@ -202,7 +245,7 @@ class GunView {
     this.stickers = new THREE.Group();
     this.root.add(this.stickers);
     this.flash = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: flashMap, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
+      map: flashMap, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false,
     }));
     this.flash.visible = false;
     this.root.add(this.flash);
@@ -324,6 +367,8 @@ class GunView {
     if (!p) {
       p = physical({ vertexColors: true });
       p.userData.paint = true;
+      p.userData.baseNormal = orig ? orig.normalMap : null;
+      p.userData.baseScale = orig ? orig.normalScale.clone() : new THREE.Vector2(1, 1);
       p.userData.side = orig ? THREE.DoubleSide : THREE.FrontSide;
       if (orig) {
         p.side = THREE.DoubleSide;
@@ -340,10 +385,23 @@ class GunView {
 
   paintSetup(p, s) {
     const f = FINISHES[s.finish] || FINISHES.satin;
-    p.map = this.texture || null;
     setPlastic(p, !!f.clear);
-    p.roughness = Math.min(1, f.roughness + s.wear * 0.15);
+    const roughness = Math.min(1, f.roughness + s.wear * 0.15);
+    if (s.pattern === 'carbon') {
+      // Real carbon twill at its real size (bigger or smaller with the
+      // pattern scale), shimmering along each tow, in the skin's colours.
+      applyTextures(p, materialTextures('carbon', [s.c1, s.c2], 1 / (s.scale || 1)), p.userData.baseNormal, roughness);
+      p.anisotropy = 0.55;
+    } else {
+      clearTextures(p, p.userData.baseNormal, p.userData.baseScale);
+      p.map = this.texture || null;
+      p.roughness = roughness;
+    }
     p.metalness = f.metalness;
+    if (!f.clear) {
+      p.clearcoat = f.clearcoat || 0;
+      p.clearcoatRoughness = f.clearcoatRoughness ?? 0.05;
+    }
     p.needsUpdate = true;
   }
 
@@ -356,7 +414,7 @@ class GunView {
     let mat = this.finishMats.get(key);
     if (mat && own) this.colorFinish(mat, z, color || ZONE_COLOR_DEFAULT[choice]);
     if (!mat) {
-      mat = physical({ color: z.color || '#ffffff', roughness: z.roughness, metalness: z.metalness, map: z.wood ? wood() : null });
+      mat = physical({ color: z.color || '#ffffff', roughness: z.roughness, metalness: z.metalness });
       mat.userData.side = orig ? THREE.DoubleSide : THREE.FrontSide;
       mat.userData.tint = !!z.tint;
       if (z.clear) setPlastic(mat, true);
@@ -365,8 +423,16 @@ class GunView {
         mat.side = THREE.DoubleSide;
         if (orig.normalMap) {
           mat.normalMap = orig.normalMap;
-          mat.normalScale.copy(orig.normalScale);
+          mat.normalScale.copy(orig.normalScale).multiplyScalar(z.smooth ?? 1);
         }
+      }
+      if (z.tex) {
+        applyTextures(mat, materialTextures(z.tex), orig && orig.normalMap, z.roughness);
+        mat.anisotropy = z.aniso || 0;
+      }
+      if (z.clearcoat) {
+        mat.clearcoat = z.clearcoat;
+        mat.clearcoatRoughness = z.clearcoatRoughness ?? 0.05;
       }
       if (own) this.colorFinish(mat, z, color || ZONE_COLOR_DEFAULT[choice]);
       this.finishMats.set(key, mat);
@@ -556,22 +622,7 @@ class GunView {
       if (m.userData.light === 'rgb') m.emissive.setHSL(hue, 1, 0.5);
       m.emissiveIntensity = 1.3 * flare;
     }
-    const L = this.lightBars;
-    if (L) {
-      const { bar, seg, barHalo, segHalo } = L.mats;
-      if (L.type === 'rgb') {
-        for (const m of [bar, seg]) {
-          m.emissive.setHSL(hue, 1, 0.55);
-          m.color.copy(m.emissive).multiplyScalar(0.35);
-        }
-        barHalo.color.setHSL(hue, 1, 0.55);
-        segHalo.color.setHSL(hue, 1, 0.55);
-      }
-      bar.emissiveIntensity = 1.6 * flare;
-      seg.emissiveIntensity = 1.6 * flare;
-      barHalo.opacity = 0.16 * flare;
-      segHalo.opacity = 0.16 * flare;
-    }
+    if (this.lightBars) glowLightBars(this.lightBars, flare, hue);
     // Only a skin with its glow switched on lights up; shots never tint the
     // paint otherwise.
     const k = this.glowBase > 0 ? this.glowBase + this.glowPulse : 0;
@@ -617,6 +668,8 @@ function studioEnvironment(renderer) {
 }
 
 const _m = new THREE.Vector3();
+const _envQ = new THREE.Quaternion();
+const _camQ = new THREE.Quaternion();
 const _rc = new THREE.Raycaster();
 const _inv = new THREE.Matrix4();
 const _kp = new THREE.Vector3();
@@ -701,9 +754,11 @@ export class Viewmodel {
   constructor(renderer) {
     this.renderer = renderer;
     this.scene = new THREE.Scene();
+    // Reflections: a studio until the game hands over its room (setEnvironment).
     this.scene.environment = studioEnvironment(renderer);
+    this.roomEnv = null;
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.01, 10);
-    this.scene.add(new THREE.HemisphereLight(0xe6eeff, 0x2e333b, 0.8));
+    this.scene.add(new THREE.HemisphereLight(0xe6eeff, 0x2e333b, 1.05));
     const key = new THREE.DirectionalLight(0xffffff, 1.7);
     key.position.set(-1, 2, 1.4);
     const rim = new THREE.DirectionalLight(0xa9c8ff, 0.7);
@@ -838,12 +893,13 @@ export class Viewmodel {
     if (!r || !gv.skin) return;
     if (gv.info.melee) this.buildBlur(gv);
     try {
-      r.compile(gv.root, this.camera, this.scene);
+      this.toneMapped(() => r.compile(gv.root, this.camera, this.scene));
       gv.root.traverse((o) => {
         if (!o.isMesh) return;
         for (const m of [].concat(o.material)) {
           if (!m) continue;
-          for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap']) if (m[k]) r.initTexture(m[k]);
+          for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'anisotropyMap']) if (m[k]) r.initTexture(m[k]);
+          if (m.userData.detail && m.userData.detail.value) r.initTexture(m.userData.detail.value);
         }
       });
     } catch (e) { /* warming is only an optimisation */ }
@@ -1013,6 +1069,23 @@ export class Viewmodel {
     const depth = -_m.z;
     _m.project(this.camera);
     return { x: _m.x, y: _m.y, depth, fov: this.camera.fov };
+  }
+
+  // Reflect the room in `target` (a PMREM render target of the world).
+  setEnvironment(target) {
+    if (this.roomEnv) this.roomEnv.dispose();
+    this.roomEnv = target;
+    this.scene.environment = target.texture;
+    this.scene.environmentIntensity = 1.3;
+  }
+
+  // The viewmodel lives in the view's own space, so turn the reflected room
+  // against the world camera: what's behind you shows on the faces turned
+  // to you, the ceiling on top, and it all moves as you look around.
+  viewFrom(worldCamera) {
+    worldCamera.updateMatrixWorld();
+    _envQ.copy(this.camera.quaternion).multiply(_camQ.copy(worldCamera.quaternion).invert());
+    this.scene.environmentRotation.setFromQuaternion(_envQ);
   }
 
   // mode: 'play' (first person) or 'inspect' (turntable in the menu).
@@ -1193,12 +1266,27 @@ export class Viewmodel {
     }
     this.blur = { sig, copies };
     try {
-      for (const c of copies) this.renderer.compile(c.group, this.camera, this.scene);
+      for (const c of copies) this.toneMapped(() => this.renderer.compile(c.group, this.camera, this.scene));
     } catch (e) { /* compiling ahead is only an optimisation */ }
   }
 
+  // The gun is tone mapped (Khronos PBR Neutral): colours below the
+  // brightest stay as they are, and reflections of the lights roll off
+  // smoothly instead of clipping flat white.
   render(renderer) {
     this.fx.setView(renderer.domElement.height, this.camera.fov, this.maxPointSize);
-    renderer.render(this.scene, this.camera);
+    this.toneMapped(() => renderer.render(this.scene, this.camera), renderer);
+  }
+
+  // Run `fn` (a render, or compiling shaders ahead) with the gun's tone
+  // mapping, so shaders compiled ahead match the ones drawn.
+  toneMapped(fn, renderer = this.renderer) {
+    const toneMapping = renderer.toneMapping;
+    renderer.toneMapping = THREE.NeutralToneMapping;
+    try {
+      fn();
+    } finally {
+      renderer.toneMapping = toneMapping;
+    }
   }
 }

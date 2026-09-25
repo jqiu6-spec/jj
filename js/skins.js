@@ -35,41 +35,77 @@ export const COLOR_ROLES = {
   damascus: ['Light steel', 'Dark steel', null],
 };
 
+// `clearcoat` puts a glossy clear layer over the paint that reflects the
+// room, like lacquer.
 export const FINISHES = {
   matte: { label: 'Matte', roughness: 0.82, metalness: 0 },
   satin: { label: 'Satin', roughness: 0.55, metalness: 0.15 },
-  gloss: { label: 'Gloss', roughness: 0.22, metalness: 0 },
-  anodized: { label: 'Anodized', roughness: 0.28, metalness: 0.62 },
-  metallic: { label: 'Metallic', roughness: 0.3, metalness: 0.88 },
+  gloss: { label: 'Gloss', roughness: 0.22, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05 },
+  anodized: { label: 'Anodized', roughness: 0.28, metalness: 0.62, clearcoat: 0.3, clearcoatRoughness: 0.1 },
+  metallic: { label: 'Metallic', roughness: 0.3, metalness: 0.88, clearcoat: 0.6, clearcoatRoughness: 0.06 },
   clear: { label: 'Clear glossy plastic', roughness: 0.05, metalness: 0, clear: true },
 };
 
 // Solid choices for a gun's zones (stock, grip, magazine, suppressor, scope
 // and so on); 'skin' paints the zone with the pattern instead, and 'factory'
 // shows a detailed model's own textures (black on the simple models).
+// `tex` names a real material's textures (materials.js), drawn at its real
+// size; `aniso` is how strongly its sheen runs along its fibres or brushing.
+// `smooth` flattens a detailed part's own bumps (a mirror shows every one).
 export const ZONE_FINISHES = {
   skin: { label: 'Skin pattern' },
   factory: { label: 'Factory (model textures)' },
   black: { label: 'Black polymer', color: '#16171a', roughness: 0.7, metalness: 0.05 },
   tan: { label: 'Tan polymer', color: '#b59a70', roughness: 0.72, metalness: 0.02 },
-  wood: { label: 'Wood', color: '#ffffff', roughness: 0.6, metalness: 0, wood: true },
+  wood: { label: 'Walnut', color: '#ffffff', roughness: 0.5, metalness: 0, tex: 'walnut', clearcoat: 0.5, clearcoatRoughness: 0.2 },
   gray: { label: 'Gunmetal polymer', color: '#3f444c', roughness: 0.62, metalness: 0.1 },
   gold: { label: 'Gold', color: '#e9ad3c', roughness: 0.24, metalness: 1 },
   silver: { label: 'Silver polymer', color: '#a8a79f', roughness: 0.58, metalness: 0.08 },
   steel: { label: 'Steel', color: '#9aa1aa', roughness: 0.32, metalness: 1 },
   clear: { label: 'Clear plastic', color: '#dbe8f3', roughness: 0.05, metalness: 0, clear: true },
   clearTint: { label: 'Tinted clear plastic (skin colour)', roughness: 0.05, metalness: 0, clear: true, tint: true },
+  // Carbon fibre: the twill weave under a clear coat, the same without the
+  // coat, and forged (chopped) carbon.
+  carbon: { label: 'Carbon fibre, gloss', color: '#ffffff', roughness: 0.3, metalness: 0.05, tex: 'carbon', aniso: 0.55, clearcoat: 1, clearcoatRoughness: 0.03 },
+  carbonMatte: { label: 'Carbon fibre, matte', color: '#ffffff', roughness: 0.5, metalness: 0.05, tex: 'carbon', aniso: 0.5 },
+  forged: { label: 'Forged carbon', color: '#ffffff', roughness: 0.3, metalness: 0.2, tex: 'forged', aniso: 0.6, clearcoat: 1, clearcoatRoughness: 0.04 },
+  // Metal finishes.
+  chrome: { label: 'Polished chrome', color: '#dde0e4', roughness: 0.06, metalness: 1, smooth: 0.2 },
+  brushedSteel: { label: 'Brushed steel', color: '#c3c7cc', roughness: 0.3, metalness: 1, tex: 'brushedSteel', aniso: 0.7 },
+  brushedAlu: { label: 'Brushed aluminium', color: '#e3e6e9', roughness: 0.26, metalness: 1, tex: 'brushedAlu', aniso: 0.75 },
+  beadblast: { label: 'Bead-blasted aluminium', color: '#b9bdc2', roughness: 0.5, metalness: 1, tex: 'beadblast' },
+  blued: { label: 'Blued steel', color: '#ffffff', roughness: 0.22, metalness: 1, tex: 'blued', aniso: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.08 },
+  parkerized: { label: 'Parkerized (phosphate)', color: '#4c4f4a', roughness: 0.72, metalness: 0.35, tex: 'parkerized' },
+  knurled: { label: 'Knurled steel', color: '#a9aeb4', roughness: 0.35, metalness: 1, tex: 'knurled' },
+  brass: { label: 'Polished brass', color: '#e6c373', roughness: 0.16, metalness: 1, tex: 'brass', aniso: 0.4 },
+  titanium: { label: 'Burnt titanium', color: '#ffffff', roughness: 0.2, metalness: 1, tex: 'titanium', aniso: 0.5 },
+  // Coatings, grips and wood.
+  cerakote: { label: 'Cerakote (custom colour)', custom: true, roughness: 0.5, metalness: 0.05, tex: 'cerakote' },
+  stipple: { label: 'Stippled polymer (custom colour)', custom: true, roughness: 0.8, metalness: 0, tex: 'stipple' },
+  rubber: { label: 'Textured rubber', color: '#232426', roughness: 0.9, metalness: 0, tex: 'rubber' },
+  laminate: { label: 'Laminated wood', color: '#ffffff', roughness: 0.45, metalness: 0, tex: 'laminate', clearcoat: 0.6, clearcoatRoughness: 0.15 },
   // Your own colour for the part (`custom`: picked per part).
   paint: { label: 'Custom colour, matte', custom: true, roughness: 0.75, metalness: 0.05 },
-  paintGloss: { label: 'Custom colour, gloss', custom: true, roughness: 0.2, metalness: 0.05 },
-  paintMetal: { label: 'Custom colour, metallic', custom: true, roughness: 0.3, metalness: 0.9 },
+  paintGloss: { label: 'Custom colour, gloss', custom: true, roughness: 0.2, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.05 },
+  paintMetal: { label: 'Custom colour, metallic', custom: true, roughness: 0.3, metalness: 0.9, clearcoat: 0.6, clearcoatRoughness: 0.06 },
   // Lit parts: a neon glow in your colour, or RGB lights cycling the rainbow.
   // Both flare with each shot.
   neon: { label: 'Neon glow (custom colour)', custom: true, light: true, roughness: 0.4, metalness: 0 },
   rgb: { label: 'RGB lights (colour cycle)', rgb: true, light: true, color: '#1a1a1f', roughness: 0.4, metalness: 0 },
 };
-// A starting colour for a custom part.
-export const ZONE_COLOR_DEFAULT = { paint: '#c8342b', paintGloss: '#c8342b', paintMetal: '#3a6fd8', neon: '#2f8bff' };
+// A starting colour for a custom part: Flat Dark Earth Cerakote, a black
+// stippled grip.
+export const ZONE_COLOR_DEFAULT = { paint: '#c8342b', paintGloss: '#c8342b', paintMetal: '#3a6fd8', neon: '#2f8bff', cerakote: '#8a7556', stipple: '#2a2c2f' };
+
+// The part finishes in the editor, in groups.
+export const ZONE_GROUPS = [
+  ['Basic', ['skin', 'factory', 'black', 'gray', 'silver', 'tan', 'gold', 'steel', 'clear', 'clearTint']],
+  ['Carbon fibre', ['carbon', 'carbonMatte', 'forged']],
+  ['Metal', ['chrome', 'brushedSteel', 'brushedAlu', 'beadblast', 'blued', 'parkerized', 'knurled', 'brass', 'titanium']],
+  ['Coatings, grips and wood', ['cerakote', 'stipple', 'rubber', 'wood', 'laminate']],
+  ['Your colour', ['paint', 'paintGloss', 'paintMetal']],
+  ['Lights', ['neon', 'rgb']],
+];
 
 // Starting points; every value can be changed afterwards. `zones` names the
 // solid finishes by part kind; parts not listed wear the pattern. `fx` is the
@@ -162,7 +198,7 @@ function shade(hex, k) {
 }
 
 // Tileable value noise on a `period` grid, sampled at (x, y) in [0, 1).
-function noiseField(rand, period) {
+export function noiseField(rand, period) {
   const g = Array.from({ length: period * period }, rand);
   const at = (i, j) => g[((j % period + period) % period) * period + ((i % period + period) % period)];
   return (x, y) => {
@@ -379,12 +415,14 @@ const DRAW = {
       }
     }
   },
+  // 2x2 twill, as a flat picture. On a gun the carbon pattern is drawn by
+  // materials.js instead, at its real size with its sheen.
   carbon(g, W, H, s) {
     const c = 16;
     for (let j = 0; j < H / c; j++) {
       for (let i = 0; i < W / c; i++) {
-        const along = (i + j) % 2 === 0;
-        const gr = along
+        const warp = (i + j) % 4 < 2;
+        const gr = warp
           ? g.createLinearGradient(0, j * c, 0, j * c + c)
           : g.createLinearGradient(i * c, 0, i * c + c, 0);
         gr.addColorStop(0, s.c1);
@@ -394,8 +432,6 @@ const DRAW = {
         g.fillRect(i * c, j * c, c, c);
       }
     }
-    g.fillStyle = 'rgba(0,0,0,0.35)';
-    for (let k = 0; k < W; k += c) { g.fillRect(k, 0, 1, H); g.fillRect(0, k, W, 1); }
   },
   hex(g, W, H, s, rand) {
     const r = 16;
@@ -612,30 +648,6 @@ export function championsWordmark(s) {
   g.lineWidth = 9; g.strokeText('2021', 150, 78);
   g.fillStyle = s.c3; g.fillText('2021', 150, 78);
   g.restore();
-  return c;
-}
-
-// Straight-grained walnut for classic wood furniture.
-export function woodCanvas() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d');
-  const rand = rng(42);
-  const n = noiseField(rand, 5);
-  const img = g.createImageData(256, 256);
-  for (let y = 0; y < 256; y++) {
-    for (let x = 0; x < 256; x++) {
-      const u = x / 256;
-      const v = y / 256;
-      const t = 0.5 + 0.5 * Math.sin(v * TAU * 14 + n(u, v) * 7);
-      const o = (y * 256 + x) * 4;
-      img.data[o] = 112 + t * 50;
-      img.data[o + 1] = 58 + t * 30;
-      img.data[o + 2] = 30 + t * 14;
-      img.data[o + 3] = 255;
-    }
-  }
-  g.putImageData(img, 0, 0);
   return c;
 }
 

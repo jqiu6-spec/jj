@@ -179,12 +179,21 @@ function base64ToBuffer(b64) {
 
 // The single-file build ships the models as base64 in a side script
 // (trackline-models.js), because browsers block fetch() from file:// pages.
+// Hosts that won't serve .glb files get base64 text copies instead
+// (models/NAME.glb.txt) when the page sets window.TRACKLINE_MODEL_TEXT.
 async function fetchModel(id) {
   const loader = new GLTFLoader();
-  const embedded = typeof window !== 'undefined' && window.TRACKLINE_MODELS && window.TRACKLINE_MODELS[id];
+  const file = MODEL_INFO[id].file;
+  const w = typeof window !== 'undefined' ? window : {};
+  const embedded = w.TRACKLINE_MODELS && w.TRACKLINE_MODELS[id];
   if (embedded) return loader.parseAsync(base64ToBuffer(embedded), '');
   if (typeof location !== 'undefined' && location.protocol === 'file:') throw new Error('models need a web server or trackline-models.js');
-  return loader.loadAsync(`models/${MODEL_INFO[id].file}`);
+  if (w.TRACKLINE_MODEL_TEXT) {
+    const res = await fetch(`models/${file}.txt`);
+    if (!res.ok) throw new Error(`models/${file}.txt: HTTP ${res.status}`);
+    return loader.parseAsync(base64ToBuffer((await res.text()).trim()), '');
+  }
+  return loader.loadAsync(`models/${file}`);
 }
 
 const TEX_KEYS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap'];

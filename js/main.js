@@ -10,7 +10,7 @@ import { drawCrosshair } from './crosshair.js';
 import {
   initAudio, setVolume, sfx, FIRE_SOUNDS, KILL_SOUNDS, loadCustomSounds, customSoundList, addCustomSound, removeCustomSound,
 } from './audio.js';
-import { GUNS, ZONE_LABELS } from './guns.js';
+import { GUNS, ZONE_LABELS, zoneChoice } from './guns.js';
 import { MODEL_INFO } from './models.js';
 import {
   SKIN_PRESETS, PATTERNS, COLOR_ROLES, FINISHES, ZONE_FINISHES, ZONE_COLOR_DEFAULT, STICKERS, STICKER_FINISHES, SKIN_KEYS,
@@ -684,8 +684,7 @@ function renderZones() {
     row.className = 'zone-row';
     const sel = document.createElement('select');
     sel.id = `w-zone-${zone}`;
-    const fallback = (GUNS[weaponGun].defaultZones && GUNS[weaponGun].defaultZones[zone]) || (zone === 'metal' ? 'factory' : 'skin');
-    const cur = sk.zones[zone] || fallback;
+    const cur = zoneChoice(weaponGun, sk.zones, zone);
     const list = opts.includes(cur) ? opts : [...opts, cur];
     sel.innerHTML = list.map((k) => `<option value="${k}">${ZONE_FINISHES[k].label}</option>`).join('');
     sel.value = cur;

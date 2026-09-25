@@ -298,112 +298,6 @@ function caseHardened(g, W, H, s, rand) {
   grain(g, W, H, rand, 1200);
 }
 
-// Neon strips like VALORANT's Afterglow, laid out once per tile so they meet
-// across tile edges: long rails along the gun that jog at 45 degrees, rows
-// of lit segments, and short accent dashes. `paint(style, width)` is called
-// for each stroke; `mode` 'base' draws the unlit surface, 'glow' the light.
-function neonLayout(W, H, rand) {
-  const rails = [];
-  const n = 3;
-  for (let i = 0; i < n; i++) {
-    const y = ((i + 0.5) / n) * H + (rand() - 0.5) * H * 0.08;
-    const jogs = 1 + Math.floor(rand() * 2);
-    const pts = [[0, y]];
-    let x = 0;
-    for (let j = 0; j < jogs; j++) {
-      // Up (or down) by d over d, run along, and back: the rail ends where it began.
-      const d = (18 + rand() * 26) * (rand() < 0.5 ? -1 : 1);
-      const x0 = x + 30 + rand() * (W / jogs - 160);
-      const run = 40 + rand() * 60;
-      pts.push([x0, y], [x0 + Math.abs(d), y + d], [x0 + Math.abs(d) + run, y + d], [x0 + 2 * Math.abs(d) + run, y]);
-      x = x0 + 2 * Math.abs(d) + run;
-    }
-    pts.push([W, y]);
-    rails.push(pts);
-  }
-  const bars = [];
-  for (let i = 0; i < 2; i++) {
-    const y = ((i + 1) / n) * H + (rand() - 0.5) * 16;
-    const x = rand() * W;
-    const count = 4 + Math.floor(rand() * 4);
-    bars.push({ x, y, count, w: 16 + rand() * 8, h: 7 + rand() * 4, gap: 7 + rand() * 4 });
-  }
-  const dashes = [];
-  for (let i = 0; i < 10; i++) dashes.push({ x: rand() * W, y: rand() * H, len: 10 + rand() * 24 });
-  return { rails, bars, dashes };
-}
-
-// `mode` 'overlay' draws the unlit bars (and their seams) over whatever is
-// on the canvas; 'glow' draws only the light, on black.
-function drawNeon(g, W, H, rand, { strip, accent, mode, halo = 0 }) {
-  const L = neonLayout(W, H, rand);
-  if (mode === 'glow') {
-    g.fillStyle = '#000000';
-    g.fillRect(0, 0, W, H);
-  }
-  g.lineCap = 'round';
-  g.lineJoin = 'round';
-  const stroke = (style, width) => {
-    g.strokeStyle = style;
-    g.lineWidth = width;
-    for (const pts of L.rails) {
-      wrapped(W, H, (dx, dy) => {
-        g.beginPath();
-        pts.forEach(([x, y], i) => (i ? g.lineTo(x + dx, y + dy) : g.moveTo(x + dx, y + dy)));
-        g.stroke();
-      });
-    }
-  };
-  const housing = 'rgba(8,9,11,0.9)';
-  if (mode !== 'glow') stroke(housing, 11); // the dark channel each bar sits in
-  if (halo) {
-    // A soft halo round each strip, so it reads as light on the surface.
-    g.save();
-    g.filter = `blur(${halo}px)`;
-    stroke(strip, 14);
-    g.restore();
-  }
-  stroke(strip, 6);
-  if (mode !== 'glow') stroke('rgba(255,255,255,0.55)', 2); // hot core
-  for (const b of L.bars) {
-    for (let k = 0; k < b.count; k++) {
-      const x = b.x + k * (b.w + b.gap);
-      wrapped(W, H, (dx, dy) => {
-        if (mode !== 'glow') {
-          g.fillStyle = housing;
-          g.fillRect(x + dx - 2, b.y + dy - b.h / 2 - 2, b.w + 4, b.h + 4);
-        }
-        g.fillStyle = accent;
-        g.fillRect(x + dx, b.y + dy - b.h / 2, b.w, b.h);
-      });
-    }
-  }
-  g.strokeStyle = accent;
-  g.lineWidth = 4;
-  if (mode !== 'glow') {
-    g.save();
-    g.strokeStyle = housing;
-    g.lineWidth = 8;
-    for (const d of L.dashes) {
-      wrapped(W, H, (dx, dy) => {
-        g.beginPath();
-        g.moveTo(d.x + dx, d.y + dy);
-        g.lineTo(d.x + dx + d.len, d.y + dy);
-        g.stroke();
-      });
-    }
-    g.restore();
-  }
-  for (const d of L.dashes) {
-    wrapped(W, H, (dx, dy) => {
-      g.beginPath();
-      g.moveTo(d.x + dx, d.y + dy);
-      g.lineTo(d.x + dx + d.len, d.y + dy);
-      g.stroke();
-    });
-  }
-}
-
 const DRAW = {
   casehardened: caseHardened,
   // Champions 2021: rows of tapered gold claw slashes on black, some in a
@@ -658,28 +552,15 @@ function drawWear(g, W, H, wear, rand) {
   }
 }
 
-// Light bars, a layer over any pattern: 'neon' glows steadily in its two
-// colours, 'rgb' cycles every light through the rainbow together.
+// Light bars (lightbars.js): glowing tubes on top of any pattern. 'neon'
+// glows steadily in its two colours, 'rgb' cycles every light through the
+// rainbow together.
 export const LIGHT_TYPES = { off: 'Off', neon: 'Neon', rgb: 'RGB (colour cycle)' };
 export const NO_LIGHTS = { type: 'off', color: '#2f7dff', accent: '#8fe6ff', seed: 5 };
 export const lightsOn = (s) => !!s.lights && LIGHT_TYPES[s.lights.type] && s.lights.type !== 'off';
 
 // The canvas size a pattern tiles on (the hex grid needs whole cells).
 const canvasSize = (s) => (s.pattern === 'hex' ? [480, 471] : [512, 512]);
-
-// The light the bars give off, for the paint's emissive map: black where
-// it's dark. Null when the skin has no light bars.
-export function glowCanvas(s) {
-  if (!lightsOn(s)) return null;
-  const c = document.createElement('canvas');
-  [c.width, c.height] = canvasSize(s);
-  const g = c.getContext('2d');
-  const L = s.lights;
-  const rand = rng(L.seed || 1);
-  if (L.type === 'rgb') drawNeon(g, c.width, c.height, rand, { strip: '#ffffff', accent: '#ffffff', mode: 'glow', halo: 6 });
-  else drawNeon(g, c.width, c.height, rand, { strip: L.color, accent: L.accent, mode: 'glow', halo: 6 });
-  return c;
-}
 
 export function skinCanvas(s) {
   const c = document.createElement('canvas');
@@ -688,12 +569,6 @@ export function skinCanvas(s) {
   const rand = rng(s.seed || 1);
   (DRAW[s.pattern] || DRAW.solid)(g, c.width, c.height, s, rand);
   drawWear(g, c.width, c.height, s.wear, rng((s.seed || 1) + 999));
-  // The light bars' diffusers, pale when unlit, over the pattern.
-  if (lightsOn(s)) {
-    const L = s.lights;
-    const rgb = L.type === 'rgb';
-    drawNeon(g, c.width, c.height, rng(L.seed || 1), { strip: rgb ? '#d9dce2' : shade(L.color, 1.2), accent: rgb ? '#d9dce2' : shade(L.accent, 1.1), mode: 'overlay' });
-  }
   return c;
 }
 

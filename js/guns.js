@@ -21,6 +21,11 @@ export const ZONE_LABELS = {
   blade: 'Blade',
   handle: 'Handle',
   metal: 'Barrel & metal parts',
+  barrel: 'Barrel',
+  receiver: 'Receiver',
+  rail: 'Top rail',
+  mounts: 'Scope mounts',
+  bipod: 'Bipod',
 };
 
 // Spray patterns: how far each shot kicks the view (degrees up, and right),
@@ -104,6 +109,10 @@ export const GUNS = {
     blurb: 'Bolt-action sniper with a thumbhole stock. Used in sniping scenarios, with CS2 or Valorant Operator handling (Settings).',
     zones: ['scope', 'mag', 'butt'],
     sound: () => 'awp',
+    // The detailed AWP's metal parts keep their factory look unless painted;
+    // a skin that paints 'metal' (the whole-gun presets) paints these too.
+    defaultZones: { receiver: 'factory', barrel: 'factory', bipod: 'factory' },
+    metalZones: ['receiver', 'barrel', 'bipod'],
   },
   karambit: {
     name: 'Karambit',
@@ -513,6 +522,17 @@ function karambit(mats) {
 
 // The Vandal's simple stand-in is the AK it is modelled on.
 const BUILDERS = { m4a1s, ak47, xm7, phantom, awp, karambit, vandal: ak47 };
+
+// What part `zone` of gun `gunId` wears under a skin's `zones` choices:
+// its own choice, else (for metal parts) the skin's metal choice, else the
+// gun's default: the pattern, or factory for metal.
+export function zoneChoice(gunId, zones, zone) {
+  if (zone === 'body') return 'skin';
+  if (zones[zone]) return zones[zone];
+  const g = GUNS[gunId] || {};
+  if (g.metalZones && g.metalZones.includes(zone) && zones.metal) return zones.metal;
+  return (g.defaultZones && g.defaultZones[zone]) || (zone === 'metal' ? 'factory' : 'skin');
+}
 
 export function buildGun(id, mats) {
   const g = BUILDERS[id](mats);

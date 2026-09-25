@@ -2,14 +2,15 @@
 // its own camera, applies skins and stickers, and animates sway, recoil and
 // muzzle flash. Also drives the turntable inspect view in the Weapon tab.
 import * as THREE from '../vendor/three.module.min.js';
-import { GUNS, buildGun } from './guns.js';
+import { GUNS, buildGun, zoneChoice } from './guns.js';
 import { MODEL_INFO, loadDetailedGun, decals } from './models.js';
 import { Effects } from './effects.js';
 import { sampleKnife, knifeLength } from './knife.js';
 import { AWP_BOLT_AT } from './audio.js';
+import { buildLightBars, disposeLightBars, tintLightBars } from './lightbars.js';
 import {
   SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, woodCanvas, stickerCanvas, STICKERS, stickerRevision, championsWordmark,
-  glowCanvas, ZONE_COLOR_DEFAULT,
+  ZONE_COLOR_DEFAULT, lightsOn,
 } from './skins.js';
 
 // Stickers are drawn at CS2 size: about as tall as the receiver's side.
@@ -211,8 +212,8 @@ class GunView {
     this.fxColor = new THREE.Color('#ffffff');
     this.glowBase = 0;
     this.glowPulse = 0;
-    this.glowTex = null; // the light bars' light (emissive map), or null
-    this.lightsType = 'off';
+    this.lightBars = null; // the skin's glowing tubes (lightbars.js), or null
+    this.lightSig = '';
     this.lightMats = new Set(); // parts in a neon or RGB finish
     this.lightT = 0;
     this.suppressed = false;
@@ -290,6 +291,24 @@ class GunView {
       this.stickerSig = ssig;
       this.applyStickers(skin.stickers || []);
     }
+    // Light bars: tubes over everything, laid out on the model's surface, so
+    // rebuilt when the model, the suppressor or the layout changes; a new
+    // colour or RGB/neon just recolours them.
+    const lit = lightsOn(skin) && !this.info.melee;
+    const lsig = lit ? `${skin.lights.seed}|${this.modelVersion}|${m.suppressor ? m.suppressor.visible : ''}` : '';
+    if (lsig !== this.lightSig) {
+      this.lightSig = lsig;
+      if (this.lightBars) {
+        this.root.remove(this.lightBars.group);
+        disposeLightBars(this.lightBars);
+        this.lightBars = null;
+      }
+      if (lit) {
+        this.lightBars = buildLightBars(this.root, m.group, skin.lights);
+        if (this.lightBars) this.root.add(this.lightBars.group);
+      }
+    }
+    if (this.lightBars) tintLightBars(this.lightBars, skin.lights);
     const fx = skin.fx || { type: 'none' };
     this.fxType = fx.type || 'none';
     this.fxColor.set(fx.color || '#ffffff');
@@ -322,9 +341,6 @@ class GunView {
   paintSetup(p, s) {
     const f = FINISHES[s.finish] || FINISHES.satin;
     p.map = this.texture || null;
-    // The light bars give off light (see setGlow).
-    p.emissiveMap = this.glowTex;
-    p.userData.lit = !!this.glowTex;
     setPlastic(p, !!f.clear);
     p.roughness = Math.min(1, f.roughness + s.wear * 0.15);
     p.metalness = f.metalness;
@@ -383,18 +399,6 @@ class GunView {
     const tiles = 4 * (s.scale || 1); // one tile is 25 cm at scale 1
     tex.repeat.set(tiles, tiles * (c.width / c.height));
     this.texture = tex;
-    if (this.glowTex) this.glowTex.dispose();
-    this.glowTex = null;
-    this.lightsType = (s.lights && s.lights.type) || 'off';
-    const gc = glowCanvas(s);
-    if (gc) {
-      const gt = new THREE.CanvasTexture(gc);
-      gt.colorSpace = THREE.SRGBColorSpace;
-      gt.wrapS = gt.wrapT = THREE.RepeatWrapping;
-      gt.anisotropy = 8;
-      gt.repeat.copy(tex.repeat);
-      this.glowTex = gt;
-    }
     for (const p of this.paints.values()) this.paintSetup(p, s);
     for (const m of this.finishMats.values()) if (m.userData.tint) m.color.set(s.c1);
 
@@ -434,8 +438,7 @@ class GunView {
     this.lightMats.clear();
     for (const [zone, meshes] of Object.entries(this.model.zones)) {
       // The barrel and other metal parts stay as they are unless chosen.
-      const fallback = (this.info.defaultZones && this.info.defaultZones[zone]) || (zone === 'metal' ? 'factory' : 'skin');
-      const choice = zone === 'body' ? 'skin' : (zones[zone] || fallback);
+      const choice = zoneChoice(this.id, zones, zone);
       for (const mesh of meshes) {
         const orig = mesh.userData.orig;
         let mat;
@@ -553,18 +556,28 @@ class GunView {
       if (m.userData.light === 'rgb') m.emissive.setHSL(hue, 1, 0.5);
       m.emissiveIntensity = 1.3 * flare;
     }
+    const L = this.lightBars;
+    if (L) {
+      const { bar, seg, barHalo, segHalo } = L.mats;
+      if (L.type === 'rgb') {
+        for (const m of [bar, seg]) {
+          m.emissive.setHSL(hue, 1, 0.55);
+          m.color.copy(m.emissive).multiplyScalar(0.35);
+        }
+        barHalo.color.setHSL(hue, 1, 0.55);
+        segHalo.color.setHSL(hue, 1, 0.55);
+      }
+      bar.emissiveIntensity = 1.6 * flare;
+      seg.emissiveIntensity = 1.6 * flare;
+      barHalo.opacity = 0.16 * flare;
+      segHalo.opacity = 0.16 * flare;
+    }
     // Only a skin with its glow switched on lights up; shots never tint the
     // paint otherwise.
     const k = this.glowBase > 0 ? this.glowBase + this.glowPulse : 0;
     for (const m of this.inUse) {
       if (!m.emissive) continue;
-      if (m.userData.lit) {
-        // Light bars: the emissive map is the light (white for RGB,
-        // coloured by the cycle here).
-        if (this.lightsType === 'rgb') m.emissive.setHSL(hue, 1, 0.5);
-        else m.emissive.setRGB(1, 1, 1);
-        m.emissiveIntensity = 1.6 * flare;
-      } else if (k > 0.001) {
+      if (k > 0.001) {
         m.emissive.copy(this.fxColor);
         m.emissiveIntensity = k;
       } else if (m.emissiveIntensity !== 0) {

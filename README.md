@@ -192,13 +192,18 @@ under First-person view in the Weapon tab.
   barrel and furniture included; set a part to **Factory** to keep, say, the
   AK's wood. Skins saved on these presets' old layout (furniture left as it
   was) move to the new one by themselves.
-- **Light bars**: a layer over any pattern, after VALORANT's Afterglow:
-  glowing bars running along the gun that jog at 45°, rows of lit segments
-  and accent dashes, each set in a dark channel. **Neon** glows in a bar
-  colour and a segment colour of your choice; **RGB** cycles every light
-  through the rainbow together, like gaming RGB. **Shuffle** lays the bars
-  out differently. They give off light and flare with every shot, so Case
-  Hardened, a fade or your own colours can all wear them. Presets:
+- **Light bars**: glowing tubes on the gun, after VALORANT's Afterglow. They
+  are real 3D tubes (3 mm thick, with rounded ends and a soft halo), the
+  outermost layer: they sit just off the surface, on top of the pattern, every
+  part's finish and the stickers, so nothing covers them. They run along both
+  sides of the gun where the surface is longest and smoothest (receiver,
+  handguard, stock), jog at 45° here and there and follow the surface in and
+  out, with a row of short lit segments where there's room. **Neon** glows in
+  a bar colour and a segment colour of your choice; **RGB** cycles every light
+  through the rainbow together, like gaming RGB. **Shuffle** lays them out
+  differently. They flare with every shot, and Case Hardened, a fade or your
+  own colours can all wear them. (`js/lightbars.js` finds the surface from a
+  depth map of each side of the model.) Presets:
   **Afterglow** (blue), **Afterglow Gold** and **Afterglow Violet**, like the
   skin's chromas, and **RGB**, all on matte black. Skins saved with the
   earlier Afterglow neon or RGB patterns become black with light bars.
@@ -220,7 +225,9 @@ under First-person view in the Weapon tab.
   where it catches the light.
 - **Parts**: every part a gun has (handguard, stock, grip, foregrip, magazine,
   suppressor, scope, butt pad, and **Barrel & metal parts**: barrel, sights,
-  trigger) wears the pattern or a finish: black, gunmetal, silver, tan, wood,
+  trigger; the AWP adds its grip, forend, receiver, barrel, scope mounts and
+  bipod, and the Phantom its top rail, upper receiver and butt pad) wears the
+  pattern or a finish: black, gunmetal, silver, tan, wood,
   gold, steel, clear plastic, or clear plastic tinted with the skin's first
   colour (a see-through magazine, for example); **your own colour** in matte,
   gloss or metallic, picked per part; a **neon glow** in your colour; or

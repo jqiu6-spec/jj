@@ -86,7 +86,7 @@ export const MODEL_INFO = {
   phantom: {
     file: 'phantom.glb',
     rear: -0.385, bore: 0.025,
-    zones: ['handguard', 'stock', 'grip', 'mag', 'suppressor'],
+    zones: ['handguard', 'rail', 'receiver', 'stock', 'butt', 'grip', 'mag', 'suppressor'],
     rules: [
       { zone: 'suppressor', part: /Silencer/, round: 0.02 },
       { zone: 'mag', part: /Magazine/ },
@@ -95,9 +95,12 @@ export const MODEL_INFO = {
       { zone: 'fixed', box: [-0.05, 0.0, 0.215, 0.3] }, // rear sight
       { zone: 'fixed', box: [-0.035, 0.04, 0.07, 0.125] }, // trigger and guard
       { zone: 'grip', box: [-0.15, -0.035, -0.01, 0.118] },
+      { zone: 'butt', box: [-9, -0.358, -9, 9] }, // butt pad
       { zone: 'stock', box: [-9, -0.1, -9, 9] },
+      { zone: 'rail', box: [-0.1, 0.33, 0.215, 9] }, // top rail, receiver to handguard
       { zone: 'handguard', box: [0.15, 0.41, -9, 9] },
-      { zone: 'body' },
+      { zone: 'receiver', box: [-0.1, 0.15, 0.165, 9] }, // upper receiver
+      { zone: 'body' }, // lower receiver and magazine well
     ],
     fade: [-0.2, 0.4],
     slots: [
@@ -153,16 +156,25 @@ export const MODEL_INFO = {
   awp: {
     file: 'awp.glb',
     rear: -0.545, bore: 0.03,
-    zones: ['scope', 'mag', 'butt'],
+    zones: ['stock', 'grip', 'handguard', 'receiver', 'barrel', 'scope', 'mounts', 'bipod', 'mag', 'butt'],
     rules: [
-      { zone: 'fixed', part: /scope/, box: [-9, 9, -9, 0.285] }, // bipod
+      { zone: 'bipod', part: /scope/, box: [-9, 9, -9, 0.285] }, // folded under the forend
+      { zone: 'mounts', part: /scope/, box: [0.325, 0.355, 0.28, 0.37] }, // scope rings
+      { zone: 'mounts', part: /scope/, box: [0.405, 0.435, 0.28, 0.37] },
       { zone: 'scope', part: /scope/ },
       { zone: 'butt', box: [-9, 0.0, -9, 9] },
       { zone: 'mag', box: [0.31, 0.4, 0.15, 0.215] },
       // One texture covers the whole rifle: the olive chassis is the paint,
-      // and anything grey (barrel, action, screws, trigger guard) is metal.
+      // and anything grey is metal: the barrel and muzzle brake, the action
+      // with its bolt and rail, and small parts (screws, trigger guard).
+      { zone: 'barrel', neutral: 0.06, box: [0.47, 9, 0.265, 9] },
+      { zone: 'receiver', neutral: 0.06, box: [0.2, 0.5, 0.265, 9] },
+      { zone: 'stock', neutral: 0.06, box: [0.0, 0.19, 0.265, 9] }, // cheek riser
       { zone: 'fixed', neutral: 0.06 },
-      { zone: 'body' },
+      { zone: 'stock', box: [0.0, 0.19, -9, 9] }, // thumbhole stock
+      { zone: 'grip', box: [0.19, 0.27, -9, 0.245] },
+      { zone: 'handguard', box: [0.4, 9, -9, 9] }, // forend
+      { zone: 'body' }, // the chassis round the action and magazine well
     ],
     fade: [-0.05, 0.62],
     slots: [

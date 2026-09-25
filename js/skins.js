@@ -6,6 +6,7 @@ const TAU = Math.PI * 2;
 
 export const PATTERNS = {
   original: 'Original (model textures)',
+  champions: 'Champions 2021',
   solid: 'Solid',
   fade: 'Fade',
   camo: 'Woodland camo',
@@ -20,6 +21,7 @@ export const PATTERNS = {
 // What each colour slot does in a pattern, for the form labels.
 export const COLOR_ROLES = {
   original: ['Simple model paint', null, null],
+  champions: ['Base', 'Gold stripes', 'Red accents'],
   solid: ['Paint', null, null],
   fade: ['Rear', 'Middle', 'Front'],
   camo: ['Base', 'Dark blotches', 'Light blotches'],
@@ -51,6 +53,7 @@ export const ZONE_FINISHES = {
   wood: { label: 'Wood', color: '#ffffff', roughness: 0.6, metalness: 0, wood: true },
   gray: { label: 'Gunmetal polymer', color: '#3f444c', roughness: 0.62, metalness: 0.1 },
   gold: { label: 'Gold', color: '#e9ad3c', roughness: 0.24, metalness: 1 },
+  silver: { label: 'Silver polymer', color: '#a8a79f', roughness: 0.58, metalness: 0.08 },
   steel: { label: 'Steel', color: '#9aa1aa', roughness: 0.32, metalness: 1 },
   clear: { label: 'Clear plastic', color: '#dbe8f3', roughness: 0.05, metalness: 0, clear: true },
   clearTint: { label: 'Tinted clear plastic (skin colour)', roughness: 0.05, metalness: 0, clear: true, tint: true },
@@ -63,6 +66,10 @@ export const ZONE_FINISHES = {
 // suppressor and black furniture.
 export const SKIN_PRESETS = {
   original: { name: 'Original', pattern: 'original', c1: '#2b2e33', c2: '#4a4f57', c3: '#7d848e', finish: 'satin', wear: 0.02, scale: 1, seed: 1, zones: {}, fx: { type: 'none', color: '#ffd27a', glow: false } },
+  // The finish of the Champions 2021 Vandal the project owner supplied:
+  // gold claw stripes on black, red accents, silver furniture, and the
+  // "Champions" wordmark on the receiver. Colours sampled from its texture.
+  champions: { name: 'Champions 2021', featured: true, pattern: 'champions', c1: '#151615', c2: '#a8904f', c3: '#c31a1d', finish: 'satin', wear: 0.02, scale: 1, seed: 21, zones: { handguard: 'silver', grip: 'silver', foregrip: 'silver', suppressor: 'black', scope: 'black', butt: 'black', handle: 'black' }, fx: { type: 'tracer', color: '#ffcf5a', glow: false } },
   fade: { name: 'Fade', pattern: 'fade', c1: '#3a5ae8', c2: '#b02ec2', c3: '#e8234d', finish: 'anodized', wear: 0.01, scale: 1, seed: 1, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black', suppressor: 'gold' }, fx: { type: 'plasma', color: '#ff4fd8', glow: true } },
   recon: { name: 'Recon Digital', pattern: 'digital', c1: '#dfe4ea', c2: '#8a97a6', c3: '#34414f', finish: 'matte', wear: 0.04, scale: 0.55, seed: 9, zones: { stock: 'gray', grip: 'gray', foregrip: 'gray', mag: 'gray', butt: 'black' }, fx: { type: 'tracer', color: '#5fd8ff', glow: false } },
   coyote: { name: 'Coyote', pattern: 'solid', c1: '#a8875c', c2: '#8a6d49', c3: '#5e4a33', finish: 'matte', wear: 0.05, scale: 1, seed: 1, zones: { stock: 'tan', grip: 'tan', foregrip: 'tan', mag: 'black', butt: 'black' }, fx: { type: 'none', color: '#ffb35c', glow: false } },
@@ -183,6 +190,44 @@ function grain(g, W, H, rand, amount) {
 
 // --------------------------------------------------------------- patterns
 const DRAW = {
+  // Champions 2021: rows of tapered gold claw slashes on black, some in a
+  // deeper gold, small splinters between them, and a few thin red bars.
+  champions(g, W, H, s, rand) {
+    g.fillStyle = s.c1;
+    g.fillRect(0, 0, W, H);
+    const deep = shade(s.c2, 0.66);
+    const slash = (x, y, len, w, ang, bend, col) => wrapped(W, H, (dx, dy) => {
+      g.save();
+      g.translate(x + dx, y + dy);
+      g.rotate(ang);
+      g.fillStyle = col;
+      g.beginPath();
+      g.moveTo(-len / 2, 0);
+      g.bezierCurveTo(-len * 0.3, -w, len * 0.15, -w * 0.8 + bend, len / 2, bend);
+      g.bezierCurveTo(len * 0.1, w * 0.1 + bend, -len * 0.25, w * 0.35, -len / 2, 0);
+      g.fill();
+      g.restore();
+    });
+    const rows = 6;
+    for (let r = 0; r < rows; r++) {
+      const y0 = ((r + 0.3 * rand()) / rows) * H;
+      const per = 3 + Math.floor(rand() * 3);
+      for (let k = 0; k < per; k++) {
+        const len = 130 + rand() * 160;
+        const w = 16 + rand() * 20;
+        const x = rand() * W;
+        const y = y0 + (rand() - 0.5) * 40;
+        slash(x, y, len, w, -0.42 + (rand() - 0.5) * 0.35, (rand() - 0.5) * 16, rand() < 0.3 ? deep : s.c2);
+      }
+    }
+    for (let i = 0; i < 26; i++) {
+      slash(rand() * W, rand() * H, 24 + rand() * 50, 4 + rand() * 6, -0.42 + (rand() - 0.5) * 0.5, 0, rand() < 0.5 ? deep : s.c2);
+    }
+    for (let i = 0; i < 3; i++) {
+      slash(rand() * W, rand() * H, 40 + rand() * 50, 5 + rand() * 3, -0.42, 0, s.c3);
+    }
+    grain(g, W, H, rand, 1800);
+  },
   solid(g, W, H, s, rand) {
     g.fillStyle = s.c1;
     g.fillRect(0, 0, W, H);
@@ -406,6 +451,49 @@ export function skinCanvas(s) {
   const rand = rng(s.seed || 1);
   (DRAW[s.pattern] || DRAW.solid)(g, c.width, c.height, s, rand);
   drawWear(g, c.width, c.height, s.wear, rng((s.seed || 1) + 999));
+  return c;
+}
+
+// The "Champions" wordmark the Champions 2021 skin carries on the receiver:
+// an X emblem and the word in slanted gold capitals, outlined in the base
+// colour. 3:1, transparent around it.
+export function championsWordmark(s) {
+  const c = document.createElement('canvas');
+  c.width = 768;
+  c.height = 256;
+  const g = c.getContext('2d');
+  g.lineJoin = 'round';
+  // X emblem: two tapered blades crossing, and a diamond at the centre.
+  g.save();
+  g.translate(110, 128);
+  for (const a of [-0.8, 0.8]) {
+    g.save();
+    g.rotate(a);
+    g.beginPath();
+    g.moveTo(0, -96); g.lineTo(18, -20); g.lineTo(0, 96); g.lineTo(-18, -20);
+    g.closePath();
+    g.lineWidth = 14; g.strokeStyle = s.c1; g.stroke();
+    g.fillStyle = s.c2; g.fill();
+    g.restore();
+  }
+  g.beginPath();
+  g.moveTo(0, -22); g.lineTo(22, 0); g.lineTo(0, 22); g.lineTo(-22, 0);
+  g.closePath();
+  g.fillStyle = s.c3; g.fill();
+  g.restore();
+  // Slanted capitals.
+  g.save();
+  g.translate(430, 150);
+  g.transform(1, 0, -0.28, 1, 0, 0);
+  g.font = '900 118px "Saira Condensed", "Arial Narrow", sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.lineWidth = 16; g.strokeStyle = s.c1; g.strokeText('CHAMPIONS', 0, 0);
+  g.fillStyle = s.c2; g.fillText('CHAMPIONS', 0, 0);
+  g.font = '800 40px "Saira Condensed", "Arial Narrow", sans-serif';
+  g.lineWidth = 9; g.strokeText('2021', 150, 78);
+  g.fillStyle = s.c3; g.fillText('2021', 150, 78);
+  g.restore();
   return c;
 }
 

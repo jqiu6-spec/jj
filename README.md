@@ -153,6 +153,11 @@ come faster than that rate.
 
 ### Skins
 
+- **Champions 2021**: the finish of the Champions Vandal, for every gun and the
+  knife. Gold claw stripes on black with red flecks, silver furniture, and the
+  gold "CHAMPIONS" wordmark with its X emblem on the side of the receiver you
+  see. The colours are sampled from the Vandal's texture; the stripes are drawn
+  in code, because that texture is a patchwork that doesn't tile.
 - **Presets**: Original (the model's own factory textures), Fade (the default:
   crimson at the front, magenta and purple through the receiver, blue at the
   rear, a gold suppressor, black furniture), Recon Digital, Coyote, Gunmetal,
@@ -171,7 +176,7 @@ come faster than that rate.
   where it catches the light.
 - **Parts**: every part a gun has (handguard, stock, grip, foregrip, magazine,
   suppressor, scope, butt pad) wears the pattern or a solid finish: black, gunmetal,
-  tan, wood, gold, steel, clear plastic, or clear plastic tinted with the skin's
+  silver, tan, wood, gold, steel, clear plastic, or clear plastic tinted with the skin's
   first colour (a see-through magazine, for example). Detailed models add **Factory**, the part's own
   textures, so you can paint the receiver and keep the AK's real wood. The list
   changes with the gun.
@@ -224,7 +229,7 @@ Valve's and the teams' artwork, so none are bundled; add any you own with
 
 ### Gun sounds
 
-Choose a fire sound for each gun: Champions 2021 Vandal, suppressed, rifle
+Choose a fire sound for each gun: Champions 2021 Vandal, M4A1-S, suppressed, rifle
 crack, heavy rifle, SMG snap, sniper boom, laser, soft click or silent. **Match
 the gun** picks one automatically, and taking the M4A1-S suppressor off switches
 it to the rifle crack. The AWP is the loudest by far, like in CS2: a sharp
@@ -238,7 +243,11 @@ fanfare. The Vandal uses it by default.
 
 - **The Vandal's fire sound** is two single shots cut from a recording the
   project owner supplied (Riot Games audio from VALORANT), stored in
-  `js/vandal-sounds.js` and played with a slight random pitch change.
+  `js/gun-sounds.js` and played with a slight random pitch change.
+- **The M4A1-S's suppressed shot** is recorded too (Valve audio from CS2). The
+  clip was a full-auto burst, so no shot stood alone: the sound is the burst's
+  first shot, up to where the next one starts, crossfaded into the burst's
+  final tail. Taking the suppressor off switches to the synthesised rifle crack.
 - **The Champions kill sound** is made in code, as an approximation: the
   recording had gunfire only.
 - **Your own sound files**: "Add your own sound file" takes an MP3, WAV or OGG
@@ -368,7 +377,7 @@ js/audio.js           synthesized sound effects and fire sounds
 js/guns.js            simple gun models, zones, fire rates and sticker slots
 js/models.js          detailed gun models: loading, skin zones, sticker decals
 js/knife.js           karambit animations: draw, slashes, stab, inspect
-js/vandal-sounds.js   the Champions Vandal's recorded shots (base64 WAV)
+js/gun-sounds.js      recorded shots: Champions Vandal, M4A1-S (base64 WAV)
 js/skins.js           skin patterns, presets, random skins and sticker designs
 js/effects.js         fire effects: tracers, impacts, muzzle glow
 js/weapon.js          first-person gun view, skins, stickers, turntable

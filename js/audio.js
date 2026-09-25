@@ -1,6 +1,7 @@
-// Small synthesized sound set, plus the Champions Vandal's recorded shots.
+// Small synthesized sound set, plus recorded shots for the Champions Vandal
+// and the M4A1-S.
 // The AudioContext starts on the first user gesture.
-import { VANDAL_FIRE } from './vandal-sounds.js';
+import { VANDAL_FIRE, M4A1S_FIRE } from './gun-sounds.js';
 
 let ctx = null;
 let master = null;
@@ -53,8 +54,8 @@ export function initAudio() {
 }
 
 // Recorded fire sounds that ship with Trackline.
-const SAMPLE_DATA = { champions: VANDAL_FIRE };
-const SAMPLE_GAIN = { champions: 0.22 };
+const SAMPLE_DATA = { champions: VANDAL_FIRE, m4a1s: M4A1S_FIRE };
+const SAMPLE_GAIN = { champions: 0.22, m4a1s: 0.2 };
 const samples = {}; // kind -> decoded AudioBuffers
 
 function b64ToBuffer(b64) {
@@ -227,7 +228,8 @@ function sweep(dur, f0, f1, { gain = 0.2, q = 1, delay = 0 } = {}) {
 // Fire sounds the player can pick per gun. 'auto' uses the gun's own.
 export const FIRE_SOUNDS = {
   auto: 'Match the gun',
-  champions: 'Champions 2021 Vandal',
+  champions: 'Champions 2021 Vandal (recorded)',
+  m4a1s: 'M4A1-S suppressed (recorded)',
   suppressed: 'Suppressed thump',
   rifle: 'Rifle crack',
   heavy: 'Heavy rifle',
@@ -247,6 +249,12 @@ export const KILL_SOUNDS = {
 };
 
 const GUN_SOUNDS = {
+  // CS2's M4A1-S with its suppressor, recorded; the synthesised thump
+  // stands in until the recording has decoded.
+  m4a1s() {
+    if (playSample('m4a1s')) return;
+    GUN_SOUNDS.suppressed();
+  },
   // The Champions 2021 Vandal's recorded shot. Until it has decoded, a
   // synthesised stand-in: a heavy crack with a bright metallic ring.
   champions() {

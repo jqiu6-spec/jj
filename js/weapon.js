@@ -7,7 +7,7 @@ import { MODEL_INFO, loadDetailedGun, decals } from './models.js';
 import { Effects } from './effects.js';
 import { sampleKnife, knifeLength } from './knife.js';
 import {
-  SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, woodCanvas, stickerCanvas, STICKERS, stickerRevision,
+  SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, woodCanvas, stickerCanvas, STICKERS, stickerRevision, championsWordmark,
 } from './skins.js';
 
 // Stickers are drawn at CS2 size: about as tall as the receiver's side.
@@ -191,7 +191,7 @@ class GunView {
     this.root = new THREE.Group();
     this.simple = buildGun(id, FIXED);
     // Stickers wrap onto the simple model's surface too.
-    this.simple.decal = (x, y, size, rot, side) => decals(this.simple.group, x, y, size, rot, side);
+    this.simple.decal = (x, y, size, rot, side, aspect) => decals(this.simple.group, x, y, size, rot, side, aspect);
     this.detailed = null;
     this.loading = null;
     this.wantDetailed = false;
@@ -277,7 +277,8 @@ class GunView {
       this.pattern = skin.pattern;
       this.assign(skin);
     }
-    const ssig = JSON.stringify(skin.stickers || []) + (m.suppressor ? String(skin.suppressor !== false) : '') + stickerRevision();
+    const ssig = JSON.stringify(skin.stickers || []) + (m.suppressor ? String(skin.suppressor !== false) : '') + stickerRevision()
+      + (skin.pattern === 'champions' ? `|${skin.c1}${skin.c2}${skin.c3}` : '');
     if (ssig !== this.stickerSig) {
       this.stickerSig = ssig;
       this.applyStickers(skin.stickers || []);
@@ -435,6 +436,26 @@ class GunView {
         this.stickers.add(mesh);
       });
     });
+    // The Champions 2021 skin's wordmark, on the receiver's side that faces
+    // the player, under any sticker placed there.
+    const logo = this.model.slots.find((sl) => /receiver/i.test(sl.name)) || this.model.slots[0];
+    if (this.skin && this.skin.pattern === 'champions' && logo) {
+      const tex = new THREE.CanvasTexture(championsWordmark(this.skin));
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      const mat = new THREE.MeshStandardMaterial({
+        map: tex, transparent: true, alphaTest: 0.35, roughness: 0.35, metalness: 0.6,
+        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+      });
+      const h = logo.size * 1.3;
+      this.model.decal(logo.x, logo.y, h, 0, -1, 3).forEach((geo, k) => {
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.userData.decal = true;
+        mesh.userData.slot = -1;
+        mesh.userData.shared = k > 0;
+        this.stickers.add(mesh);
+      });
+    }
   }
 
   // Emissive glow from the fire effect on the skin paint (not on solid or

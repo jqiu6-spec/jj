@@ -403,7 +403,7 @@ export async function loadDetailedGun(id, mats) {
   }
 
   // Stickers wrap onto the surface instead of floating as flat cards.
-  model.decal = (x, y, size, rot, side) => decals(group, x, y, size, rot, side);
+  model.decal = (x, y, size, rot, side, aspect) => decals(group, x, y, size, rot, side, aspect);
   return model;
 }
 
@@ -473,7 +473,7 @@ const _o = new THREE.Vector3();
 const _d = new THREE.Vector3(0, 0, 1);
 // `side` -1 puts it on the left (-Z, the side seen in first person), +1 on
 // the right.
-export function decals(group, x, y, size, rot, side = -1) {
+export function decals(group, x, y, size, rot, side = -1, aspect = 1) {
   const out = [];
   const list = proxies(group);
   _ray.set(_o.set(x, y, side), _d.set(0, 0, -side));
@@ -484,8 +484,8 @@ export function decals(group, x, y, size, rot, side = -1) {
   const depth = 0.03;
   // The projector's +Z points out of the surface, toward the viewer.
   const orient = side < 0 ? new THREE.Euler(0, Math.PI, -rot) : new THREE.Euler(0, 0, rot);
-  const sz = new THREE.Vector3(size, size, depth);
-  const r = size * 0.75;
+  const sz = new THREE.Vector3(size * aspect, size, depth);
+  const r = size * Math.max(1, aspect) * 0.75;
   _dbox.min.set(x - r, y - r, z - depth);
   _dbox.max.set(x + r, y + r, z + depth);
   for (const p of list) {

@@ -530,6 +530,7 @@ function skinChanged(custom = true) {
 }
 
 function swatch(p) {
+  if (p.pattern === 'champions') return `repeating-linear-gradient(-24deg, ${p.c1} 0 10px, ${p.c2} 10px 17px, ${p.c1} 17px 26px, ${p.c3} 26px 28px, ${p.c1} 28px 40px)`;
   if (p.pattern === 'fade') return `linear-gradient(90deg, ${p.c1}, ${p.c2}, ${p.c3})`;
   if (p.pattern === 'solid') return p.c1;
   return `linear-gradient(90deg, ${p.c1} 0 45%, ${p.c2} 45% 75%, ${p.c3 === '#000000' ? p.c1 : p.c3} 75%)`;
@@ -622,7 +623,7 @@ function renderZones() {
   const host = $('w-zones');
   host.textContent = '';
   const detailed = game.vm.isDetailed(weaponGun);
-  const opts = ['skin', ...(detailed ? ['factory'] : []), 'black', 'gray', 'tan', 'wood', 'gold', 'steel', 'clear', 'clearTint'];
+  const opts = ['skin', ...(detailed ? ['factory'] : []), 'black', 'gray', 'silver', 'tan', 'wood', 'gold', 'steel', 'clear', 'clearTint'];
   $('w-zones-hint').textContent = detailed
     ? 'Each part wears the pattern, its factory textures, or a solid finish.'
     : 'Each part wears the pattern or a solid finish.';
@@ -767,7 +768,10 @@ setVolume(settings.volume / 100);
 // Weapon tab.
 const fill = (sel, entries) => { sel.innerHTML = entries.map(([k, v]) => `<option value="${k}">${v}</option>`).join(''); };
 $('w-guns').innerHTML = Object.entries(GUNS).map(([id, g]) => `<button type="button" class="gun-chip" role="radio" data-gun="${id}"><b>${g.name}</b><span>${g.kind}</span></button>`).join('');
-$('w-presets').innerHTML = Object.entries(SKIN_PRESETS).map(([id, p]) => `<button type="button" class="preset" data-preset="${id}"><i style="background:${swatch(p)}"></i>${p.name}</button>`).join('');
+// Featured presets (the Champions 2021 finish) lead the list on their own row.
+$('w-presets').innerHTML = Object.entries(SKIN_PRESETS)
+  .sort(([, a], [, b]) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0))
+  .map(([id, p]) => `<button type="button" class="preset${p.featured ? ' featured' : ''}" data-preset="${id}"><i style="background:${swatch(p)}"></i>${p.name}${p.featured ? '<small>From the Vandal you sent: stripes, silver furniture, the Champions wordmark</small>' : ''}</button>`).join('');
 fill($('w-pattern'), Object.entries(PATTERNS));
 fill($('w-finish'), Object.entries(FINISHES).map(([k, f]) => [k, f.label]));
 fill($('w-fx-type'), Object.entries(FX_TYPES));

@@ -29,7 +29,7 @@ export const GUNS = {
     fireInterval: 0.1, // 600 rounds per minute
     blurb: 'Suppressed 5.56 carbine with a ribbed handguard. 600 rounds per minute; the suppressor comes off.',
     zones: ['handguard', 'stock', 'grip', 'mag', 'suppressor'],
-    sound: (skin) => (skin.suppressor === false ? 'rifle' : 'suppressed'),
+    sound: (skin) => (skin.suppressor === false ? 'rifle' : 'm4a1s'),
   },
   ak47: {
     name: 'AK-47',

@@ -34,7 +34,28 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { DEFAULT_SKIN, FINISHES, sanitizeSkin, skinKey } from '../core/skins.js';
 
 const BASE_POSITION = new Vector3(0.245, -0.235, -0.6);
-const BASE_ROTATION = { x: 0.02, y: 0.14, z: 0.05 };
+/** Height of the barrel axis above the gun's origin, in gun space. */
+const BARREL_HEIGHT = 0.008;
+/** The barrel points at the crosshair this far ahead (metres), where most targets are. */
+const CONVERGENCE = 15;
+/** Slight cant of the gun; roll is about the barrel axis, so it does not move the aim. */
+const BASE_ROLL = 0.05;
+
+/**
+ * Yaw and pitch (Euler order YXZ) that point the barrel — gun-space -z — from
+ * the gun's position at the point on the view axis `distance` ahead. That
+ * point is the screen centre, so the barrel lines up with the crosshair
+ * whatever the camera's field of view.
+ */
+export function barrelAim(position, distance = CONVERGENCE, barrelHeight = BARREL_HEIGHT) {
+  const dx = -position.x;
+  const dy = -(position.y + barrelHeight);
+  const dz = -distance - position.z;
+  const len = Math.hypot(dx, dy, dz);
+  return { yaw: Math.atan2(-dx / len, -dz / len), pitch: Math.asin(dy / len) };
+}
+
+const BASE_AIM = barrelAim(BASE_POSITION);
 const FLASH_LIFE = 0.045;
 
 /** Fine directional noise: brushed metal as a roughness map. */
@@ -492,6 +513,9 @@ export function createViewmodel(environment) {
 
   const rig = new Group();
   rig.position.copy(BASE_POSITION);
+  // Yaw, then pitch, then roll about the barrel: roll never changes where it points.
+  rig.rotation.order = 'YXZ';
+  rig.rotation.set(BASE_AIM.pitch, BASE_AIM.yaw, BASE_ROLL);
   scene.add(rig);
 
   const flash = new Sprite(new SpriteMaterial({ map: flashTexture(), transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false }));
@@ -570,7 +594,8 @@ export function createViewmodel(environment) {
 
       const bob = Math.sin(time * 1.7) * 0.0012;
       rig.position.set(BASE_POSITION.x + sway.x, BASE_POSITION.y + sway.y + bob, BASE_POSITION.z + recoil.z);
-      rig.rotation.set(BASE_ROTATION.x + recoil.pitch + sway.y * 0.6, BASE_ROTATION.y - sway.x * 0.9, BASE_ROTATION.z - sway.x * 0.7);
+      // At rest (no recoil or sway) this is exactly BASE_AIM: the barrel points at the crosshair.
+      rig.rotation.set(BASE_AIM.pitch + recoil.pitch + sway.y * 0.6, BASE_AIM.yaw - sway.x * 0.9, BASE_ROLL - sway.x * 0.7);
 
       if (flash.visible) {
         flashLife -= dt;

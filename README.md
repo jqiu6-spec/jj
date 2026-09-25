@@ -7,9 +7,9 @@ Valorant-movement scenarios uses agent-sized bots that run, counter-strafe,
 crouch and jump like Valorant players. You can set the number of targets in
 every scenario.
 
-It also has a first-person weapon system: five guns (M4A1-S, AK-47, XM7, a
-Phantom-style rifle and an AWP), skins you can edit, stickers, selectable fire
-sounds, and AWP sniping drills with CS2 handling (or Valorant's Operator).
+It also has a first-person weapon system: six guns (M4A1-S, AK-47, XM7,
+Phantom, the Champions 2021 Vandal and an AWP) and a karambit, skins you can
+edit, stickers, selectable fire and kill sounds, and AWP sniping drills with CS2 handling (or Valorant's Operator).
 
 ## Run it
 

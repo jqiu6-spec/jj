@@ -9,8 +9,7 @@ every scenario.
 
 It also has a first-person weapon system: five guns (M4A1-S, AK-47, XM7, a
 Phantom-style rifle and an AWP), skins you can edit, stickers, selectable fire
-sounds, and Operator sniping drills where the AWP handles like Valorant's
-Operator.
+sounds, and AWP sniping drills with CS2 handling (or Valorant's Operator).
 
 ## Run it
 
@@ -144,7 +143,7 @@ come from.
 | XM7 | 800 RPM | The US Army's 6.8 mm rifle, with a Coyote tan preset |
 | Phantom | 11 rounds/s | Valorant's suppressed rifle (the simple model is an original take with a laser module) |
 | Vandal 2021 | 9.75 rounds/s | Valorant's Vandal in the Champions 2021 finish, with its recorded fire sound and a kill sound that climbs through a streak |
-| AWP | Operator handling | Sniping scenarios only; the only gun that scopes |
+| AWP | CS2 AWP or Operator handling | Sniping scenarios only; the only gun that scopes |
 | Karambit | Knife | Scroll the mouse wheel to draw it in any scenario; see [Karambit](#karambit) |
 
 Pick one of the first four with **Use for tracking and clicking**. While you

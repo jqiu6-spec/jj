@@ -13,7 +13,7 @@ import {
 import { GUNS, ZONE_LABELS } from './guns.js';
 import { MODEL_INFO } from './models.js';
 import {
-  SKIN_PRESETS, PATTERNS, COLOR_ROLES, FINISHES, ZONE_FINISHES, STICKERS, STICKER_FINISHES, SKIN_KEYS,
+  SKIN_PRESETS, PATTERNS, COLOR_ROLES, FINISHES, ZONE_FINISHES, ZONE_COLOR_DEFAULT, STICKERS, STICKER_FINISHES, SKIN_KEYS,
   stickerCanvas, wearLabel, randomSkin, loadCustomStickers, addCustomSticker, removeCustomSticker, onStickerImages,
 } from './skins.js';
 import { FX_TYPES } from './effects.js';
@@ -560,6 +560,8 @@ function swatch(p) {
   if (p.pattern === 'casehardened') return `radial-gradient(circle at 30% 40%, ${p.c1} 0 22%, ${p.c3} 28%, transparent 34%), radial-gradient(circle at 75% 65%, ${p.c1} 0 14%, ${p.c3} 19%, transparent 24%), linear-gradient(90deg, #c9c6ba, ${p.c2})`;
   if (p.pattern === 'champions') return `repeating-linear-gradient(-24deg, ${p.c1} 0 10px, ${p.c2} 10px 17px, ${p.c1} 17px 26px, ${p.c3} 26px 28px, ${p.c1} 28px 40px)`;
   if (p.pattern === 'fade') return `linear-gradient(90deg, ${p.c1}, ${p.c2}, ${p.c3})`;
+  if (p.pattern === 'neon') return `linear-gradient(0deg, ${p.c1} 0 30%, ${p.c2} 30% 38%, ${p.c1} 38% 64%, ${p.c3} 64% 70%, ${p.c1} 70%)`;
+  if (p.pattern === 'rgb') return `linear-gradient(0deg, ${p.c1} 0 30%, transparent 30% 40%, ${p.c1} 40% 62%, transparent 62% 72%, ${p.c1} 72%), linear-gradient(90deg, #ff3b3b, #ffd23b, #3bff6a, #3bd8ff, #7a3bff, #ff3bd2)`;
   if (p.pattern === 'solid') return p.c1;
   return `linear-gradient(90deg, ${p.c1} 0 45%, ${p.c2} 45% 75%, ${p.c3 === '#000000' ? p.c1 : p.c3} 75%)`;
 }
@@ -654,29 +656,57 @@ function renderZones() {
   const host = $('w-zones');
   host.textContent = '';
   const detailed = game.vm.isDetailed(weaponGun);
-  const opts = ['skin', ...(detailed ? ['factory'] : []), 'black', 'gray', 'silver', 'tan', 'wood', 'gold', 'steel', 'clear', 'clearTint'];
-  $('w-zones-hint').textContent = detailed
-    ? 'Each part wears the pattern, its factory textures, or a solid finish.'
-    : 'Each part wears the pattern or a solid finish.';
+  const opts = ['skin', ...(detailed ? ['factory'] : []), 'black', 'gray', 'silver', 'tan', 'wood', 'gold', 'steel', 'clear', 'clearTint',
+    'paint', 'paintGloss', 'paintMetal', 'neon', 'rgb'];
+  $('w-zones-hint').textContent = `Each part wears the pattern, ${detailed ? 'its factory textures, ' : ''}a solid finish, your own colour, or neon or RGB lights.`;
+  if (!sk.zoneColors) sk.zoneColors = {};
   for (const zone of game.vm.zonesFor(weaponGun)) {
     const label = document.createElement('label');
     label.className = 'f';
     const name = document.createElement('span');
     name.textContent = ZONE_LABELS[zone] || zone;
+    const row = document.createElement('div');
+    row.className = 'zone-row';
     const sel = document.createElement('select');
     sel.id = `w-zone-${zone}`;
-    const cur = sk.zones[zone] || (GUNS[weaponGun].defaultZones && GUNS[weaponGun].defaultZones[zone]) || 'skin';
+    const fallback = (GUNS[weaponGun].defaultZones && GUNS[weaponGun].defaultZones[zone]) || (zone === 'metal' ? 'factory' : 'skin');
+    const cur = sk.zones[zone] || fallback;
     const list = opts.includes(cur) ? opts : [...opts, cur];
     sel.innerHTML = list.map((k) => `<option value="${k}">${ZONE_FINISHES[k].label}</option>`).join('');
     sel.value = cur;
+    // The part's own colour, for the custom-colour and neon finishes.
+    const col = document.createElement('input');
+    col.type = 'color';
+    col.id = `w-zone-${zone}-color`;
+    col.setAttribute('aria-label', `${ZONE_LABELS[zone] || zone} colour`);
+    const showColor = () => {
+      const custom = !!ZONE_FINISHES[sel.value].custom;
+      col.hidden = !custom;
+      if (custom) col.value = sk.zoneColors[zone] || ZONE_COLOR_DEFAULT[sel.value];
+    };
+    showColor();
     sel.addEventListener('input', () => {
       sk.zones[zone] = sel.value;
+      showColor();
       skinChanged(false);
     });
-    label.append(name, sel);
+    col.addEventListener('input', () => {
+      sk.zoneColors[zone] = col.value;
+      skinChanged(false);
+    });
+    row.append(sel, col);
+    label.append(name, row);
     host.appendChild(label);
   }
 }
+
+// Every part, the barrel and metal parts included, takes the pattern.
+$('w-zones-all').addEventListener('click', () => {
+  const sk = skinOf();
+  for (const zone of game.vm.zonesFor(weaponGun)) sk.zones[zone] = 'skin';
+  skinChanged(false);
+  renderZones();
+});
 
 function renderPatternPreview() {
   const gv = game.vm.guns[weaponGun];
@@ -803,7 +833,7 @@ $('w-guns').innerHTML = Object.entries(GUNS).map(([id, g]) => `<button type="but
 // Featured presets (the Champions 2021 finish) lead the list on their own row.
 $('w-presets').innerHTML = Object.entries(SKIN_PRESETS)
   .sort(([, a], [, b]) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0))
-  .map(([id, p]) => `<button type="button" class="preset${p.featured ? ' featured' : ''}" data-preset="${id}"><i style="background:${swatch(p)}"></i>${p.name}${p.featured ? '<small>From the Vandal you sent: stripes, silver furniture, the Champions wordmark</small>' : ''}</button>`).join('');
+  .map(([id, p]) => `<button type="button" class="preset${p.featured ? ' featured' : ''}" data-preset="${id}"><i style="background:${swatch(p)}"></i>${p.name}${p.featured ? '<small>From the Vandal you sent: gold stripes over the whole gun and the Champions wordmark</small>' : ''}</button>`).join('');
 fill($('w-pattern'), Object.entries(PATTERNS));
 fill($('w-finish'), Object.entries(FINISHES).map(([k, f]) => [k, f.label]));
 fill($('w-fx-type'), Object.entries(FX_TYPES));

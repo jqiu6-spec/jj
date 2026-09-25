@@ -170,26 +170,35 @@ scenario's spot. Moving doesn't cost accuracy.
 ### Skins
 
 - **Champions 2021**: the finish of the Champions Vandal, for every gun and the
-  knife. Gold claw stripes on black with red flecks, silver furniture, and the
-  gold "CHAMPIONS" wordmark with its X emblem on the side of the receiver you
-  see. The colours are sampled from the Vandal's texture; the stripes are drawn
+  knife. Gold claw stripes on black with red flecks over the whole gun, barrel
+  and furniture included, and the gold "CHAMPIONS" wordmark with its X emblem
+  on the side of the receiver you see. The colours are sampled from the Vandal's texture; the stripes are drawn
   in code, because that texture is a patchwork that doesn't tile.
 - **Case Hardened**: heat-quenched steel like CS2's: blue pools with sky-blue
   centres and purple rims on silver and gold, with silver halos around them.
   The pattern seed picks the layout, and **Blue share** sets how much of the
-  steel turned blue (the Blue Gem preset is 80%). Furniture keeps its own
-  finish, so the AK's wood stays wood.
+  steel turned blue (the Blue Gem preset is 80%). It covers the whole gun,
+  barrel and furniture included; set a part to **Factory** to keep, say, the
+  AK's wood. Skins saved on these presets' old layout (furniture left as it
+  was) move to the new one by themselves.
+- **Afterglow neon**: after VALORANT's Afterglow, a black frame traced with
+  glowing neon strips, rows of lit segments and accent dashes, in two colours
+  of your choice. The strips give off light, and flare with every shot.
+  Presets: **Afterglow** (blue), **Afterglow Gold** and **Afterglow Violet**,
+  like the skin's chromas.
+- **RGB lights**: the same strips as white diffusers, their light cycling
+  through the rainbow like gaming RGB (the **RGB** preset).
 - **Presets**: Original (the model's own factory textures), Fade (the default:
   crimson at the front, magenta and purple through the receiver, blue at the
   rear, a gold suppressor, black furniture), Recon Digital, Coyote, Gunmetal,
   Woodland, Arctic Digital, Carbon Weave, Ember Tiger, Cobalt Hex, Neon Splatter,
-  Clear Ice, Doppler, Tiger Tooth, Smoke Glass, Case Hardened, Blue Gem and
-  Damascus.
-- **Pattern**: original textures, Champions 2021, Case Hardened, solid, fade, woodland camo, digital camo,
-  carbon fibre, hex grid, tiger stripe, splatter or Damascus steel, each with
-  three colours. On the detailed models the paint keeps the model's normal maps,
-  so it follows every machined edge and screw, and barrels, sights and small
-  metal parts stay metal.
+  Clear Ice, Doppler, Tiger Tooth, Smoke Glass, Case Hardened, Blue Gem,
+  Damascus, Afterglow (three chromas) and RGB.
+- **Pattern**: original textures, Champions 2021, Case Hardened, Afterglow
+  neon, RGB lights, solid, fade, woodland camo, digital camo, carbon fibre, hex
+  grid, tiger stripe, splatter or Damascus steel, each with up to three
+  colours. On the detailed models the paint keeps the model's normal maps, so
+  it follows every machined edge and screw.
 - **Finish** (matte, satin, gloss, anodized, metallic, or clear glossy
   plastic), **wear** (0–1, adding scratches and chipped paint), **pattern
   scale** and **pattern seed**. Clear glossy plastic turns the paint into
@@ -197,11 +206,16 @@ scenario's spot. Moving doesn't cost accuracy.
   gun's insides through it, and it gets denser and shinier toward the edges and
   where it catches the light.
 - **Parts**: every part a gun has (handguard, stock, grip, foregrip, magazine,
-  suppressor, scope, butt pad) wears the pattern or a solid finish: black, gunmetal,
-  silver, tan, wood, gold, steel, clear plastic, or clear plastic tinted with the skin's
-  first colour (a see-through magazine, for example). Detailed models add **Factory**, the part's own
-  textures, so you can paint the receiver and keep the AK's real wood. The list
-  changes with the gun.
+  suppressor, scope, butt pad, and **Barrel & metal parts**: barrel, sights,
+  trigger) wears the pattern or a finish: black, gunmetal, silver, tan, wood,
+  gold, steel, clear plastic, or clear plastic tinted with the skin's first
+  colour (a see-through magazine, for example); **your own colour** in matte,
+  gloss or metallic, picked per part; a **neon glow** in your colour; or
+  **RGB lights** cycling the rainbow. Lit parts flare with every shot. Detailed
+  models add **Factory**, the part's own textures, so you can paint the
+  receiver and keep the AK's real wood. Barrel & metal parts start on Factory
+  except in the presets that cover the whole gun. **Pattern on every part**
+  puts the pattern on all of them at once. The list changes with the gun.
 - **Fade direction**: run the fade back to front or front to back.
 - **Randomise** makes a new skin from one hue and its complement; **Apply this
   skin to every gun** copies the pattern, colours, finish and fire effect (parts
@@ -259,8 +273,8 @@ Valve's and the teams' artwork, so none are bundled; add any you own with
 
 ### Gun sounds
 
-Choose a fire sound for each gun: Champions 2021 Vandal, M4A1-S, AK-47 and AWP
-(all recorded), or suppressed, rifle crack, heavy rifle, SMG snap, sniper boom,
+Choose a fire sound for each gun: Champions 2021 Vandal, Afterglow Vandal,
+M4A1-S, AK-47 and AWP (all recorded), or suppressed, rifle crack, heavy rifle, SMG snap, sniper boom,
 laser, soft click or silent (made in code). **Match the gun** picks one
 automatically, and taking the M4A1-S suppressor off switches it to the rifle
 crack. The AWP is the loudest by far, like in CS2, about 12 dB over the
@@ -282,6 +296,9 @@ Each gun's variants are levelled to the same loudness. They are Riot Games and
 Valve audio, used here in a free, non-commercial fan project.
 
 - **The Vandal's fire sound** is three single shots from VALORANT.
+- **Afterglow Vandal** is three single shots from VALORANT's Afterglow skin
+  preview, to pick under Sound for any gun (it pairs with the Afterglow
+  skins).
 - **The AK-47** is three single taps from CS2, and its draw (charging handle
   and all) doubles as the draw sound for the other rifles.
 - **The AWP** is CS2's shot with its full echo (2.8 s), its bolt going back and

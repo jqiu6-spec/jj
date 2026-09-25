@@ -9,6 +9,7 @@ import { sampleKnife, knifeLength } from './knife.js';
 import { AWP_BOLT_AT } from './audio.js';
 import {
   SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, woodCanvas, stickerCanvas, STICKERS, stickerRevision, championsWordmark,
+  glowCanvas, LIT_PATTERNS, ZONE_COLOR_DEFAULT,
 } from './skins.js';
 
 // Stickers are drawn at CS2 size: about as tall as the receiver's side.
@@ -210,6 +211,9 @@ class GunView {
     this.fxColor = new THREE.Color('#ffffff');
     this.glowBase = 0;
     this.glowPulse = 0;
+    this.glowTex = null; // a lit pattern's light (emissive map), or null
+    this.lightMats = new Set(); // parts in a neon or RGB finish
+    this.lightT = 0;
     this.suppressed = false;
     this.skin = null;
     this.setModel(this.simple);
@@ -269,7 +273,7 @@ class GunView {
     this.flash.position.set(mx + 0.035, my, 0);
     this.suppressed = !!m.suppressor && skin.suppressor !== false;
     const sig = SKIN_KEYS.map((k) => skin[k]).join('|');
-    const zsig = JSON.stringify(skin.zones || {});
+    const zsig = JSON.stringify(skin.zones || {}) + JSON.stringify(skin.zoneColors || {});
     if (sig !== this.sig) {
       this.sig = sig;
       this.applySkin(skin);
@@ -317,17 +321,24 @@ class GunView {
   paintSetup(p, s) {
     const f = FINISHES[s.finish] || FINISHES.satin;
     p.map = this.texture || null;
+    // A lit pattern's strips give off light (see setGlow).
+    p.emissiveMap = this.glowTex;
+    p.userData.lit = !!this.glowTex;
     setPlastic(p, !!f.clear);
     p.roughness = Math.min(1, f.roughness + s.wear * 0.15);
     p.metalness = f.metalness;
     p.needsUpdate = true;
   }
 
-  finishFor(choice, orig) {
-    const key = `${choice}|${orig ? orig.uuid : ''}`;
+  // `zone` and `color` matter only for the custom and lit finishes, which
+  // get a material per part so each can have its own colour.
+  finishFor(choice, orig, zone = '', color = null) {
+    const z = ZONE_FINISHES[choice];
+    const own = z.custom || z.light;
+    const key = `${choice}|${own ? zone : ''}|${orig ? orig.uuid : ''}`;
     let mat = this.finishMats.get(key);
+    if (mat && own) this.colorFinish(mat, z, color || ZONE_COLOR_DEFAULT[choice]);
     if (!mat) {
-      const z = ZONE_FINISHES[choice];
       mat = physical({ color: z.color || '#ffffff', roughness: z.roughness, metalness: z.metalness, map: z.wood ? wood() : null });
       mat.userData.side = orig ? THREE.DoubleSide : THREE.FrontSide;
       mat.userData.tint = !!z.tint;
@@ -340,9 +351,25 @@ class GunView {
           mat.normalScale.copy(orig.normalScale);
         }
       }
+      if (own) this.colorFinish(mat, z, color || ZONE_COLOR_DEFAULT[choice]);
       this.finishMats.set(key, mat);
     }
     return mat;
+  }
+
+  // A custom colour on a part; a neon part glows in it (and is dark
+  // otherwise); RGB parts are coloured each frame in setGlow.
+  colorFinish(mat, z, color) {
+    mat.userData.light = z.light ? (z.rgb ? 'rgb' : 'neon') : null;
+    if (z.rgb) {
+      mat.color.set(z.color);
+    } else if (z.light) {
+      mat.color.set(color).multiplyScalar(0.25);
+      mat.emissive.set(color);
+      mat.emissiveIntensity = 1.3;
+    } else {
+      mat.color.set(color);
+    }
   }
 
   applySkin(s) {
@@ -355,6 +382,17 @@ class GunView {
     const tiles = 4 * (s.scale || 1); // one tile is 25 cm at scale 1
     tex.repeat.set(tiles, tiles * (c.width / c.height));
     this.texture = tex;
+    if (this.glowTex) this.glowTex.dispose();
+    this.glowTex = null;
+    const gc = glowCanvas(s);
+    if (gc) {
+      const gt = new THREE.CanvasTexture(gc);
+      gt.colorSpace = THREE.SRGBColorSpace;
+      gt.wrapS = gt.wrapT = THREE.RepeatWrapping;
+      gt.anisotropy = 8;
+      gt.repeat.copy(tex.repeat);
+      this.glowTex = gt;
+    }
     for (const p of this.paints.values()) this.paintSetup(p, s);
     for (const m of this.finishMats.values()) if (m.userData.tint) m.color.set(s.c1);
 
@@ -388,10 +426,14 @@ class GunView {
   // its factory textures. 'body' always follows the pattern.
   assign(s) {
     const zones = s.zones || {};
+    const colors = s.zoneColors || {};
     const original = s.pattern === 'original';
     this.inUse.clear();
+    this.lightMats.clear();
     for (const [zone, meshes] of Object.entries(this.model.zones)) {
-      const choice = zone === 'body' ? 'skin' : (zones[zone] || (this.info.defaultZones && this.info.defaultZones[zone]) || 'skin');
+      // The barrel and other metal parts stay as they are unless chosen.
+      const fallback = (this.info.defaultZones && this.info.defaultZones[zone]) || (zone === 'metal' ? 'factory' : 'skin');
+      const choice = zone === 'body' ? 'skin' : (zones[zone] || fallback);
       for (const mesh of meshes) {
         const orig = mesh.userData.orig;
         let mat;
@@ -400,10 +442,11 @@ class GunView {
         } else if (choice === 'skin' || !ZONE_FINISHES[choice]) {
           mat = this.paintFor(orig);
         } else {
-          mat = this.finishFor(choice, orig);
+          mat = this.finishFor(choice, orig, zone, colors[zone]);
         }
         mesh.material = mat;
         if (mat.userData.paint) this.inUse.add(mat);
+        if (mat.userData.light) this.lightMats.add(mat);
       }
     }
   }
@@ -500,12 +543,26 @@ class GunView {
   // factory parts): a faint base plus a pulse per shot.
   setGlow(dt) {
     this.glowPulse *= Math.exp(-dt * 9);
+    this.lightT += dt;
+    // RGB lights cycle through the rainbow, all together.
+    const hue = (this.lightT * 0.15) % 1;
+    const flare = 1 + this.glowPulse * 0.9; // lights flare with each shot
+    for (const m of this.lightMats) {
+      if (m.userData.light === 'rgb') m.emissive.setHSL(hue, 1, 0.5);
+      m.emissiveIntensity = 1.3 * flare;
+    }
     // Only a skin with its glow switched on lights up; shots never tint the
     // paint otherwise.
     const k = this.glowBase > 0 ? this.glowBase + this.glowPulse : 0;
     for (const m of this.inUse) {
       if (!m.emissive) continue;
-      if (k > 0.001) {
+      if (m.userData.lit) {
+        // A lit pattern: its emissive map is the light (white for RGB,
+        // coloured by the cycle here).
+        if (LIT_PATTERNS[this.pattern] === 'cycle') m.emissive.setHSL(hue, 1, 0.5);
+        else m.emissive.setRGB(1, 1, 1);
+        m.emissiveIntensity = 1.6 * flare;
+      } else if (k > 0.001) {
         m.emissive.copy(this.fxColor);
         m.emissiveIntensity = k;
       } else if (m.emissiveIntensity !== 0) {

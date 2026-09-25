@@ -8,6 +8,8 @@ export const PATTERNS = {
   original: 'Original (model textures)',
   champions: 'Champions 2021',
   casehardened: 'Case Hardened',
+  neon: 'Afterglow neon',
+  rgb: 'RGB lights',
   solid: 'Solid',
   fade: 'Fade',
   camo: 'Woodland camo',
@@ -24,6 +26,8 @@ export const COLOR_ROLES = {
   original: ['Simple model paint', null, null],
   champions: ['Base', 'Gold stripes', 'Red accents'],
   casehardened: ['Blue', 'Gold', 'Purple'],
+  neon: ['Base', 'Neon strips', 'Accent lights'],
+  rgb: ['Base', null, null],
   solid: ['Paint', null, null],
   fade: ['Rear', 'Middle', 'Front'],
   camo: ['Base', 'Dark blotches', 'Light blotches'],
@@ -59,7 +63,17 @@ export const ZONE_FINISHES = {
   steel: { label: 'Steel', color: '#9aa1aa', roughness: 0.32, metalness: 1 },
   clear: { label: 'Clear plastic', color: '#dbe8f3', roughness: 0.05, metalness: 0, clear: true },
   clearTint: { label: 'Tinted clear plastic (skin colour)', roughness: 0.05, metalness: 0, clear: true, tint: true },
+  // Your own colour for the part (`custom`: picked per part).
+  paint: { label: 'Custom colour, matte', custom: true, roughness: 0.75, metalness: 0.05 },
+  paintGloss: { label: 'Custom colour, gloss', custom: true, roughness: 0.2, metalness: 0.05 },
+  paintMetal: { label: 'Custom colour, metallic', custom: true, roughness: 0.3, metalness: 0.9 },
+  // Lit parts: a neon glow in your colour, or RGB lights cycling the rainbow.
+  // Both flare with each shot.
+  neon: { label: 'Neon glow (custom colour)', custom: true, light: true, roughness: 0.4, metalness: 0 },
+  rgb: { label: 'RGB lights (colour cycle)', rgb: true, light: true, color: '#1a1a1f', roughness: 0.4, metalness: 0 },
 };
+// A starting colour for a custom part.
+export const ZONE_COLOR_DEFAULT = { paint: '#c8342b', paintGloss: '#c8342b', paintMetal: '#3a6fd8', neon: '#2f8bff' };
 
 // Starting points; every value can be changed afterwards. `zones` names the
 // solid finishes by part kind; parts not listed wear the pattern. `fx` is the
@@ -73,9 +87,16 @@ export const SKIN_PRESETS = {
   // "Champions" wordmark on the receiver. Colours sampled from its texture.
   // Heat-quenched steel like CS2's Case Hardened: blue and purple pools on
   // silver and gold, the furniture left as it is. The seed picks the layout.
-  casehardened: { name: 'Case Hardened', pattern: 'casehardened', c1: '#3f79d8', c2: '#c9a24a', c3: '#5a3aa8', blue: 0.3, finish: 'anodized', wear: 0.03, scale: 1, seed: 661, zones: { stock: 'factory', grip: 'factory', handguard: 'factory', foregrip: 'factory', butt: 'factory', handle: 'factory' }, fx: { type: 'none', color: '#ffd27a', glow: false } },
-  bluegem: { name: 'Blue Gem', pattern: 'casehardened', c1: '#356fe0', c2: '#c9a24a', c3: '#5a3aa8', blue: 0.8, finish: 'anodized', wear: 0.01, scale: 1, seed: 387, zones: { stock: 'factory', grip: 'factory', handguard: 'factory', foregrip: 'factory', butt: 'factory', handle: 'factory' }, fx: { type: 'tracer', color: '#6fb6ff', glow: false } },
-  champions: { name: 'Champions 2021', featured: true, pattern: 'champions', c1: '#151615', c2: '#a8904f', c3: '#c31a1d', finish: 'satin', wear: 0.02, scale: 1, seed: 21, zones: { handguard: 'silver', grip: 'silver', foregrip: 'silver', suppressor: 'black', scope: 'black', butt: 'black', handle: 'black' }, fx: { type: 'tracer', color: '#ffcf5a', glow: false } },
+  casehardened: { name: 'Case Hardened', pattern: 'casehardened', c1: '#3f79d8', c2: '#c9a24a', c3: '#5a3aa8', blue: 0.3, finish: 'anodized', wear: 0.03, scale: 1, seed: 661, zones: { metal: 'skin' }, fx: { type: 'none', color: '#ffd27a', glow: false } },
+  bluegem: { name: 'Blue Gem', pattern: 'casehardened', c1: '#356fe0', c2: '#c9a24a', c3: '#5a3aa8', blue: 0.8, finish: 'anodized', wear: 0.01, scale: 1, seed: 387, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#6fb6ff', glow: false } },
+  champions: { name: 'Champions 2021', featured: true, pattern: 'champions', c1: '#151615', c2: '#a8904f', c3: '#c31a1d', finish: 'satin', wear: 0.02, scale: 1, seed: 21, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#ffcf5a', glow: false } },
+  // After VALORANT's Afterglow: a matte black frame traced with glowing neon
+  // strips and rows of lit segments, in three chromas; and an RGB version
+  // whose lights run through the rainbow along the gun.
+  afterglow: { name: 'Afterglow', pattern: 'neon', c1: '#0c0d11', c2: '#2f7dff', c3: '#8fe6ff', finish: 'satin', wear: 0, scale: 1, seed: 5, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#4f95ff', glow: false } },
+  afterglowGold: { name: 'Afterglow Gold', pattern: 'neon', c1: '#0c0d11', c2: '#ffab2e', c3: '#ffe07a', finish: 'satin', wear: 0, scale: 1, seed: 5, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#ffb640', glow: false } },
+  afterglowPurple: { name: 'Afterglow Violet', pattern: 'neon', c1: '#0c0d11', c2: '#8a4dff', c3: '#d7b8ff', finish: 'satin', wear: 0, scale: 1, seed: 5, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#a070ff', glow: false } },
+  rgb: { name: 'RGB', pattern: 'rgb', c1: '#0c0d11', c2: '#ffffff', c3: '#ffffff', finish: 'satin', wear: 0, scale: 1, seed: 5, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#ffffff', glow: false } },
   fade: { name: 'Fade', pattern: 'fade', c1: '#3a5ae8', c2: '#b02ec2', c3: '#e8234d', finish: 'anodized', wear: 0.01, scale: 1, seed: 1, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black', suppressor: 'gold' }, fx: { type: 'plasma', color: '#ff4fd8', glow: true } },
   recon: { name: 'Recon Digital', pattern: 'digital', c1: '#dfe4ea', c2: '#8a97a6', c3: '#34414f', finish: 'matte', wear: 0.04, scale: 0.55, seed: 9, zones: { stock: 'gray', grip: 'gray', foregrip: 'gray', mag: 'gray', butt: 'black' }, fx: { type: 'tracer', color: '#5fd8ff', glow: false } },
   coyote: { name: 'Coyote', pattern: 'solid', c1: '#a8875c', c2: '#8a6d49', c3: '#5e4a33', finish: 'matte', wear: 0.05, scale: 1, seed: 1, zones: { stock: 'tan', grip: 'tan', foregrip: 'tan', mag: 'black', butt: 'black' }, fx: { type: 'none', color: '#ffb35c', glow: false } },
@@ -280,8 +301,111 @@ function caseHardened(g, W, H, s, rand) {
   grain(g, W, H, rand, 1200);
 }
 
+// Neon strips like VALORANT's Afterglow, laid out once per tile so they meet
+// across tile edges: long rails along the gun that jog at 45 degrees, rows
+// of lit segments, and short accent dashes. `paint(style, width)` is called
+// for each stroke; `mode` 'base' draws the unlit surface, 'glow' the light.
+function neonLayout(W, H, rand) {
+  const rails = [];
+  const n = 3;
+  for (let i = 0; i < n; i++) {
+    const y = ((i + 0.5) / n) * H + (rand() - 0.5) * H * 0.08;
+    const jogs = 1 + Math.floor(rand() * 2);
+    const pts = [[0, y]];
+    let x = 0;
+    for (let j = 0; j < jogs; j++) {
+      // Up (or down) by d over d, run along, and back: the rail ends where it began.
+      const d = (18 + rand() * 26) * (rand() < 0.5 ? -1 : 1);
+      const x0 = x + 30 + rand() * (W / jogs - 160);
+      const run = 40 + rand() * 60;
+      pts.push([x0, y], [x0 + Math.abs(d), y + d], [x0 + Math.abs(d) + run, y + d], [x0 + 2 * Math.abs(d) + run, y]);
+      x = x0 + 2 * Math.abs(d) + run;
+    }
+    pts.push([W, y]);
+    rails.push(pts);
+  }
+  const bars = [];
+  for (let i = 0; i < 2; i++) {
+    const y = ((i + 1) / n) * H + (rand() - 0.5) * 16;
+    const x = rand() * W;
+    const count = 4 + Math.floor(rand() * 4);
+    bars.push({ x, y, count, w: 16 + rand() * 8, h: 7 + rand() * 4, gap: 7 + rand() * 4 });
+  }
+  const dashes = [];
+  for (let i = 0; i < 10; i++) dashes.push({ x: rand() * W, y: rand() * H, len: 10 + rand() * 24 });
+  return { rails, bars, dashes };
+}
+
+function drawNeon(g, W, H, rand, { base, strip, accent, mode, halo = 0 }) {
+  const L = neonLayout(W, H, rand);
+  if (mode === 'glow') {
+    g.fillStyle = '#000000';
+    g.fillRect(0, 0, W, H);
+  } else {
+    g.fillStyle = base;
+    g.fillRect(0, 0, W, H);
+    // Panel seams, a shade lighter than the base, around the lights.
+    g.strokeStyle = shade(base, 1.9);
+    g.lineWidth = 2;
+    for (const pts of L.rails) {
+      wrapped(W, H, (dx, dy) => {
+        g.beginPath();
+        pts.forEach(([x, y], i) => (i ? g.lineTo(x + dx, y + dy + 12) : g.moveTo(x + dx, y + dy + 12)));
+        g.stroke();
+      });
+    }
+  }
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  const stroke = (style, width) => {
+    g.strokeStyle = style;
+    g.lineWidth = width;
+    for (const pts of L.rails) {
+      wrapped(W, H, (dx, dy) => {
+        g.beginPath();
+        pts.forEach(([x, y], i) => (i ? g.lineTo(x + dx, y + dy) : g.moveTo(x + dx, y + dy)));
+        g.stroke();
+      });
+    }
+  };
+  if (halo) {
+    // A soft halo round each strip, so it reads as light on the surface.
+    g.save();
+    g.filter = `blur(${halo}px)`;
+    stroke(strip, 14);
+    g.restore();
+  }
+  stroke(strip, 6);
+  if (mode !== 'glow') stroke('rgba(255,255,255,0.55)', 2); // hot core
+  g.fillStyle = accent;
+  for (const b of L.bars) {
+    for (let k = 0; k < b.count; k++) {
+      const x = b.x + k * (b.w + b.gap);
+      wrapped(W, H, (dx, dy) => g.fillRect(x + dx, b.y + dy - b.h / 2, b.w, b.h));
+    }
+  }
+  g.strokeStyle = accent;
+  g.lineWidth = 4;
+  for (const d of L.dashes) {
+    wrapped(W, H, (dx, dy) => {
+      g.beginPath();
+      g.moveTo(d.x + dx, d.y + dy);
+      g.lineTo(d.x + dx + d.len, d.y + dy);
+      g.stroke();
+    });
+  }
+}
+
 const DRAW = {
   casehardened: caseHardened,
+  // The surface of the Afterglow-style neon: the strips are pale when unlit
+  // (the light itself is the glow map, see glowCanvas).
+  neon(g, W, H, s, rand) {
+    drawNeon(g, W, H, rand, { base: s.c1, strip: shade(s.c2, 1.2), accent: shade(s.c3, 1.1), mode: 'base' });
+  },
+  rgb(g, W, H, s, rand) {
+    drawNeon(g, W, H, rand, { base: s.c1, strip: '#d9dce2', accent: '#d9dce2', mode: 'base' });
+  },
   // Champions 2021: rows of tapered gold claw slashes on black, some in a
   // deeper gold, small splinters between them, and a few thin red bars.
   champions(g, W, H, s, rand) {
@@ -532,6 +656,26 @@ function drawWear(g, W, H, wear, rand) {
     const seed = rand() * 1e9;
     wrapped(W, H, (dx, dy) => blob(g, rng(seed), x + dx, y + dy, r));
   }
+}
+
+// Patterns with their own lights: neon glows steadily in its colours, RGB
+// cycles every light through the rainbow together.
+export const LIT_PATTERNS = { neon: 'steady', rgb: 'cycle' };
+
+// The light a lit pattern gives off, for the paint's emissive map: black
+// where it's dark. Null for patterns without lights.
+export function glowCanvas(s) {
+  if (!LIT_PATTERNS[s.pattern]) return null;
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const g = c.getContext('2d');
+  const rand = rng(s.seed || 1);
+  if (s.pattern === 'rgb') {
+    drawNeon(g, c.width, c.height, rand, { strip: '#ffffff', accent: '#ffffff', mode: 'glow', halo: 6 });
+  } else {
+    drawNeon(g, c.width, c.height, rand, { strip: s.c2, accent: s.c3, mode: 'glow', halo: 6 });
+  }
+  return c;
 }
 
 export function skinCanvas(s) {

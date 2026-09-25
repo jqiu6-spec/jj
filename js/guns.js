@@ -20,6 +20,7 @@ export const ZONE_LABELS = {
   butt: 'Butt pad',
   blade: 'Blade',
   handle: 'Handle',
+  metal: 'Barrel & metal parts',
 };
 
 export const GUNS = {
@@ -170,15 +171,19 @@ export function projectUVs(geo, round) {
   geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(p.count * 3).fill(1), 3));
 }
 
-// Collects meshes by zone. Skinnable zones get UVs and no material yet.
+// Collects meshes by zone. Skinnable zones get UVs and no material yet;
+// metal parts keep theirs (as the 'metal' zone's factory look) but can be
+// painted too.
 function kit(mats) {
   const group = new THREE.Group();
   const zones = {};
   const part = (geo, zone, round) => {
     const fixed = mats[zone];
-    if (!fixed) projectUVs(geo, round);
+    const paintable = !fixed || zone === 'metal';
+    if (paintable) projectUVs(geo, round);
     const m = new THREE.Mesh(geo, fixed || null);
-    if (!fixed) (zones[zone] || (zones[zone] = [])).push(m);
+    if (fixed && paintable) m.userData.orig = fixed;
+    if (paintable) (zones[zone] || (zones[zone] = [])).push(m);
     group.add(m);
     return m;
   };
@@ -488,5 +493,6 @@ const BUILDERS = { m4a1s, ak47, xm7, phantom, awp, karambit, vandal: ak47 };
 export function buildGun(id, mats) {
   const g = BUILDERS[id](mats);
   g.id = id;
+  if (g.zones.metal && !g.zoneList) g.zoneList = [...GUNS[id].zones, 'metal'];
   return g;
 }

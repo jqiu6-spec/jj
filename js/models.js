@@ -5,8 +5,9 @@
 //
 // Each triangle is sorted into a skin zone by rules over its part name,
 // material name and centroid (in the file's own coordinates). The first
-// matching rule wins. 'fixed' keeps the model's own material (barrels,
-// sights, small metal parts); every other zone can be painted.
+// matching rule wins. 'fixed' parts (barrels, sights, small metal parts)
+// form the 'metal' zone, which keeps the model's own material unless the
+// skin paints it; every other zone takes the skin by default.
 import * as THREE from '../vendor/three.module.min.js';
 import { GLTFLoader, DecalGeometry } from '../vendor/loaders.module.min.js';
 import { tube, projectUVs } from './guns.js';
@@ -338,7 +339,6 @@ export async function loadDetailedGun(id, mats) {
 
   const group = new THREE.Group();
   const zones = {};
-  const fixed = [];
   for (const b of buckets.values()) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(b.p, 3));
@@ -346,19 +346,16 @@ export async function loadDetailedGun(id, mats) {
     geo.setAttribute('uv1', new THREE.Float32BufferAttribute(b.uv, 2));
     const mesh = new THREE.Mesh(geo, b.mat);
     mesh.userData.orig = b.mat;
-    if (b.zone === 'fixed') {
-      fixed.push(mesh);
-    } else {
-      faceUVs(geo, b.round ? { y: info.bore, r: b.round } : null);
-      (zones[b.zone] || (zones[b.zone] = [])).push(mesh);
-    }
+    const zone = b.zone === 'fixed' ? 'metal' : b.zone;
+    faceUVs(geo, b.round ? { y: info.bore, r: b.round } : null);
+    (zones[zone] || (zones[zone] = [])).push(mesh);
     group.add(mesh);
   }
 
   const front = maxX + dx;
   const model = {
-    group, zones, fixed, detailed: true,
-    zoneList: info.zones,
+    group, zones, detailed: true,
+    zoneList: zones.metal ? [...info.zones, 'metal'] : info.zones,
     rear: info.rear,
     front,
     fade: info.fade.map((x) => x + (info.fadeAxis === 'y' ? dy : dx)),

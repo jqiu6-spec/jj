@@ -131,7 +131,7 @@ export const STICKER_SLOTS = 5;
 export function presetSkin(presetId) {
   const p = SKIN_PRESETS[presetId] || SKIN_PRESETS.fade;
   const { name, ...rest } = p;
-  return { ...rest, zones: { ...(p.zones || {}) }, fx: { ...(p.fx || { type: 'none', color: '#ffd27a', glow: false }) }, fadeReverse: false, preset: presetId };
+  return { ...rest, zones: { ...(p.zones || {}) }, zoneColors: { ...(p.zoneColors || {}) }, fx: { ...(p.fx || { type: 'none', color: '#ffd27a', glow: false }) }, fadeReverse: false, preset: presetId };
 }
 
 export function defaultSkin(gunId) {
@@ -155,6 +155,15 @@ const OLD_ZONES = {
   awp: { furniture: ['butt', 'mag'], accent: ['scope'] },
 };
 
+// Case Hardened, Blue Gem and Champions 2021 used to leave the furniture
+// (and the barrel) as it was; they now cover the whole gun. Skins still on
+// those presets' old parts move to the new ones.
+const OLD_PRESET_ZONES = {
+  casehardened: { stock: 'factory', grip: 'factory', handguard: 'factory', foregrip: 'factory', butt: 'factory', handle: 'factory' },
+  bluegem: { stock: 'factory', grip: 'factory', handguard: 'factory', foregrip: 'factory', butt: 'factory', handle: 'factory' },
+  champions: { handguard: 'silver', grip: 'silver', foregrip: 'silver', suppressor: 'black', scope: 'black', butt: 'black', handle: 'black' },
+};
+
 export function loadSkins() {
   let stored = {};
   try {
@@ -172,6 +181,9 @@ export function loadSkins() {
       if (s.accent && s.accent !== 'skin') for (const z of map.accent) skin.zones[z] = s.accent;
       if (!s.furniture && !s.accent) skin.zones = { ...d.zones };
     }
+    const old = OLD_PRESET_ZONES[skin.preset];
+    if (old && JSON.stringify(skin.zones) === JSON.stringify(old)) skin.zones = { ...SKIN_PRESETS[skin.preset].zones };
+    if (!skin.zoneColors || typeof skin.zoneColors !== 'object') skin.zoneColors = {};
     if (!s.fx || typeof s.fx !== 'object') skin.fx = { ...(SKIN_PRESETS[s.preset] ? SKIN_PRESETS[s.preset].fx : d.fx) };
     delete skin.furniture;
     delete skin.accent;

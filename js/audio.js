@@ -2,7 +2,7 @@
 // AK-47 and AWP (shots, draws, the AWP's bolt) and CS:GO's headshot.
 // The AudioContext starts on the first user gesture.
 import {
-  VANDAL_FIRE, M4A1S_FIRE, AK47_FIRE, AK47_DRAW, AWP_FIRE, AWP_BOLT_BACK, AWP_BOLT_FORWARD, AWP_DRAW, KNIFE_DRAW, HEADSHOT,
+  VANDAL_FIRE, M4A1S_FIRE, AK47_FIRE, AK47_DRAW, AWP_FIRE, AWP_BOLT_BACK, AWP_BOLT_FORWARD, AWP_DRAW, AFTERGLOW_FIRE, KNIFE_DRAW, HEADSHOT,
 } from './gun-sounds.js';
 
 let ctx = null;
@@ -58,6 +58,7 @@ export function initAudio() {
 // Recorded sounds that ship with Trackline.
 const SAMPLE_DATA = {
   champions: VANDAL_FIRE,
+  afterglow: AFTERGLOW_FIRE,
   m4a1s: M4A1S_FIRE,
   ak47: AK47_FIRE,
   awp: AWP_FIRE,
@@ -71,6 +72,7 @@ const SAMPLE_DATA = {
 };
 const SAMPLE_GAIN = {
   champions: 0.22,
+  afterglow: 0.3,
   m4a1s: 0.2,
   ak47: 0.24,
   awp: 0.65,
@@ -256,6 +258,7 @@ function sweep(dur, f0, f1, { gain = 0.2, q = 1, delay = 0 } = {}) {
 export const FIRE_SOUNDS = {
   auto: 'Match the gun',
   champions: 'Champions 2021 Vandal (recorded)',
+  afterglow: 'Afterglow Vandal (recorded)',
   m4a1s: 'M4A1-S suppressed (recorded)',
   ak47: 'AK-47 (recorded)',
   awp: 'AWP (recorded)',
@@ -301,6 +304,12 @@ const GUN_SOUNDS = {
     tone(2790, 0.14, { type: 'sine', gain: 0.03, delay: 0.004 });
     tone(4150, 0.09, { type: 'sine', gain: 0.018, delay: 0.004 });
     noise(0.16, { filter: 'lowpass', freq: 520, q: 0.7, gain: 0.07, delay: 0.03 });
+  },
+  // VALORANT's Afterglow Vandal, recorded; the Vandal stands in until it
+  // decodes.
+  afterglow() {
+    if (playSample('afterglow')) return;
+    GUN_SOUNDS.champions();
   },
   suppressed() {
     noise(0.07, { freq: 1400, q: 0.9, gain: 0.16 });

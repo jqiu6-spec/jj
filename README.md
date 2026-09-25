@@ -159,12 +159,18 @@ come faster than that rate.
   gold "CHAMPIONS" wordmark with its X emblem on the side of the receiver you
   see. The colours are sampled from the Vandal's texture; the stripes are drawn
   in code, because that texture is a patchwork that doesn't tile.
+- **Case Hardened**: heat-quenched steel like CS2's: blue pools with sky-blue
+  centres and purple rims on silver and gold, with silver halos around them.
+  The pattern seed picks the layout, and **Blue share** sets how much of the
+  steel turned blue (the Blue Gem preset is 80%). Furniture keeps its own
+  finish, so the AK's wood stays wood.
 - **Presets**: Original (the model's own factory textures), Fade (the default:
   crimson at the front, magenta and purple through the receiver, blue at the
   rear, a gold suppressor, black furniture), Recon Digital, Coyote, Gunmetal,
   Woodland, Arctic Digital, Carbon Weave, Ember Tiger, Cobalt Hex, Neon Splatter,
-  Clear Ice, Doppler, Tiger Tooth, Smoke Glass and Damascus.
-- **Pattern**: original textures, solid, fade, woodland camo, digital camo,
+  Clear Ice, Doppler, Tiger Tooth, Smoke Glass, Case Hardened, Blue Gem and
+  Damascus.
+- **Pattern**: original textures, Champions 2021, Case Hardened, solid, fade, woodland camo, digital camo,
   carbon fibre, hex grid, tiger stripe, splatter or Damascus steel, each with
   three colours. On the detailed models the paint keeps the model's normal maps,
   so it follows every machined edge and screw, and barrels, sights and small

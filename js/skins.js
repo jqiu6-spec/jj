@@ -7,6 +7,7 @@ const TAU = Math.PI * 2;
 export const PATTERNS = {
   original: 'Original (model textures)',
   champions: 'Champions 2021',
+  casehardened: 'Case Hardened',
   solid: 'Solid',
   fade: 'Fade',
   camo: 'Woodland camo',
@@ -22,6 +23,7 @@ export const PATTERNS = {
 export const COLOR_ROLES = {
   original: ['Simple model paint', null, null],
   champions: ['Base', 'Gold stripes', 'Red accents'],
+  casehardened: ['Blue', 'Gold', 'Purple'],
   solid: ['Paint', null, null],
   fade: ['Rear', 'Middle', 'Front'],
   camo: ['Base', 'Dark blotches', 'Light blotches'],
@@ -69,6 +71,10 @@ export const SKIN_PRESETS = {
   // The finish of the Champions 2021 Vandal the project owner supplied:
   // gold claw stripes on black, red accents, silver furniture, and the
   // "Champions" wordmark on the receiver. Colours sampled from its texture.
+  // Heat-quenched steel like CS2's Case Hardened: blue and purple pools on
+  // silver and gold, the furniture left as it is. The seed picks the layout.
+  casehardened: { name: 'Case Hardened', pattern: 'casehardened', c1: '#3f79d8', c2: '#c9a24a', c3: '#5a3aa8', blue: 0.3, finish: 'anodized', wear: 0.03, scale: 1, seed: 661, zones: { stock: 'factory', grip: 'factory', handguard: 'factory', foregrip: 'factory', butt: 'factory', handle: 'factory' }, fx: { type: 'none', color: '#ffd27a', glow: false } },
+  bluegem: { name: 'Blue Gem', pattern: 'casehardened', c1: '#356fe0', c2: '#c9a24a', c3: '#5a3aa8', blue: 0.8, finish: 'anodized', wear: 0.01, scale: 1, seed: 387, zones: { stock: 'factory', grip: 'factory', handguard: 'factory', foregrip: 'factory', butt: 'factory', handle: 'factory' }, fx: { type: 'tracer', color: '#6fb6ff', glow: false } },
   champions: { name: 'Champions 2021', featured: true, pattern: 'champions', c1: '#151615', c2: '#a8904f', c3: '#c31a1d', finish: 'satin', wear: 0.02, scale: 1, seed: 21, zones: { handguard: 'silver', grip: 'silver', foregrip: 'silver', suppressor: 'black', scope: 'black', butt: 'black', handle: 'black' }, fx: { type: 'tracer', color: '#ffcf5a', glow: false } },
   fade: { name: 'Fade', pattern: 'fade', c1: '#3a5ae8', c2: '#b02ec2', c3: '#e8234d', finish: 'anodized', wear: 0.01, scale: 1, seed: 1, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black', suppressor: 'gold' }, fx: { type: 'plasma', color: '#ff4fd8', glow: true } },
   recon: { name: 'Recon Digital', pattern: 'digital', c1: '#dfe4ea', c2: '#8a97a6', c3: '#34414f', finish: 'matte', wear: 0.04, scale: 0.55, seed: 9, zones: { stock: 'gray', grip: 'gray', foregrip: 'gray', mag: 'gray', butt: 'black' }, fx: { type: 'tracer', color: '#5fd8ff', glow: false } },
@@ -89,7 +95,7 @@ export const SKIN_PRESETS = {
 
 // Keys that change the paint itself (texture, materials); zones and fx are
 // applied separately.
-export const SKIN_KEYS = ['pattern', 'c1', 'c2', 'c3', 'finish', 'wear', 'scale', 'seed', 'fadeReverse'];
+export const SKIN_KEYS = ['pattern', 'c1', 'c2', 'c3', 'finish', 'wear', 'scale', 'seed', 'fadeReverse', 'blue'];
 
 // A random skin that still looks designed: one hue, its complement, a dark.
 export function randomSkin(rand = Math.random) {
@@ -189,7 +195,93 @@ function grain(g, W, H, rand, amount) {
 }
 
 // --------------------------------------------------------------- patterns
+// Case Hardened: two warped noise fields over a tile that repeats. One sets
+// the heat colour of the steel (silver through pale gold to amber); the
+// other marks the blue pools, deepening to purple, with a purple fringe at
+// their edges. `blue` (0..1) is how much of the steel turned blue.
+function caseHardened(g, W, H, s, rand) {
+  const R = 256; // drawn small and scaled up; the colours are soft anyway
+  const fbm = (fields, weights) => (u, v) => fields.reduce((a, f, i) => a + f(u, v) * weights[i], 0);
+  const heat = fbm([noiseField(rand, 3), noiseField(rand, 6), noiseField(rand, 12), noiseField(rand, 28)], [0.5, 0.28, 0.15, 0.07]);
+  const pool = fbm([noiseField(rand, 2), noiseField(rand, 5), noiseField(rand, 11), noiseField(rand, 24)], [0.46, 0.3, 0.16, 0.08]);
+  const wu = noiseField(rand, 4);
+  const wv = noiseField(rand, 4);
+  const speck = noiseField(rand, 64);
+  // Raw sRGB values: these go straight into canvas pixels.
+  const col = (hex) => new THREE.Color().setHex(parseInt(String(hex).slice(1), 16), THREE.LinearSRGBColorSpace);
+  const blue = col(s.c1);
+  const gold = col(s.c2);
+  const purple = col(s.c3);
+  const silver = col('#c9c6ba');
+  const pale = silver.clone().lerp(gold, 0.45);
+  const amber = gold.clone().multiplyScalar(0.72);
+  const light = blue.clone().lerp(col('#cfe6f7'), 0.55);
+  const steel = [silver, pale, gold, amber];
+  const halo = col('#eef0ec');
+  // Sample both fields over the tile first, so `blue` can be a true share of
+  // the surface: the pool threshold is taken from the sampled values.
+  const N = R * R;
+  const heatV = new Float32Array(N);
+  const poolV = new Float32Array(N);
+  for (let y = 0; y < R; y++) {
+    for (let x = 0; x < R; x++) {
+      let u = x / R;
+      let v = y / R;
+      // Two passes of warping give the swirled, marbled edges of quenched steel.
+      const du = (wu(u, v) - 0.5) * 0.2;
+      const dv = (wv(u, v) - 0.5) * 0.2;
+      u += du + (wv(u + du, v + dv) - 0.5) * 0.12;
+      v += dv + (wu(u + du, v + dv) - 0.5) * 0.12;
+      heatV[y * R + x] = heat(u, v);
+      poolV[y * R + x] = pool(u, v);
+    }
+  }
+  const sorted = Float32Array.from(poolV).sort();
+  const share = Math.min(0.95, Math.max(0, s.blue ?? 0.3));
+  const cut = sorted[Math.min(N - 1, Math.floor((1 - share) * N))];
+  const top = sorted[N - 1];
+  const hs = Float32Array.from(heatV).sort();
+  const h0 = hs[Math.floor(N * 0.05)];
+  const h1 = hs[Math.floor(N * 0.95)];
+  const c = document.createElement('canvas');
+  c.width = c.height = R;
+  const cg = c.getContext('2d');
+  const img = cg.createImageData(R, R);
+  const t = new THREE.Color();
+  const b = new THREE.Color();
+  const smooth = (a, bb, x) => { const k = Math.min(1, Math.max(0, (x - a) / (bb - a))); return k * k * (3 - 2 * k); };
+  const rimW = 0.025;
+  for (let n = 0; n < N; n++) {
+    const x = n % R;
+    const y = (n - x) / R;
+    // Steel heat colour, spread over the whole ramp.
+    const hh = smooth(h0, h1, heatV[n]) * 2.999;
+    const i = Math.floor(hh);
+    t.copy(steel[i]).lerp(steel[Math.min(3, i + 1)], hh - i);
+    const p = poolV[n];
+    // A bright silver halo just outside each pool.
+    t.lerp(halo, (1 - smooth(0, rimW * 2.5, Math.abs(p - (cut - rimW)))) * 0.5);
+    if (share > 0 && p > cut - rimW) {
+      // Pools: purple at the rim, royal blue, then a pale sky-blue centre.
+      const depth = smooth(cut, cut + (top - cut) * 0.7, p);
+      b.copy(purple).lerp(blue, smooth(0, 0.35, depth)).lerp(light, smooth(0.45, 1, depth));
+      t.lerp(b, smooth(cut - rimW, cut + rimW * 0.4, p));
+    }
+    const k = 0.9 + speck(x / R, y / R) * 0.2;
+    const o = n * 4;
+    img.data[o] = Math.min(255, t.r * 255 * k);
+    img.data[o + 1] = Math.min(255, t.g * 255 * k);
+    img.data[o + 2] = Math.min(255, t.b * 255 * k);
+    img.data[o + 3] = 255;
+  }
+  cg.putImageData(img, 0, 0);
+  g.imageSmoothingEnabled = true;
+  g.drawImage(c, 0, 0, W, H);
+  grain(g, W, H, rand, 1200);
+}
+
 const DRAW = {
+  casehardened: caseHardened,
   // Champions 2021: rows of tapered gold claw slashes on black, some in a
   // deeper gold, small splinters between them, and a few thin red bars.
   champions(g, W, H, s, rand) {

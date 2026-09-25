@@ -557,6 +557,7 @@ function skinChanged(custom = true) {
 }
 
 function swatch(p) {
+  if (p.pattern === 'casehardened') return `radial-gradient(circle at 30% 40%, ${p.c1} 0 22%, ${p.c3} 28%, transparent 34%), radial-gradient(circle at 75% 65%, ${p.c1} 0 14%, ${p.c3} 19%, transparent 24%), linear-gradient(90deg, #c9c6ba, ${p.c2})`;
   if (p.pattern === 'champions') return `repeating-linear-gradient(-24deg, ${p.c1} 0 10px, ${p.c2} 10px 17px, ${p.c1} 17px 26px, ${p.c3} 26px 28px, ${p.c1} 28px 40px)`;
   if (p.pattern === 'fade') return `linear-gradient(90deg, ${p.c1}, ${p.c2}, ${p.c3})`;
   if (p.pattern === 'solid') return p.c1;
@@ -604,6 +605,8 @@ function renderWeapon() {
     $(`w-${k}-wrap`).hidden = !roles[i];
   });
   $('w-fade-wrap').hidden = sk.pattern !== 'fade';
+  $('w-blue-wrap').hidden = sk.pattern !== 'casehardened';
+  $('w-blue').value = sk.blue ?? 0.3;
   $('w-fadeReverse').checked = !!sk.fadeReverse;
   renderZones();
   $('w-fx-type').value = sk.fx.type;
@@ -706,6 +709,7 @@ function renderWeaponOutputs() {
   $('w-preset-name').textContent = sk.preset === 'custom' ? 'Custom' : SKIN_PRESETS[sk.preset] ? SKIN_PRESETS[sk.preset].name : '';
   $('o-w-wear').textContent = `${sk.wear.toFixed(2)} · ${wearLabel(sk.wear)}`;
   $('o-w-scale').textContent = `${sk.scale.toFixed(2)}×`;
+  $('o-w-blue').textContent = `${Math.round((sk.blue ?? 0.3) * 100)}%`;
   $('o-w-fov').textContent = `${settings.weapon.fov}°`;
   const st = sk.stickers[stickerSlot];
   if (st) {
@@ -848,6 +852,7 @@ skinInput('w-c3', 'c3');
 $('w-fadeReverse').addEventListener('change', (e) => { skinOf().fadeReverse = e.target.checked; skinChanged(); });
 skinInput('w-wear', 'wear', parseFloat);
 skinInput('w-scale', 'scale', parseFloat);
+skinInput('w-blue', 'blue', parseFloat);
 skinInput('w-seed', 'seed', (v) => Math.max(1, Math.min(999, parseInt(v, 10) || 1)));
 $('w-shuffle').addEventListener('click', () => {
   skinOf().seed = 1 + Math.floor(Math.random() * 998);

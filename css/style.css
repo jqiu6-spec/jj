@@ -364,7 +364,7 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
 .w-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
 .w-h { margin: 0; font: 700 20px/1 var(--font-display); letter-spacing: 0.05em; text-transform: uppercase; }
 .lbl-plain { color: var(--text-2); font-size: 13px; }
-.preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+.preset-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .preset.featured { grid-column: 1 / -1; grid-template-columns: 96px minmax(0, 1fr); column-gap: 12px; align-items: center; text-align: left; }
 .preset.featured i { grid-row: span 2; height: 40px; }
 .preset.featured small { color: var(--muted); font-size: 11.5px; font-weight: 400; }

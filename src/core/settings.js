@@ -1,5 +1,6 @@
 import { clampDpi, clampSensitivity, VALORANT_FOV } from './sensitivity.js';
 import { DEFAULT_WEAPON, WEAPONS } from './weapons.js';
+import { sanitizeSkins } from './skins.js';
 
 export const SETTINGS_KEY = 'tracklock.settings.v1';
 /** Bumped when a stored value needs migrating (2: hold-to-fire became the default). */
@@ -54,6 +55,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   fov: VALORANT_FOV,
   // Gameplay
   fireMode: 'hold',
+  skins: sanitizeSkins({}),
   weapon: DEFAULT_WEAPON,
   countdown: true,
   targetColor: TARGET_COLORS[0].value,
@@ -150,6 +152,7 @@ export function sanitizeSettings(raw) {
     inputMultiplier: num(s.inputMultiplier, d.inputMultiplier, 0.01, 10, 4),
     fov: num(s.fov, d.fov, 60, 130, 0),
     fireMode,
+    skins: sanitizeSkins(s.skins),
     weapon: oneOf(s.weapon, d.weapon, WEAPONS.map((w) => w.id)),
     countdown: bool(s.countdown, d.countdown),
     targetColor: color(s.targetColor, d.targetColor),

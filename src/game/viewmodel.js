@@ -3,6 +3,7 @@
 // arena after the depth buffer is cleared.
 
 import {
+  ACESFilmicToneMapping,
   AdditiveBlending,
   BoxGeometry,
   CanvasTexture,
@@ -13,10 +14,12 @@ import {
   Group,
   HemisphereLight,
   Mesh,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   Object3D,
   Path,
   PerspectiveCamera,
+  PMREMGenerator,
   RepeatWrapping,
   Scene,
   Shape,
@@ -25,7 +28,10 @@ import {
   SRGBColorSpace,
   TorusGeometry,
   Vector3,
+  WebGLRenderer,
 } from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { DEFAULT_SKIN, FINISHES, sanitizeSkin, skinKey } from '../core/skins.js';
 
 const BASE_POSITION = new Vector3(0.245, -0.235, -0.6);
 const BASE_ROTATION = { x: 0.02, y: 0.14, z: 0.05 };
@@ -90,6 +96,154 @@ function stippleTexture(repeat = 30) {
   texture.wrapT = RepeatWrapping;
   texture.repeat.set(repeat, repeat);
   return texture;
+}
+
+/** Tiling pattern painted in greys so it multiplies the skin's colour. */
+function patternTexture(kind) {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const g = canvas.getContext('2d');
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, size, size);
+  let seed = 23;
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  if (kind === 'stripes') {
+    g.fillStyle = '#9c9c9c';
+    for (let i = -size; i < size * 2; i += 48) {
+      g.beginPath();
+      g.moveTo(i, 0);
+      g.lineTo(i + 20, 0);
+      g.lineTo(i + 20 - size, size);
+      g.lineTo(i - size, size);
+      g.closePath();
+      g.fill();
+    }
+  } else if (kind === 'hex') {
+    g.strokeStyle = '#8a8a8a';
+    g.lineWidth = 4;
+    const r = 24;
+    const w = Math.sqrt(3) * r;
+    for (let row = -1; row < size / (1.5 * r) + 1; row++) {
+      for (let col = -1; col < size / w + 1; col++) {
+        const cx = col * w + (row % 2 ? w / 2 : 0);
+        const cy = row * 1.5 * r;
+        g.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = (Math.PI / 3) * i + Math.PI / 6;
+          g.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+        }
+        g.closePath();
+        g.stroke();
+      }
+    }
+  } else if (kind === 'carbon') {
+    const cell = 32;
+    for (let y = 0; y < size; y += cell) {
+      for (let x = 0; x < size; x += cell) {
+        const horizontal = ((x + y) / cell) % 2 === 0;
+        const grad = horizontal ? g.createLinearGradient(x, y, x, y + cell) : g.createLinearGradient(x, y, x + cell, y);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.5, '#a8a8a8');
+        grad.addColorStop(1, '#6e6e6e');
+        g.fillStyle = grad;
+        g.fillRect(x, y, cell, cell);
+      }
+    }
+  } else if (kind === 'camo') {
+    for (const shade of ['#b9b9b9', '#8c8c8c', '#5f5f5f']) {
+      g.fillStyle = shade;
+      for (let i = 0; i < 14; i++) {
+        const cx = rand() * size;
+        const cy = rand() * size;
+        g.beginPath();
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * Math.PI * 2;
+          const rr = 18 + rand() * 30;
+          g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.7);
+        }
+        g.closePath();
+        g.fill();
+        // Wrap blotches that cross the edges so the tile repeats cleanly.
+        for (const [dx, dy] of [[size, 0], [-size, 0], [0, size], [0, -size]]) {
+          g.save();
+          g.translate(dx, dy);
+          g.fill();
+          g.restore();
+        }
+      }
+    }
+  }
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+  texture.repeat.set(14, 14);
+  return texture;
+}
+
+const patternCache = new Map();
+function getPattern(kind) {
+  if (!kind || kind === 'none') return null;
+  if (!patternCache.has(kind)) patternCache.set(kind, patternTexture(kind));
+  return patternCache.get(kind);
+}
+
+/** Turn a skin into the material set buildGun() paints with. */
+export function createSkinMaterials(rawSkin, shared) {
+  const skin = sanitizeSkin(rawSkin);
+  const finish = FINISHES[skin.finish];
+  const pattern = getPattern(skin.pattern);
+  const body = new Color(skin.body);
+  const accentColor = new Color(skin.accent);
+  const brushed = finish.metalness > 0.4 ? shared.brushed : null;
+  const materials = {
+    metal: new MeshPhysicalMaterial({
+      color: body,
+      map: pattern,
+      roughness: finish.roughness,
+      roughnessMap: brushed,
+      metalness: finish.metalness,
+      clearcoat: finish.clearcoat,
+      clearcoatRoughness: 0.3,
+    }),
+    dark: new MeshPhysicalMaterial({
+      color: body.clone().multiplyScalar(0.6),
+      map: pattern,
+      roughness: Math.min(1, finish.roughness + 0.08),
+      roughnessMap: brushed,
+      metalness: finish.metalness,
+      clearcoat: finish.clearcoat * 0.5,
+      clearcoatRoughness: 0.4,
+    }),
+    accent: new MeshStandardMaterial({
+      color: accentColor.clone().multiplyScalar(skin.glow ? 0.55 : 0.95),
+      emissive: accentColor,
+      emissiveIntensity: skin.glow ? 0.45 : 0,
+      roughness: 0.35,
+      metalness: 0.4,
+    }),
+    grip: new MeshStandardMaterial({ color: skin.grip, roughness: 0.85, metalness: 0.1, bumpMap: shared.stipple, bumpScale: 0.35 }),
+    steel: new MeshStandardMaterial({ color: '#7a8492', roughness: 0.35, roughnessMap: shared.brushed, metalness: 0.95 }),
+    polymer: new MeshStandardMaterial({
+      color: new Color(skin.grip).lerp(body, 0.35),
+      map: pattern,
+      roughness: 0.75,
+      metalness: 0.15,
+      bumpMap: shared.stipple,
+      bumpScale: 0.3,
+    }),
+  };
+  return {
+    ...materials,
+    dispose() {
+      for (const material of Object.values(materials)) material.dispose?.();
+    },
+  };
 }
 
 function flashTexture() {
@@ -333,16 +487,9 @@ export function createViewmodel(environment) {
   rim.position.set(2.5, 1, -2);
   scene.add(key, rim);
 
-  const brushed = brushedTexture();
-  const stipple = stippleTexture();
-  const materials = {
-    metal: new MeshStandardMaterial({ color: '#2e343d', roughness: 0.55, roughnessMap: brushed, metalness: 0.6 }),
-    dark: new MeshStandardMaterial({ color: '#1c2026', roughness: 0.55, roughnessMap: brushed, metalness: 0.7 }),
-    accent: new MeshStandardMaterial({ color: '#1d8f7a', emissive: '#36e2c4', emissiveIntensity: 0.4, roughness: 0.35, metalness: 0.4 }),
-    grip: new MeshStandardMaterial({ color: '#262b33', roughness: 0.85, metalness: 0.1, bumpMap: stipple, bumpScale: 0.35 }),
-    steel: new MeshStandardMaterial({ color: '#7a8492', roughness: 0.35, roughnessMap: brushed, metalness: 0.95 }),
-    polymer: new MeshStandardMaterial({ color: '#22272e', roughness: 0.75, metalness: 0.15, bumpMap: stipple, bumpScale: 0.3 }),
-  };
+  const shared = { brushed: brushedTexture(), stipple: stippleTexture() };
+  let materials = null;
+  let gunKey = '';
 
   const rig = new Group();
   rig.position.copy(BASE_POSITION);
@@ -362,8 +509,14 @@ export function createViewmodel(environment) {
   const ndc = new Vector3();
   const world = new Vector3();
 
-  function setWeapon(weapon) {
+  /** Build (or rebuild) the gun for a weapon and skin; a no-op when nothing changed. */
+  function setWeapon(weapon, skin = DEFAULT_SKIN) {
+    const key = `${weapon.id}|${skinKey(skin)}`;
+    if (key === gunKey) return;
+    gunKey = key;
     if (built) rig.remove(built.gun);
+    materials?.dispose();
+    materials = createSkinMaterials(skin, shared);
     built = buildGun(weapon, materials);
     built.muzzle.add(flash);
     rig.add(built.gun);
@@ -376,10 +529,6 @@ export function createViewmodel(environment) {
     setWeapon,
     setVisible(value) {
       visible = value;
-    },
-    setAccent(hex) {
-      materials.accent.emissive.set(hex);
-      materials.accent.color.copy(new Color(hex)).multiplyScalar(0.55);
     },
     resize(aspect) {
       camera.aspect = aspect;
@@ -447,6 +596,89 @@ export function createViewmodel(environment) {
       world.set(ndc.x, ndc.y, 0.5).unproject(gameCamera);
       world.sub(gameCamera.position).normalize().multiplyScalar(distance).add(gameCamera.position);
       return world;
+    },
+  };
+}
+
+/**
+ * A small standalone renderer that shows a weapon turning slowly, for the
+ * skin editor. Rendering runs only while setVisible(true).
+ */
+export function createGunPreview(canvas) {
+  const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.toneMapping = ACESFilmicToneMapping;
+  const pmrem = new PMREMGenerator(renderer);
+  const environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  pmrem.dispose();
+
+  const scene = new Scene();
+  scene.environment = environment;
+  scene.environmentIntensity = 0.9;
+  scene.add(new HemisphereLight('#e4ecff', '#1a2029', 1.2));
+  const key = new DirectionalLight('#fff4e4', 2);
+  key.position.set(-2, 3, 1.5);
+  const rim = new DirectionalLight('#8fd8ff', 0.8);
+  rim.position.set(2.5, 1, -2);
+  scene.add(key, rim);
+  const camera = new PerspectiveCamera(30, 16 / 10, 0.01, 10);
+  camera.position.set(-0.95, 0.3, 0.3);
+  camera.lookAt(0, -0.02, 0);
+
+  const pivot = new Group();
+  scene.add(pivot);
+  const shared = { brushed: brushedTexture(), stipple: stippleTexture() };
+  let built = null;
+  let materials = null;
+  let gunKey = '';
+  let running = false;
+  let last = 0;
+
+  function resize() {
+    const width = canvas.clientWidth || 320;
+    const height = canvas.clientHeight || 200;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+  }
+
+  function frame(now) {
+    if (!running) return;
+    const dt = Math.min(0.05, (now - last) / 1000 || 0);
+    last = now;
+    pivot.rotation.y += dt * 0.6;
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+
+  return {
+    setGun(weapon, skin) {
+      const nextKey = `${weapon.id}|${skinKey(skin)}`;
+      if (nextKey === gunKey) return;
+      gunKey = nextKey;
+      if (built) pivot.remove(built.gun);
+      materials?.dispose();
+      materials = createSkinMaterials(skin, shared);
+      built = buildGun(weapon, materials);
+      // Centre the gun on the pivot so it turns about its middle.
+      built.gun.position.set(0, 0.02, 0.27);
+      pivot.add(built.gun);
+    },
+    setVisible(visible) {
+      if (visible && !running) {
+        running = true;
+        last = performance.now();
+        resize();
+        requestAnimationFrame(frame);
+      } else if (!visible) {
+        running = false;
+      }
+    },
+    resize,
+    dispose() {
+      running = false;
+      materials?.dispose();
+      renderer.dispose();
     },
   };
 }

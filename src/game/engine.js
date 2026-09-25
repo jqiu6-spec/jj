@@ -107,13 +107,11 @@ export class Engine {
   applySettings(settings) {
     this.settings = settings;
     const weapon = getWeapon(settings.weapon);
-    if (weapon !== this.weapon || !this.viewmodelReady) {
-      this.weapon = weapon;
-      this.viewmodel.setWeapon(weapon);
-      this.viewmodelReady = true;
-      // A weapon picked while paused applies to the rest of the run.
-      if (this.run) this.run.session.weapon = weapon;
-    }
+    this.weapon = weapon;
+    // setWeapon rebuilds only when the weapon or its skin changed.
+    this.viewmodel.setWeapon(weapon, settings.skins?.[weapon.id]);
+    // A weapon picked while paused applies to the rest of the run.
+    if (this.run) this.run.session.weapon = weapon;
     this.viewmodel.setVisible(settings.showWeapon);
     this.effects.setEnabled(settings.shotEffects);
     this.keyLight.castShadow = settings.shadows;

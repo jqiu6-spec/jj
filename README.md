@@ -37,6 +37,9 @@ A browser aim trainer for **tracking** that uses your exact **Valorant sensitivi
   chart comes with a data table view.
 - **Stats:** history saved in the browser, personal bests per scenario, difficulty and length, a score progress
   chart, filters and CSV export.
+- **Weapon skin editor:** Settings → Skins paints each gun with body, accent and grip colours, a matte / satin /
+  gloss / chrome finish, a stripe / hex / carbon / camo pattern and an optional accent glow, with presets, an
+  apply-to-all button and a live turning 3D preview. Skins are saved per weapon.
 - **Valorant-style crosshair editor:** color, outlines, center dot, inner and outer lines. Sizes are in real
   screen pixels, with a live preview and a 4× zoom. **Import your Valorant crosshair code** or copy a code for
   your Tracklock crosshair back into Valorant.

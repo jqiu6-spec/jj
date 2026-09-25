@@ -181,23 +181,25 @@ scenario's spot. Moving doesn't cost accuracy.
   barrel and furniture included; set a part to **Factory** to keep, say, the
   AK's wood. Skins saved on these presets' old layout (furniture left as it
   was) move to the new one by themselves.
-- **Afterglow neon**: after VALORANT's Afterglow, a black frame traced with
-  glowing neon strips, rows of lit segments and accent dashes, in two colours
-  of your choice. The strips give off light, and flare with every shot.
-  Presets: **Afterglow** (blue), **Afterglow Gold** and **Afterglow Violet**,
-  like the skin's chromas.
-- **RGB lights**: the same strips as white diffusers, their light cycling
-  through the rainbow like gaming RGB (the **RGB** preset).
+- **Light bars**: a layer over any pattern, after VALORANT's Afterglow:
+  glowing bars running along the gun that jog at 45°, rows of lit segments
+  and accent dashes, each set in a dark channel. **Neon** glows in a bar
+  colour and a segment colour of your choice; **RGB** cycles every light
+  through the rainbow together, like gaming RGB. **Shuffle** lays the bars
+  out differently. They give off light and flare with every shot, so Case
+  Hardened, a fade or your own colours can all wear them. Presets:
+  **Afterglow** (blue), **Afterglow Gold** and **Afterglow Violet**, like the
+  skin's chromas, and **RGB**, all on matte black. Skins saved with the
+  earlier Afterglow neon or RGB patterns become black with light bars.
 - **Presets**: Original (the model's own factory textures), Fade (the default:
   crimson at the front, magenta and purple through the receiver, blue at the
   rear, a gold suppressor, black furniture), Recon Digital, Coyote, Gunmetal,
   Woodland, Arctic Digital, Carbon Weave, Ember Tiger, Cobalt Hex, Neon Splatter,
   Clear Ice, Doppler, Tiger Tooth, Smoke Glass, Case Hardened, Blue Gem,
   Damascus, Afterglow (three chromas) and RGB.
-- **Pattern**: original textures, Champions 2021, Case Hardened, Afterglow
-  neon, RGB lights, solid, fade, woodland camo, digital camo, carbon fibre, hex
-  grid, tiger stripe, splatter or Damascus steel, each with up to three
-  colours. On the detailed models the paint keeps the model's normal maps, so
+- **Pattern**: original textures, Champions 2021, Case Hardened, solid, fade,
+  woodland camo, digital camo, carbon fibre, hex grid, tiger stripe, splatter
+  or Damascus steel, each with up to three colours. On the detailed models the paint keeps the model's normal maps, so
   it follows every machined edge and screw.
 - **Finish** (matte, satin, gloss, anodized, metallic, or clear glossy
   plastic), **wear** (0–1, adding scratches and chipped paint), **pattern
@@ -218,8 +220,8 @@ scenario's spot. Moving doesn't cost accuracy.
   puts the pattern on all of them at once. The list changes with the gun.
 - **Fade direction**: run the fade back to front or front to back.
 - **Randomise** makes a new skin from one hue and its complement; **Apply this
-  skin to every gun** copies the pattern, colours, finish and fire effect (parts
-  and stickers stay per gun). A preview swatch shows the pattern at the gun's
+  skin to every gun** copies the pattern, colours, finish, light bars and fire
+  effect (parts and stickers stay per gun). A preview swatch shows the pattern at the gun's
   scale.
 
 ### Fire effects
@@ -295,12 +297,16 @@ The recordings are cut from clips the project owner supplied, stored in
 Each gun's variants are levelled to the same loudness. They are Riot Games and
 Valve audio, used here in a free, non-commercial fan project.
 
-- **The Vandal's fire sound** is three single shots from VALORANT.
+Every fire sound is a single shot: each cut was checked for a second attack
+in its envelope, since sprays in the clips hide shots only 0.1 s apart.
+
+- **The Vandal's fire sound** is four single shots from VALORANT.
 - **Afterglow Vandal** is three single shots from VALORANT's Afterglow skin
   preview, to pick under Sound for any gun (it pairs with the Afterglow
   skins).
-- **The AK-47** is three single taps from CS2, and its draw (charging handle
-  and all) doubles as the draw sound for the other rifles.
+- **The AK-47** is two single taps from CS2 (the clip's other taps were short
+  bursts), and its draw (charging handle and all) doubles as the draw sound
+  for the other rifles.
 - **The AWP** is CS2's shot with its full echo (2.8 s), its bolt going back and
   forward (0.5 s and 0.92 s after the shot) and its draw.
 - **The headshot** is two of CS:GO's headshot sounds.
@@ -375,8 +381,11 @@ blade curving down and round, a turn of the wrist, and a flip back down.
 Knives don't shoot, so nothing scores while it's out, and every run starts
 with the gun.
 
-The animations are keyframed in `js/knife.js`: each key sets where the ring
-sits, the hand's grip or turn, and extra spins around the ring. The knife is held the CS2 way: finger through the ring at the left of the
+The animations are keyframed in `js/knife.js`. The hand moves on a smooth
+curve through its keys (coming to rest only at holds), and each flip is one
+continuous spin around the ring that speeds up and slows down once. While it
+spins fast, faint copies of the knife trail a fraction of a frame behind, a
+motion blur that makes the flip read as a spin even at 60 fps. The knife is held the CS2 way: finger through the ring at the left of the
 fist, blade out to the right and curling up. Blade and handle are separate
 parts, each with its own finish; a skin paints the blade and leaves the
 knife's own handle unless you pick otherwise, and Fade runs along the blade

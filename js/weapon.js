@@ -9,7 +9,7 @@ import { sampleKnife, knifeLength } from './knife.js';
 import { AWP_BOLT_AT } from './audio.js';
 import {
   SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, woodCanvas, stickerCanvas, STICKERS, stickerRevision, championsWordmark,
-  glowCanvas, LIT_PATTERNS, ZONE_COLOR_DEFAULT,
+  glowCanvas, ZONE_COLOR_DEFAULT,
 } from './skins.js';
 
 // Stickers are drawn at CS2 size: about as tall as the receiver's side.
@@ -211,7 +211,8 @@ class GunView {
     this.fxColor = new THREE.Color('#ffffff');
     this.glowBase = 0;
     this.glowPulse = 0;
-    this.glowTex = null; // a lit pattern's light (emissive map), or null
+    this.glowTex = null; // the light bars' light (emissive map), or null
+    this.lightsType = 'off';
     this.lightMats = new Set(); // parts in a neon or RGB finish
     this.lightT = 0;
     this.suppressed = false;
@@ -272,7 +273,7 @@ class GunView {
     this.muzzle = { x: mx, y: my };
     this.flash.position.set(mx + 0.035, my, 0);
     this.suppressed = !!m.suppressor && skin.suppressor !== false;
-    const sig = SKIN_KEYS.map((k) => skin[k]).join('|');
+    const sig = SKIN_KEYS.map((k) => skin[k]).join('|') + JSON.stringify(skin.lights || null);
     const zsig = JSON.stringify(skin.zones || {}) + JSON.stringify(skin.zoneColors || {});
     if (sig !== this.sig) {
       this.sig = sig;
@@ -321,7 +322,7 @@ class GunView {
   paintSetup(p, s) {
     const f = FINISHES[s.finish] || FINISHES.satin;
     p.map = this.texture || null;
-    // A lit pattern's strips give off light (see setGlow).
+    // The light bars give off light (see setGlow).
     p.emissiveMap = this.glowTex;
     p.userData.lit = !!this.glowTex;
     setPlastic(p, !!f.clear);
@@ -384,6 +385,7 @@ class GunView {
     this.texture = tex;
     if (this.glowTex) this.glowTex.dispose();
     this.glowTex = null;
+    this.lightsType = (s.lights && s.lights.type) || 'off';
     const gc = glowCanvas(s);
     if (gc) {
       const gt = new THREE.CanvasTexture(gc);
@@ -557,9 +559,9 @@ class GunView {
     for (const m of this.inUse) {
       if (!m.emissive) continue;
       if (m.userData.lit) {
-        // A lit pattern: its emissive map is the light (white for RGB,
+        // Light bars: the emissive map is the light (white for RGB,
         // coloured by the cycle here).
-        if (LIT_PATTERNS[this.pattern] === 'cycle') m.emissive.setHSL(hue, 1, 0.5);
+        if (this.lightsType === 'rgb') m.emissive.setHSL(hue, 1, 0.5);
         else m.emissive.setRGB(1, 1, 1);
         m.emissiveIntensity = 1.6 * flare;
       } else if (k > 0.001) {
@@ -606,6 +608,11 @@ const _rc = new THREE.Raycaster();
 const _inv = new THREE.Matrix4();
 const _kp = new THREE.Vector3();
 const _kq = new THREE.Quaternion();
+const _bq = new THREE.Quaternion();
+const _inv4 = new THREE.Matrix4();
+// Motion blur for the knife's spins: this many faint copies spread over the
+// last frame's motion.
+const BLUR_COPIES = 3;
 const _up = new THREE.Vector3(0, 1, 0);
 const _right = new THREE.Vector3(1, 0, 0);
 const HOLSTER = 0.14; // seconds to lower the held weapon when switching
@@ -816,6 +823,7 @@ export class Viewmodel {
   warm(gv) {
     const r = this.renderer;
     if (!r || !gv.skin) return;
+    if (gv.info.melee) this.buildBlur(gv);
     try {
       r.compile(gv.root, this.camera, this.scene);
       gv.root.traverse((o) => {
@@ -1014,6 +1022,7 @@ export class Viewmodel {
     this.showFlash(gv);
     if (mode === 'inspect') {
       this.switching = null;
+      this.hideBlur();
       this.camera.fov = 32;
       this.camera.updateProjectionMatrix();
       // A knife is framed as if it were a rifle's length, so it shows at
@@ -1054,17 +1063,12 @@ export class Viewmodel {
     if (gv.info.melee) {
       this.knifeT += dt;
       if (this.knifeAnim && this.knifeT >= knifeLength(this.knifeAnim)) this.knifeAnim = null;
-      sampleKnife(this.knifeAnim, this.knifeT, _kp, _kq);
-      rig.position.set(
-        _kp.x + runX - this.swayX * 0.25,
-        _kp.y + bob + runY + this.swayY * 0.2 - lower * 0.4,
-        _kp.z + lower * 0.05,
-      );
-      rig.quaternion.copy(_kq);
-      rig.rotateOnWorldAxis(_up, this.swayX * 0.8);
-      rig.rotateOnWorldAxis(_right, -this.swayY * 0.8 - lower * 0.6);
+      const offset = { x: runX - this.swayX * 0.25, y: bob + runY + this.swayY * 0.2 - lower * 0.4, z: lower * 0.05, lower };
+      this.poseKnife(rig, this.knifeAnim, this.knifeT, offset);
+      this.knifeBlur(gv, dt, offset);
       return;
     }
+    this.hideBlur();
     this.gunAnimT += dt;
     if (this.gunAnim && this.gunAnimT >= gunAnimLength(this.gunAnim)) this.gunAnim = null;
     const { p: ap, r: ar } = sampleGunAnim(this.gunAnim, this.gunAnimT);
@@ -1082,6 +1086,94 @@ export class Viewmodel {
       aim.yaw + ar[1] + this.swayX,
       aim.pitch + ar[2] - this.swayY + this.kick * 0.03 - lower * 0.7,
     );
+  }
+
+  // The knife's pose at animation time `t`, with sway, bob and holstering.
+  poseKnife(obj, anim, t, off) {
+    sampleKnife(anim, t, _kp, _kq);
+    obj.position.set(_kp.x + off.x, _kp.y + off.y, _kp.z + off.z);
+    obj.quaternion.copy(_kq);
+    obj.rotateOnWorldAxis(_up, this.swayX * 0.8);
+    obj.rotateOnWorldAxis(_right, -this.swayY * 0.8 - off.lower * 0.6);
+  }
+
+  // Motion blur while the knife spins fast: faint copies posed a fraction of
+  // a frame back, fading with age, so a flip reads as a spin rather than a
+  // knife jumping between angles. They show only above about 7 degrees of
+  // turn per frame.
+  knifeBlur(gv, dt, off) {
+    this.buildBlur(gv);
+    const anim = this.knifeAnim;
+    let k = 0;
+    const span = Math.max(1 / 144, Math.min(dt || 1 / 60, 1 / 30));
+    if (anim && this.mode === 'play') {
+      sampleKnife(anim, this.knifeT, _kp, _kq);
+      _bq.copy(_kq);
+      sampleKnife(anim, this.knifeT - span, _kp, _kq);
+      const angle = 2 * Math.acos(Math.min(1, Math.abs(_bq.dot(_kq))));
+      k = Math.min(1, (angle - 0.12) / 0.35);
+    }
+    const B = this.blur;
+    B.copies.forEach((c, i) => {
+      c.group.visible = k > 0;
+      if (k <= 0) return;
+      const f = (i + 1) / (BLUR_COPIES + 1);
+      this.poseKnife(c.group, anim, this.knifeT - span * f, off);
+      for (const m of c.mats.values()) m.opacity = k * (0.42 - 0.3 * f);
+    });
+  }
+
+  hideBlur() {
+    if (this.blur) for (const c of this.blur.copies) c.group.visible = false;
+  }
+
+  // The blur copies share the knife's geometry, with flat see-through
+  // versions of its materials; rebuilt when the knife or its skin changes.
+  buildBlur(gv) {
+    const sig = `${gv.id}|${gv.modelVersion}|${gv.sig}|${gv.zoneSig}`;
+    if (this.blur && this.blur.sig === sig) return;
+    if (this.blur) {
+      for (const c of this.blur.copies) {
+        this.hand.remove(c.group);
+        for (const m of c.mats.values()) m.dispose();
+      }
+    }
+    gv.root.updateMatrixWorld(true);
+    _inv4.copy(gv.root.matrixWorld).invert();
+    const copies = [];
+    for (let i = 0; i < BLUR_COPIES; i++) {
+      const group = new THREE.Group();
+      const mats = new Map();
+      gv.model.group.traverse((o) => {
+        if (!o.isMesh || !o.visible || !o.material || Array.isArray(o.material)) return;
+        const src = o.material;
+        let m = mats.get(src);
+        if (!m) {
+          m = new THREE.MeshBasicMaterial({
+            map: src.map || null,
+            color: src.color ? src.color.clone().multiplyScalar(0.85) : 0xb8bcc4,
+            vertexColors: !!src.vertexColors,
+            transparent: true,
+            opacity: 0,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+          });
+          mats.set(src, m);
+        }
+        const mesh = new THREE.Mesh(o.geometry, m);
+        mesh.matrixAutoUpdate = false;
+        mesh.matrix.multiplyMatrices(_inv4, o.matrixWorld);
+        mesh.renderOrder = 1;
+        group.add(mesh);
+      });
+      group.visible = false;
+      this.hand.add(group);
+      copies.push({ group, mats });
+    }
+    this.blur = { sig, copies };
+    try {
+      for (const c of copies) this.renderer.compile(c.group, this.camera, this.scene);
+    } catch (e) { /* compiling ahead is only an optimisation */ }
   }
 
   render(renderer) {

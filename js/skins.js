@@ -8,8 +8,6 @@ export const PATTERNS = {
   original: 'Original (model textures)',
   champions: 'Champions 2021',
   casehardened: 'Case Hardened',
-  neon: 'Afterglow neon',
-  rgb: 'RGB lights',
   solid: 'Solid',
   fade: 'Fade',
   camo: 'Woodland camo',
@@ -26,8 +24,6 @@ export const COLOR_ROLES = {
   original: ['Simple model paint', null, null],
   champions: ['Base', 'Gold stripes', 'Red accents'],
   casehardened: ['Blue', 'Gold', 'Purple'],
-  neon: ['Base', 'Neon strips', 'Accent lights'],
-  rgb: ['Base', null, null],
   solid: ['Paint', null, null],
   fade: ['Rear', 'Middle', 'Front'],
   camo: ['Base', 'Dark blotches', 'Light blotches'],
@@ -90,13 +86,14 @@ export const SKIN_PRESETS = {
   casehardened: { name: 'Case Hardened', pattern: 'casehardened', c1: '#3f79d8', c2: '#c9a24a', c3: '#5a3aa8', blue: 0.3, finish: 'anodized', wear: 0.03, scale: 1, seed: 661, zones: { metal: 'skin' }, fx: { type: 'none', color: '#ffd27a', glow: false } },
   bluegem: { name: 'Blue Gem', pattern: 'casehardened', c1: '#356fe0', c2: '#c9a24a', c3: '#5a3aa8', blue: 0.8, finish: 'anodized', wear: 0.01, scale: 1, seed: 387, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#6fb6ff', glow: false } },
   champions: { name: 'Champions 2021', featured: true, pattern: 'champions', c1: '#151615', c2: '#a8904f', c3: '#c31a1d', finish: 'satin', wear: 0.02, scale: 1, seed: 21, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#ffcf5a', glow: false } },
-  // After VALORANT's Afterglow: a matte black frame traced with glowing neon
-  // strips and rows of lit segments, in three chromas; and an RGB version
-  // whose lights run through the rainbow along the gun.
-  afterglow: { name: 'Afterglow', pattern: 'neon', c1: '#0c0d11', c2: '#2f7dff', c3: '#8fe6ff', finish: 'satin', wear: 0, scale: 1, seed: 5, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#4f95ff', glow: false } },
-  afterglowGold: { name: 'Afterglow Gold', pattern: 'neon', c1: '#0c0d11', c2: '#ffab2e', c3: '#ffe07a', finish: 'satin', wear: 0, scale: 1, seed: 5, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#ffb640', glow: false } },
-  afterglowPurple: { name: 'Afterglow Violet', pattern: 'neon', c1: '#0c0d11', c2: '#8a4dff', c3: '#d7b8ff', finish: 'satin', wear: 0, scale: 1, seed: 5, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#a070ff', glow: false } },
-  rgb: { name: 'RGB', pattern: 'rgb', c1: '#0c0d11', c2: '#ffffff', c3: '#ffffff', finish: 'satin', wear: 0, scale: 1, seed: 5, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#ffffff', glow: false } },
+  // After VALORANT's Afterglow: a black frame traced with glowing neon light
+  // bars and rows of lit segments, in three chromas; and an RGB version whose
+  // lights cycle the rainbow. The light bars are an overlay (`lights`) that
+  // any pattern can wear.
+  afterglow: { name: 'Afterglow', pattern: 'solid', c1: '#0c0d11', c2: '#2a2d33', c3: '#000000', finish: 'satin', wear: 0, scale: 1, seed: 5, lights: { type: 'neon', color: '#2f7dff', accent: '#8fe6ff', seed: 5 }, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#4f95ff', glow: false } },
+  afterglowGold: { name: 'Afterglow Gold', pattern: 'solid', c1: '#0c0d11', c2: '#2a2d33', c3: '#000000', finish: 'satin', wear: 0, scale: 1, seed: 5, lights: { type: 'neon', color: '#ffab2e', accent: '#ffe07a', seed: 5 }, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#ffb640', glow: false } },
+  afterglowPurple: { name: 'Afterglow Violet', pattern: 'solid', c1: '#0c0d11', c2: '#2a2d33', c3: '#000000', finish: 'satin', wear: 0, scale: 1, seed: 5, lights: { type: 'neon', color: '#8a4dff', accent: '#d7b8ff', seed: 5 }, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#a070ff', glow: false } },
+  rgb: { name: 'RGB', pattern: 'solid', c1: '#0c0d11', c2: '#2a2d33', c3: '#000000', finish: 'satin', wear: 0, scale: 1, seed: 5, lights: { type: 'rgb', color: '#ffffff', accent: '#ffffff', seed: 5 }, zones: { metal: 'skin' }, fx: { type: 'tracer', color: '#ffffff', glow: false } },
   fade: { name: 'Fade', pattern: 'fade', c1: '#3a5ae8', c2: '#b02ec2', c3: '#e8234d', finish: 'anodized', wear: 0.01, scale: 1, seed: 1, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black', suppressor: 'gold' }, fx: { type: 'plasma', color: '#ff4fd8', glow: true } },
   recon: { name: 'Recon Digital', pattern: 'digital', c1: '#dfe4ea', c2: '#8a97a6', c3: '#34414f', finish: 'matte', wear: 0.04, scale: 0.55, seed: 9, zones: { stock: 'gray', grip: 'gray', foregrip: 'gray', mag: 'gray', butt: 'black' }, fx: { type: 'tracer', color: '#5fd8ff', glow: false } },
   coyote: { name: 'Coyote', pattern: 'solid', c1: '#a8875c', c2: '#8a6d49', c3: '#5e4a33', finish: 'matte', wear: 0.05, scale: 1, seed: 1, zones: { stock: 'tan', grip: 'tan', foregrip: 'tan', mag: 'black', butt: 'black' }, fx: { type: 'none', color: '#ffb35c', glow: false } },
@@ -336,24 +333,13 @@ function neonLayout(W, H, rand) {
   return { rails, bars, dashes };
 }
 
-function drawNeon(g, W, H, rand, { base, strip, accent, mode, halo = 0 }) {
+// `mode` 'overlay' draws the unlit bars (and their seams) over whatever is
+// on the canvas; 'glow' draws only the light, on black.
+function drawNeon(g, W, H, rand, { strip, accent, mode, halo = 0 }) {
   const L = neonLayout(W, H, rand);
   if (mode === 'glow') {
     g.fillStyle = '#000000';
     g.fillRect(0, 0, W, H);
-  } else {
-    g.fillStyle = base;
-    g.fillRect(0, 0, W, H);
-    // Panel seams, a shade lighter than the base, around the lights.
-    g.strokeStyle = shade(base, 1.9);
-    g.lineWidth = 2;
-    for (const pts of L.rails) {
-      wrapped(W, H, (dx, dy) => {
-        g.beginPath();
-        pts.forEach(([x, y], i) => (i ? g.lineTo(x + dx, y + dy + 12) : g.moveTo(x + dx, y + dy + 12)));
-        g.stroke();
-      });
-    }
   }
   g.lineCap = 'round';
   g.lineJoin = 'round';
@@ -368,6 +354,8 @@ function drawNeon(g, W, H, rand, { base, strip, accent, mode, halo = 0 }) {
       });
     }
   };
+  const housing = 'rgba(8,9,11,0.9)';
+  if (mode !== 'glow') stroke(housing, 11); // the dark channel each bar sits in
   if (halo) {
     // A soft halo round each strip, so it reads as light on the surface.
     g.save();
@@ -377,15 +365,35 @@ function drawNeon(g, W, H, rand, { base, strip, accent, mode, halo = 0 }) {
   }
   stroke(strip, 6);
   if (mode !== 'glow') stroke('rgba(255,255,255,0.55)', 2); // hot core
-  g.fillStyle = accent;
   for (const b of L.bars) {
     for (let k = 0; k < b.count; k++) {
       const x = b.x + k * (b.w + b.gap);
-      wrapped(W, H, (dx, dy) => g.fillRect(x + dx, b.y + dy - b.h / 2, b.w, b.h));
+      wrapped(W, H, (dx, dy) => {
+        if (mode !== 'glow') {
+          g.fillStyle = housing;
+          g.fillRect(x + dx - 2, b.y + dy - b.h / 2 - 2, b.w + 4, b.h + 4);
+        }
+        g.fillStyle = accent;
+        g.fillRect(x + dx, b.y + dy - b.h / 2, b.w, b.h);
+      });
     }
   }
   g.strokeStyle = accent;
   g.lineWidth = 4;
+  if (mode !== 'glow') {
+    g.save();
+    g.strokeStyle = housing;
+    g.lineWidth = 8;
+    for (const d of L.dashes) {
+      wrapped(W, H, (dx, dy) => {
+        g.beginPath();
+        g.moveTo(d.x + dx, d.y + dy);
+        g.lineTo(d.x + dx + d.len, d.y + dy);
+        g.stroke();
+      });
+    }
+    g.restore();
+  }
   for (const d of L.dashes) {
     wrapped(W, H, (dx, dy) => {
       g.beginPath();
@@ -398,14 +406,6 @@ function drawNeon(g, W, H, rand, { base, strip, accent, mode, halo = 0 }) {
 
 const DRAW = {
   casehardened: caseHardened,
-  // The surface of the Afterglow-style neon: the strips are pale when unlit
-  // (the light itself is the glow map, see glowCanvas).
-  neon(g, W, H, s, rand) {
-    drawNeon(g, W, H, rand, { base: s.c1, strip: shade(s.c2, 1.2), accent: shade(s.c3, 1.1), mode: 'base' });
-  },
-  rgb(g, W, H, s, rand) {
-    drawNeon(g, W, H, rand, { base: s.c1, strip: '#d9dce2', accent: '#d9dce2', mode: 'base' });
-  },
   // Champions 2021: rows of tapered gold claw slashes on black, some in a
   // deeper gold, small splinters between them, and a few thin red bars.
   champions(g, W, H, s, rand) {
@@ -658,35 +658,42 @@ function drawWear(g, W, H, wear, rand) {
   }
 }
 
-// Patterns with their own lights: neon glows steadily in its colours, RGB
-// cycles every light through the rainbow together.
-export const LIT_PATTERNS = { neon: 'steady', rgb: 'cycle' };
+// Light bars, a layer over any pattern: 'neon' glows steadily in its two
+// colours, 'rgb' cycles every light through the rainbow together.
+export const LIGHT_TYPES = { off: 'Off', neon: 'Neon', rgb: 'RGB (colour cycle)' };
+export const NO_LIGHTS = { type: 'off', color: '#2f7dff', accent: '#8fe6ff', seed: 5 };
+export const lightsOn = (s) => !!s.lights && LIGHT_TYPES[s.lights.type] && s.lights.type !== 'off';
 
-// The light a lit pattern gives off, for the paint's emissive map: black
-// where it's dark. Null for patterns without lights.
+// The canvas size a pattern tiles on (the hex grid needs whole cells).
+const canvasSize = (s) => (s.pattern === 'hex' ? [480, 471] : [512, 512]);
+
+// The light the bars give off, for the paint's emissive map: black where
+// it's dark. Null when the skin has no light bars.
 export function glowCanvas(s) {
-  if (!LIT_PATTERNS[s.pattern]) return null;
+  if (!lightsOn(s)) return null;
   const c = document.createElement('canvas');
-  c.width = c.height = 512;
+  [c.width, c.height] = canvasSize(s);
   const g = c.getContext('2d');
-  const rand = rng(s.seed || 1);
-  if (s.pattern === 'rgb') {
-    drawNeon(g, c.width, c.height, rand, { strip: '#ffffff', accent: '#ffffff', mode: 'glow', halo: 6 });
-  } else {
-    drawNeon(g, c.width, c.height, rand, { strip: s.c2, accent: s.c3, mode: 'glow', halo: 6 });
-  }
+  const L = s.lights;
+  const rand = rng(L.seed || 1);
+  if (L.type === 'rgb') drawNeon(g, c.width, c.height, rand, { strip: '#ffffff', accent: '#ffffff', mode: 'glow', halo: 6 });
+  else drawNeon(g, c.width, c.height, rand, { strip: L.color, accent: L.accent, mode: 'glow', halo: 6 });
   return c;
 }
 
 export function skinCanvas(s) {
   const c = document.createElement('canvas');
-  // The hex grid only tiles on a canvas sized to whole cells.
-  c.width = s.pattern === 'hex' ? 480 : 512;
-  c.height = s.pattern === 'hex' ? 471 : 512;
+  [c.width, c.height] = canvasSize(s);
   const g = c.getContext('2d');
   const rand = rng(s.seed || 1);
   (DRAW[s.pattern] || DRAW.solid)(g, c.width, c.height, s, rand);
   drawWear(g, c.width, c.height, s.wear, rng((s.seed || 1) + 999));
+  // The light bars' diffusers, pale when unlit, over the pattern.
+  if (lightsOn(s)) {
+    const L = s.lights;
+    const rgb = L.type === 'rgb';
+    drawNeon(g, c.width, c.height, rng(L.seed || 1), { strip: rgb ? '#d9dce2' : shade(L.color, 1.2), accent: rgb ? '#d9dce2' : shade(L.accent, 1.1), mode: 'overlay' });
+  }
   return c;
 }
 

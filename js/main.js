@@ -14,6 +14,7 @@ import { GUNS, ZONE_LABELS } from './guns.js';
 import { MODEL_INFO } from './models.js';
 import {
   SKIN_PRESETS, PATTERNS, COLOR_ROLES, FINISHES, ZONE_FINISHES, ZONE_COLOR_DEFAULT, STICKERS, STICKER_FINISHES, SKIN_KEYS,
+  LIGHT_TYPES, NO_LIGHTS,
   stickerCanvas, wearLabel, randomSkin, loadCustomStickers, addCustomSticker, removeCustomSticker, onStickerImages,
 } from './skins.js';
 import { FX_TYPES } from './effects.js';
@@ -560,8 +561,8 @@ function swatch(p) {
   if (p.pattern === 'casehardened') return `radial-gradient(circle at 30% 40%, ${p.c1} 0 22%, ${p.c3} 28%, transparent 34%), radial-gradient(circle at 75% 65%, ${p.c1} 0 14%, ${p.c3} 19%, transparent 24%), linear-gradient(90deg, #c9c6ba, ${p.c2})`;
   if (p.pattern === 'champions') return `repeating-linear-gradient(-24deg, ${p.c1} 0 10px, ${p.c2} 10px 17px, ${p.c1} 17px 26px, ${p.c3} 26px 28px, ${p.c1} 28px 40px)`;
   if (p.pattern === 'fade') return `linear-gradient(90deg, ${p.c1}, ${p.c2}, ${p.c3})`;
-  if (p.pattern === 'neon') return `linear-gradient(0deg, ${p.c1} 0 30%, ${p.c2} 30% 38%, ${p.c1} 38% 64%, ${p.c3} 64% 70%, ${p.c1} 70%)`;
-  if (p.pattern === 'rgb') return `linear-gradient(0deg, ${p.c1} 0 30%, transparent 30% 40%, ${p.c1} 40% 62%, transparent 62% 72%, ${p.c1} 72%), linear-gradient(90deg, #ff3b3b, #ffd23b, #3bff6a, #3bd8ff, #7a3bff, #ff3bd2)`;
+  if (p.lights && p.lights.type === 'neon') return `linear-gradient(0deg, ${p.c1} 0 30%, ${p.lights.color} 30% 38%, ${p.c1} 38% 64%, ${p.lights.accent} 64% 70%, ${p.c1} 70%)`;
+  if (p.lights && p.lights.type === 'rgb') return `linear-gradient(0deg, ${p.c1} 0 30%, transparent 30% 40%, ${p.c1} 40% 62%, transparent 62% 72%, ${p.c1} 72%), linear-gradient(90deg, #ff3b3b, #ffd23b, #3bff6a, #3bd8ff, #7a3bff, #ff3bd2)`;
   if (p.pattern === 'solid') return p.c1;
   return `linear-gradient(90deg, ${p.c1} 0 45%, ${p.c2} 45% 75%, ${p.c3 === '#000000' ? p.c1 : p.c3} 75%)`;
 }
@@ -610,6 +611,7 @@ function renderWeapon() {
   $('w-blue-wrap').hidden = sk.pattern !== 'casehardened';
   $('w-blue').value = sk.blue ?? 0.3;
   $('w-fadeReverse').checked = !!sk.fadeReverse;
+  renderLights();
   renderZones();
   $('w-fx-type').value = sk.fx.type;
   $('w-fx-color').value = sk.fx.color;
@@ -699,6 +701,35 @@ function renderZones() {
     host.appendChild(label);
   }
 }
+
+// Light bars over the pattern: off, neon in two colours, or RGB.
+function renderLights() {
+  const sk = skinOf();
+  if (!sk.lights) sk.lights = { ...NO_LIGHTS };
+  const L = sk.lights;
+  $('w-lights').value = L.type;
+  $('w-lights-color').value = L.color;
+  $('w-lights-accent').value = L.accent;
+  $('w-lights-color-wrap').hidden = L.type !== 'neon';
+  $('w-lights-accent-wrap').hidden = L.type !== 'neon';
+  $('w-lights-layout-wrap').hidden = L.type === 'off';
+}
+const lightsInput = (id, key) => {
+  $(id).addEventListener('input', (e) => {
+    const sk = skinOf();
+    sk.lights = { ...(sk.lights || NO_LIGHTS), [key]: e.target.value };
+    skinChanged();
+    renderLights();
+  });
+};
+lightsInput('w-lights', 'type');
+lightsInput('w-lights-color', 'color');
+lightsInput('w-lights-accent', 'accent');
+$('w-lights-shuffle').addEventListener('click', () => {
+  const sk = skinOf();
+  sk.lights = { ...(sk.lights || NO_LIGHTS), seed: 1 + Math.floor(Math.random() * 998) };
+  skinChanged();
+});
 
 // Every part, the barrel and metal parts included, takes the pattern.
 $('w-zones-all').addEventListener('click', () => {
@@ -835,6 +866,7 @@ $('w-presets').innerHTML = Object.entries(SKIN_PRESETS)
   .sort(([, a], [, b]) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0))
   .map(([id, p]) => `<button type="button" class="preset${p.featured ? ' featured' : ''}" data-preset="${id}"><i style="background:${swatch(p)}"></i>${p.name}${p.featured ? '<small>From the Vandal you sent: gold stripes over the whole gun and the Champions wordmark</small>' : ''}</button>`).join('');
 fill($('w-pattern'), Object.entries(PATTERNS));
+fill($('w-lights'), Object.entries(LIGHT_TYPES));
 fill($('w-finish'), Object.entries(FINISHES).map(([k, f]) => [k, f.label]));
 fill($('w-fx-type'), Object.entries(FX_TYPES));
 fill($('w-st-finish'), Object.entries(STICKER_FINISHES));
@@ -922,10 +954,11 @@ $('w-apply-all').addEventListener('click', () => {
     if (id === weaponGun) continue;
     for (const k of SKIN_KEYS) skins[id][k] = src[k];
     skins[id].fx = { ...src.fx };
+    skins[id].lights = { ...(src.lights || NO_LIGHTS) };
     skins[id].preset = src.preset;
   }
   skinChanged(false);
-  $('w-msg').textContent = 'Pattern, colours, finish and fire effect copied to every gun. Parts and stickers stay as they were.';
+  $('w-msg').textContent = 'Pattern, colours, finish, light bars and fire effect copied to every gun. Parts and stickers stay as they were.';
 });
 const stickerInput = (id, key, parse = (v) => v) => {
   $(id).addEventListener('input', (e) => {

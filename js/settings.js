@@ -1,5 +1,5 @@
 // Persistent user settings and sensitivity math.
-import { SKIN_PRESETS } from './skins.js';
+import { SKIN_PRESETS, NO_LIGHTS, LIGHT_TYPES } from './skins.js';
 import { GUNS } from './guns.js';
 
 // Degrees of yaw per mouse count at sensitivity 1.0, per game.
@@ -131,7 +131,7 @@ export const STICKER_SLOTS = 5;
 export function presetSkin(presetId) {
   const p = SKIN_PRESETS[presetId] || SKIN_PRESETS.fade;
   const { name, ...rest } = p;
-  return { ...rest, zones: { ...(p.zones || {}) }, zoneColors: { ...(p.zoneColors || {}) }, fx: { ...(p.fx || { type: 'none', color: '#ffd27a', glow: false }) }, fadeReverse: false, preset: presetId };
+  return { ...rest, zones: { ...(p.zones || {}) }, zoneColors: { ...(p.zoneColors || {}) }, lights: { ...(p.lights || NO_LIGHTS) }, fx: { ...(p.fx || { type: 'none', color: '#ffd27a', glow: false }) }, fadeReverse: false, preset: presetId };
 }
 
 export function defaultSkin(gunId) {
@@ -184,6 +184,12 @@ export function loadSkins() {
     const old = OLD_PRESET_ZONES[skin.preset];
     if (old && JSON.stringify(skin.zones) === JSON.stringify(old)) skin.zones = { ...SKIN_PRESETS[skin.preset].zones };
     if (!skin.zoneColors || typeof skin.zoneColors !== 'object') skin.zoneColors = {};
+    // The Afterglow neon and RGB patterns became light bars over a pattern.
+    if (skin.pattern === 'neon' || skin.pattern === 'rgb') {
+      skin.lights = { type: skin.pattern, color: skin.c2 || NO_LIGHTS.color, accent: skin.c3 || NO_LIGHTS.accent, seed: skin.seed || 5 };
+      skin.pattern = 'solid';
+    }
+    if (!skin.lights || typeof skin.lights !== 'object' || !LIGHT_TYPES[skin.lights.type]) skin.lights = { ...NO_LIGHTS };
     if (!s.fx || typeof s.fx !== 'object') skin.fx = { ...(SKIN_PRESETS[s.preset] ? SKIN_PRESETS[s.preset].fx : d.fx) };
     delete skin.furniture;
     delete skin.accent;

@@ -302,10 +302,9 @@ function slab(points, width, material, { bevel = 0.003, holes = [] } = {}) {
   geometry.computeBoundingBox();
   const bb = geometry.boundingBox;
   geometry.translate(0, 0, -(bb.min.z + bb.max.z) / 2);
-  // Shape x (forward) -> gun -z, extrusion z -> gun x.
-  geometry.rotateY(-Math.PI / 2);
-  geometry.scale(1, 1, -1);
-  geometry.computeVertexNormals();
+  // Shape x (forward) -> gun -z, extrusion z -> gun x. A plain rotation keeps
+  // the face winding intact; a mirror would turn the slab inside out.
+  geometry.rotateY(Math.PI / 2);
   return new Mesh(geometry, material);
 }
 
@@ -367,7 +366,7 @@ function buildGun(weapon, materials) {
     part([[-0.06, -0.032], [0.2, -0.032], [0.2, 0.024], [0.14, 0.03], [-0.02, 0.03], [-0.06, 0.02]], 0.042, metal);
     for (let i = 0; i < 8; i++) bx(0.03, 0.0025, 0.004, 0.02 + i * 0.016, 0.031, steel); // dust cover ribs
     bx(0.006, 0.02, 0.09, 0.04, 0.0, steel, { x: -0.024 }); // side rail mount (left)
-    bx(0.044, 0.012, 0.09, 0.02, 0.004, accent); // accent panel
+    bx(0.05, 0.012, 0.09, 0.02, 0.004, accent); // accent panel, proud of the receiver
     part([[-0.06, -0.02], [-0.06, 0.022], [-0.2, 0.012], [-0.38, 0.03], [-0.38, -0.06], [-0.2, -0.036]], 0.036, polymer);
     bx(0.04, 0.09, 0.012, -0.385, -0.015, dark); // butt plate
     part([[0.0, -0.03], [0.048, -0.03], [0.018, -0.13], [-0.03, -0.13]], 0.03, grip);
@@ -389,7 +388,7 @@ function buildGun(weapon, materials) {
     part([[-0.05, -0.04], [0.24, -0.04], [0.27, 0.0], [0.24, 0.05], [0.1, 0.056], [-0.03, 0.05], [-0.05, 0.02]], 0.05, metal);
     bx(0.03, 0.014, 0.22, 0.09, 0.062, dark); // top rail
     railSlots(0.0, 0.2, 0.07, 0.024);
-    bx(0.052, 0.018, 0.13, 0.08, 0.012, accent);
+    bx(0.058, 0.018, 0.13, 0.08, 0.012, accent); // accent panel, proud of the receiver
     bx(0.006, 0.026, 0.06, 0.15, -0.01, steel, { x: -0.028 }); // side vent plate
     part([[-0.05, -0.02], [-0.05, 0.035], [-0.28, 0.04], [-0.33, 0.0], [-0.33, -0.075], [-0.22, -0.045]], 0.04, polymer, {
       holes: [[[-0.1, -0.005], [-0.24, 0.0], [-0.26, -0.03], [-0.13, -0.025]]],
@@ -414,7 +413,7 @@ function buildGun(weapon, materials) {
     part([[-0.04, -0.035], [0.17, -0.035], [0.17, 0.03], [-0.04, 0.03]], 0.046, metal);
     bx(0.03, 0.012, 0.18, 0.06, 0.036, dark);
     railSlots(-0.02, 0.15, 0.043, 0.024);
-    bx(0.048, 0.014, 0.1, 0.05, -0.002, accent);
+    bx(0.054, 0.014, 0.1, 0.05, -0.002, accent); // accent panel, proud of the receiver
     bx(0.006, 0.006, 0.2, -0.16, 0.012, steel, { x: -0.018 }); // wire stock rods
     bx(0.006, 0.006, 0.2, -0.16, 0.012, steel, { x: 0.018 });
     bx(0.042, 0.052, 0.014, -0.265, -0.004, dark); // butt plate
@@ -440,7 +439,7 @@ function buildGun(weapon, materials) {
     // Odin: heavy LMG with carry handle, box magazine, vented shroud and bipod.
     part([[-0.06, -0.045], [0.3, -0.045], [0.3, 0.04], [0.2, 0.05], [-0.06, 0.05]], 0.06, metal);
     part([[0.04, 0.05], [0.22, 0.05], [0.22, 0.11], [0.04, 0.11]], 0.03, dark, { holes: [[[0.07, 0.065], [0.19, 0.065], [0.19, 0.095], [0.07, 0.095]]] }); // carry handle
-    bx(0.06, 0.02, 0.16, 0.1, 0.02, accent);
+    bx(0.068, 0.02, 0.16, 0.1, 0.02, accent); // accent panel, proud of the receiver
     bx(0.006, 0.03, 0.16, 0.12, -0.02, steel, { x: -0.033 }); // feed tray latch plate
     part([[-0.06, -0.03], [-0.06, 0.045], [-0.3, 0.045], [-0.33, -0.02], [-0.3, -0.095], [-0.2, -0.065], [-0.15, -0.03]], 0.046, polymer);
     bx(0.05, 0.11, 0.014, -0.335, -0.03, dark); // butt pad

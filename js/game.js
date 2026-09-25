@@ -163,6 +163,8 @@ export class Game {
     this.zoomLevel = 0; // 0 unscoped, 1 = 2.5x, 2 = 5x
     this.scopeT = 0; // 0..1 progress into the current zoom
     this.punch = 0; // view kick from a sniper shot, decays to 0 (visual only)
+    this.slot = 'gun'; // 'gun' or 'knife': what the player holds in a run
+    this.lastWheel = 0;
     this.vm = new Viewmodel(this.renderer);
     this.applySettings(settings);
 
@@ -171,6 +173,8 @@ export class Game {
     document.addEventListener('mousemove', (e) => this.onMouseMove(e));
     document.addEventListener('mousedown', (e) => this.onMouseDown(e));
     document.addEventListener('mouseup', (e) => this.onMouseUp(e));
+    // Mouse wheel swaps between the gun and the knife, as in CS2.
+    document.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     document.addEventListener('contextmenu', (e) => {
       if (document.pointerLockElement === this.canvas) e.preventDefault();
     });
@@ -206,9 +210,22 @@ export class Game {
     return this.settings.weapon.primary;
   }
 
+  // What the player holds: the scenario's gun, or the knife.
+  get heldId() {
+    return this.slot === 'knife' ? 'karambit' : this.gunId;
+  }
+
+  get knifeOut() {
+    return this.slot === 'knife';
+  }
+
   refreshGun() {
-    const id = this.inspect && this.state === 'menu' ? this.inspect : this.gunId;
-    if (this.skins[id]) this.vm.setGun(id, this.skins[id]);
+    const menuInspect = this.inspect && this.state === 'menu';
+    const id = menuInspect ? this.inspect : this.heldId;
+    if (this.skins[id]) {
+      if (menuInspect) this.vm.setGun(id, this.skins[id]);
+      else this.vm.equip(id, this.skins[id]); // animates a swap in first person
+    }
     const eq = this.skins[this.gunId];
     const fx = (eq && eq.fx) || { type: 'none' };
     this.fx.setStyle(fx.type, fx.color);
@@ -456,7 +473,38 @@ export class Game {
   }
 
   // ------------------------------------------------------------ run flow
+  // Swap between the gun and the knife: 'gun', 'knife' or 'toggle'.
+  switchWeapon(slot) {
+    const live = this.state === 'running' || this.state === 'countdown';
+    if (!live) return;
+    const next = slot === 'toggle' ? (this.slot === 'knife' ? 'gun' : 'knife') : slot;
+    if (next === this.slot) return;
+    this.slot = next;
+    this.firing = false;
+    if (next === 'knife') this.setZoom(0);
+    this.refreshGun();
+    if (next === 'knife') sfx.knifeDraw();
+    else sfx.gunDraw();
+  }
+
+  onWheel(e) {
+    if (document.pointerLockElement !== this.canvas) return;
+    e.preventDefault();
+    // Trackpads send a stream of wheel events; one swap per flick.
+    const now = performance.now();
+    if (Math.abs(e.deltaY) < 1 || now - this.lastWheel < 250) return;
+    this.lastWheel = now;
+    this.switchWeapon('toggle');
+  }
+
+  // F: spin the knife around the finger.
+  inspectWeapon() {
+    const live = this.state === 'running' || this.state === 'countdown';
+    if (live && this.knifeOut && this.vm.knifeInspect()) sfx.knifeInspect();
+  }
+
   start() {
+    this.slot = 'gun';
     this.run = {
       scenario: this.scn.id,
       elapsed: 0,
@@ -575,6 +623,15 @@ export class Game {
   onMouseDown(e) {
     if (document.pointerLockElement !== this.canvas) return;
     const right = e.button === 2 || (e.button === 0 && e.ctrlKey && IS_MAC);
+    if (this.knifeOut) {
+      // Left slashes (held, it keeps slashing), right stabs. Knives don't
+      // shoot, so nothing scores while the knife is out.
+      if (e.button !== 0 && !right) return;
+      if (!right) this.firing = true;
+      const live = this.state === 'running' || this.state === 'countdown';
+      if (live && this.vm.knifeAttack(right ? 'stab' : 'slash')) (right ? sfx.stab : sfx.slash)();
+      return;
+    }
     if (right) { this.scopePress(); return; }
     if (e.button !== 0) return;
     this.firing = true;
@@ -592,7 +649,7 @@ export class Game {
   // sniper scopes. Toggle cycles 2.5x, 5x, off; hold is 2.5x while held.
   scopePress() {
     const live = this.state === 'running' || this.state === 'countdown';
-    if (!this.sniper || !live || (this.run && this.run.reloadLeft > 0)) return;
+    if (!this.sniper || !live || this.knifeOut || (this.run && this.run.reloadLeft > 0)) return;
     if (this.settings.sniper.scopeMode === 'hold') this.setZoom(1);
     else this.setZoom((this.zoomLevel + 1) % 3);
   }
@@ -933,7 +990,8 @@ export class Game {
       if (r.reloadLeft <= 0) { r.reloadLeft = 0; r.ammo = OPERATOR.magazine; }
     }
 
-    const firing = this.firing || (w.type === 'beam' && this.settings.autoFire);
+    if (this.knifeOut && this.firing && this.vm.knifeAttack('slash')) sfx.slash();
+    const firing = !this.knifeOut && (this.firing || (w.type === 'beam' && this.settings.autoFire));
     if (w.type === 'beam' && firing) {
       // The gun cycles at its own rate while the beam is held.
       const rounds = this.vm.autoFire(dt, GUNS[this.gunId].fireInterval || 0.1);

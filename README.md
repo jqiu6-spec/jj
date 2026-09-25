@@ -144,6 +144,7 @@ come from.
 | XM7 | 800 RPM | The US Army's 6.8 mm rifle, with a Coyote tan preset |
 | Phantom | 11 rounds/s | Valorant's suppressed rifle (the simple model is an original take with a laser module) |
 | AWP | Operator handling | Sniping scenarios only; the only gun that scopes |
+| Karambit | Knife | Scroll the mouse wheel to draw it in any scenario; see [Karambit](#karambit) |
 
 Pick one of the first four with **Use for tracking and clicking**. While you
 track, the gun cycles at its own fire rate; in clicking scenarios, clicks can't
@@ -155,7 +156,7 @@ come faster than that rate.
   crimson at the front, magenta and purple through the receiver, blue at the
   rear, a gold suppressor, black furniture), Recon Digital, Coyote, Gunmetal,
   Woodland, Arctic Digital, Carbon Weave, Ember Tiger, Cobalt Hex, Neon Splatter,
-  Clear Ice and Damascus.
+  Clear Ice, Doppler, Tiger Tooth, Smoke Glass and Damascus.
 - **Pattern**: original textures, solid, fade, woodland camo, digital camo,
   carbon fibre, hex grid, tiger stripe, splatter or Damascus steel, each with
   three colours. On the detailed models the paint keeps the model's normal maps,
@@ -229,12 +230,17 @@ metres, +X toward the muzzle, +Y up, +Z the gun's right side.
 | `awp.glb` | AWP `.usdz` supplied by the project owner | Spec/gloss textures converted to metal/rough |
 | `xm7.glb` | SIG XM7 `.obj` supplied by the project owner | Plain materials, no textures |
 | `phantom.glb` | "VALORANT Weapon Phantom Rifle" `.fbx` supplied by the project owner | A Riot Games asset from Valorant |
+| `karambit.glb` | "Karambit Standoff 2 Eye of God" `.fbx` and texture supplied by the project owner | An Axlebolt asset from Standoff 2; origin on the ring |
 
 The original authors and licences of the four real-world rifles have not been
 recorded yet; add them here before publishing the models anywhere. The Phantom is
 Riot Games' artwork: Riot's fan content policy allows free, non-commercial fan
 projects that credit Riot, so keep Trackline free and don't redistribute the
 mesh on its own. Trackline isn't endorsed by Riot Games.
+
+The karambit and its "Eye of God" finish are Axlebolt's artwork from Standoff 2.
+Keep them in a free, non-commercial project, credit Axlebolt, and don't
+redistribute the mesh on its own.
 
 `js/models.js` loads each file, sorts its triangles into skin zones (by part
 name, material, position, or the texture's own colour), lines it up with the
@@ -254,6 +260,21 @@ static `.glb`. Use `--rotate` and `--scale` to bring a model into the frame
 above (the script prints the resulting size), `--tex` to point a material at a
 texture set, and `--help` for the rest. Then add an entry to `MODEL_INFO` in
 `js/models.js` and run `npm run build`.
+
+### Karambit
+
+Every scenario has a knife as well as the gun. In a run, **scroll the mouse
+wheel** to swap between them (or press **3** for the knife, **1** for the gun,
+**Q** to swap). The karambit flips out around its ring as you draw it; **left
+click** slashes, alternating forehand and backhand (hold it to keep slashing),
+**right click** stabs, and **F** inspects: two spins around the finger, then
+each side of the blade. Knives don't shoot, so nothing scores while it's out,
+and every run starts with the gun.
+
+The animations are keyframed in `js/knife.js`: each key sets where the ring
+sits, which way the blade points, which way the flat faces, and extra spins
+around the ring. The knife wears skins like the guns: blade and handle, with
+Original showing the model's own Eye of God finish.
 
 ## Sniping (Valorant Operator)
 
@@ -277,8 +298,10 @@ before the scope settled.
 
 ## Controls
 
-- **Mouse 1**: fire (hold it in tracking scenarios, or turn on auto-fire in Settings)
-- **Mouse 2**, **Shift**, or **Ctrl+click** on a Mac: scope with the AWP in sniping scenarios
+- **Mouse 1**: fire (hold it in tracking scenarios, or turn on auto-fire in Settings); slash with the knife
+- **Mouse 2**, **Shift**, or **Ctrl+click** on a Mac: scope with the AWP in sniping scenarios; stab with the knife
+- **Mouse wheel**, **1**, **3**, **Q**: swap between the gun and the knife
+- **F**: inspect the knife
 - **Esc**: pause. Press Esc again to go back to the scenario list
 - **R**: restart the current run
 - **Space / Enter** on the results screen: play again
@@ -311,6 +334,7 @@ js/crosshair.js       crosshair drawing
 js/audio.js           synthesized sound effects and fire sounds
 js/guns.js            simple gun models, zones, fire rates and sticker slots
 js/models.js          detailed gun models: loading, skin zones, sticker decals
+js/knife.js           karambit animations: draw, slashes, stab, inspect
 js/skins.js           skin patterns, presets, random skins and sticker designs
 js/effects.js         fire effects: tracers, impacts, muzzle glow
 js/weapon.js          first-person gun view, skins, stickers, turntable

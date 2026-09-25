@@ -5,6 +5,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { GUNS, buildGun } from './guns.js';
 import { MODEL_INFO, loadDetailedGun } from './models.js';
 import { Effects } from './effects.js';
+import { sampleKnife, knifeLength } from './knife.js';
 import {
   SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, woodCanvas, stickerCanvas, STICKERS,
 } from './skins.js';
@@ -351,6 +352,7 @@ class GunView {
     // unless reversed. Other patterns keep the vertex colour white.
     const stops = [new THREE.Color(s.c1), new THREE.Color(s.c2), new THREE.Color(s.c3)];
     const [x0, x1] = this.model.fade;
+    const alongY = this.model.fadeAxis === 'y'; // a knife fades tip to ring
     const tmp = new THREE.Color();
     for (const zone of Object.values(this.model.zones)) {
       for (const mesh of zone) {
@@ -358,7 +360,7 @@ class GunView {
         const col = mesh.geometry.attributes.color;
         for (let i = 0; i < p.count; i++) {
           if (s.pattern === 'fade') {
-            let t = Math.min(1, Math.max(0, (p.getX(i) - x0) / (x1 - x0)));
+            let t = Math.min(1, Math.max(0, ((alongY ? p.getY(i) : p.getX(i)) - x0) / (x1 - x0)));
             if (s.fadeReverse) t = 1 - t;
             if (t < 0.5) tmp.copy(stops[0]).lerp(stops[1], t * 2);
             else tmp.copy(stops[1]).lerp(stops[2], (t - 0.5) * 2);
@@ -482,6 +484,14 @@ function studioEnvironment(renderer) {
 }
 
 const _m = new THREE.Vector3();
+const _kp = new THREE.Vector3();
+const _kq = new THREE.Quaternion();
+const _up = new THREE.Vector3(0, 1, 0);
+const _right = new THREE.Vector3(1, 0, 0);
+const HOLSTER = 0.14; // seconds to lower the held weapon when switching
+const RAISE = 0.32; // seconds to bring a gun up
+const easeOut = (u) => 1 - (1 - u) ** 3;
+const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
 
 export class Viewmodel {
   constructor(renderer) {
@@ -522,6 +532,64 @@ export class Viewmodel {
     this.mode = 'play';
     this.detailed = true;
     this.onModel = null; // called with the gun id when a detailed model arrives
+    this.draw = 1; // 0..1 while a gun is raised into view
+    this.switching = null; // { id, skin, t } while the held weapon is lowered
+    this.knifeAnim = null; // playing knife animation, or null for idle
+    this.knifeT = 0;
+    this.slashAlt = false;
+  }
+
+  // Change the held weapon in first person: lower the current one, then
+  // draw the new one (a knife flips out around its ring, a gun comes up).
+  equip(id, skin) {
+    if (this.switching) {
+      this.switching.id = id;
+      this.switching.skin = skin;
+      return;
+    }
+    if (this.current && this.current.id === id) {
+      this.setGun(id, skin);
+      return;
+    }
+    if (!this.current || this.mode !== 'play') {
+      this.setGun(id, skin);
+      this.startDraw();
+      return;
+    }
+    this.switching = { id, skin, t: 0 };
+  }
+
+  startDraw() {
+    const melee = this.current && this.current.info.melee;
+    this.draw = melee ? 1 : 0;
+    this.knifeAnim = melee ? 'draw' : null;
+    this.knifeT = 0;
+  }
+
+  get knifeOut() {
+    return !!this.current && !!this.current.info.melee && !this.switching;
+  }
+
+  // A knife attack: 'slash' alternates forehand and backhand, 'stab' is the
+  // heavy one. Returns false while another attack is still playing.
+  knifeAttack(kind) {
+    if (!this.knifeOut) return false;
+    const busy = this.knifeAnim && this.knifeAnim !== 'inspect' && this.knifeT < knifeLength(this.knifeAnim) - 0.12;
+    if (busy) return false;
+    if (kind === 'stab') this.knifeAnim = 'stab';
+    else {
+      this.knifeAnim = this.slashAlt ? 'slash2' : 'slash';
+      this.slashAlt = !this.slashAlt;
+    }
+    this.knifeT = 0;
+    return true;
+  }
+
+  knifeInspect() {
+    if (!this.knifeOut || (this.knifeAnim && this.knifeAnim !== 'draw' && this.knifeT < knifeLength(this.knifeAnim))) return false;
+    this.knifeAnim = 'inspect';
+    this.knifeT = 0;
+    return true;
   }
 
   // Equip gun `id` wearing `skin` (pattern, zones, stickers, fx, suppressor).
@@ -689,10 +757,13 @@ export class Viewmodel {
     gv.flash.scale.set(s, s, s);
     gv.flash.material.opacity = gv.suppressed ? 0.45 : 1;
     if (mode === 'inspect') {
+      this.switching = null;
       this.camera.fov = 32;
       this.camera.updateProjectionMatrix();
       const dist = (front - rear) * 2.4;
       const halfH = Math.tan((this.camera.fov * Math.PI) / 360) * dist;
+      // A knife lies along X on the turntable, blade tip where a muzzle would be.
+      gun.rotation.set(0, 0, gv.info.melee ? Math.PI / 2 : 0);
       gun.position.set(-(rear + front) / 2, -0.02, 0);
       rig.position.set(this.inspectAt.x * halfH * this.camera.aspect, this.inspectAt.y * halfH, -dist + this.kick * 0.03);
       // Yaw of pi shows the left side with the muzzle pointing left.
@@ -701,21 +772,52 @@ export class Viewmodel {
     }
     this.camera.fov = this.fov || 60;
     this.camera.updateProjectionMatrix();
-    const P = (gv.model.detailed && DETAILED_POSE[gv.id]) || PLAY_POSE[gv.id];
-    const bob = Math.sin(this.t * 1.7) * 0.0018;
     gun.position.set(0, 0, 0);
+    gun.rotation.set(0, 0, 0);
+    // Switching: lower the held weapon, then swap and draw the next one.
+    let lower = 0;
+    if (this.switching) {
+      this.switching.t += dt;
+      lower = easeInOut(Math.min(1, this.switching.t / HOLSTER));
+      if (this.switching.t >= HOLSTER) {
+        const { id, skin } = this.switching;
+        this.switching = null;
+        this.setGun(id, skin);
+        this.startDraw();
+        lower = 1;
+        return this.update(0, mode);
+      }
+    }
+    const bob = Math.sin(this.t * 1.7) * 0.0018;
+    if (gv.info.melee) {
+      this.knifeT += dt;
+      if (this.knifeAnim && this.knifeT >= knifeLength(this.knifeAnim)) this.knifeAnim = null;
+      sampleKnife(this.knifeAnim, this.knifeT, _kp, _kq);
+      rig.position.set(
+        _kp.x - this.swayX * 0.25,
+        _kp.y + bob + this.swayY * 0.2 - lower * 0.26,
+        _kp.z + lower * 0.05,
+      );
+      rig.quaternion.copy(_kq);
+      rig.rotateOnWorldAxis(_up, this.swayX * 0.8);
+      rig.rotateOnWorldAxis(_right, -this.swayY * 0.8 - lower * 0.6);
+      return;
+    }
+    this.draw = Math.min(1, this.draw + dt / RAISE);
+    lower = Math.max(lower, 1 - easeOut(this.draw));
+    const P = (gv.model.detailed && DETAILED_POSE[gv.id]) || PLAY_POSE[gv.id];
     // Aim from the resting pose; sway, bob and recoil move it off briefly.
     _m.set(P.x, P.y, P.z);
     const aim = aimAt(_m, gv.muzzle ? gv.muzzle.y : 0, P.aim || CONVERGE);
     rig.position.set(
       P.x - this.swayX * 0.25,
-      P.y + bob + this.swayY * 0.2 - this.kick * 0.004,
-      P.z + this.kick * 0.022,
+      P.y + bob + this.swayY * 0.2 - this.kick * 0.004 - lower * 0.24,
+      P.z + this.kick * 0.022 + lower * 0.06,
     );
     rig.rotation.set(
       this.swayX * 0.4,
       aim.yaw + this.swayX,
-      aim.pitch - this.swayY + this.kick * 0.03,
+      aim.pitch - this.swayY + this.kick * 0.03 - lower * 0.7,
     );
   }
 

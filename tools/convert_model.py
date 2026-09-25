@@ -9,7 +9,8 @@ Inputs: .usdz / .usdc / .usda / .usd, .obj (+ .mtl), .glb / .gltf, and .fbx
 
 Output convention, which Trackline expects:
   metres, +X toward the muzzle, +Y up, +Z the gun's right side.
-Use --rotate to turn the model into that frame, for example
+Knives use the same axes with the origin at the pivot (the karambit's ring),
+set with --translate. Use --rotate to turn the model into that frame, for example
   --rotate y90      turn 90 degrees about Y (repeat or combine: --rotate y90 --rotate x-90)
   --flip-x          point the muzzle the other way (mirrors, then fixes winding)
 
@@ -603,6 +604,7 @@ def main():
     ap.add_argument('--rotate', action='append', default=[], help='e.g. y90, x-90, z180 (applied in order)')
     ap.add_argument('--flip-x', action='store_true', help='mirror along X (muzzle the other way)')
     ap.add_argument('--scale', type=float, default=1.0)
+    ap.add_argument('--translate', default='', help='X,Y,Z metres added after rotate and scale (move the origin, e.g. to a knife ring)')
     ap.add_argument('--tex', action='append', default=[], help='MATERIAL=PREFIX')
     ap.add_argument('--dx-normal', action='append', default=[], help='MATERIAL with a DirectX normal map')
     ap.add_argument('--emissive', action='append', default=[], help='MATERIAL=#rrggbb')
@@ -659,8 +661,9 @@ def main():
     R = np.eye(3)
     for spec in a.rotate:
         R = rotation(spec) @ R
+    shift = np.array([float(v) for v in a.translate.split(',')]) if a.translate else np.zeros(3)
     for p in parts:
-        p.P = (p.P @ R.T) * a.scale
+        p.P = (p.P @ R.T) * a.scale + shift
         p.N = p.N @ R.T
         if a.flip_x:
             p.P[:, 0] *= -1

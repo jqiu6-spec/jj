@@ -545,11 +545,17 @@ function renderWeapon() {
   const g = GUNS[weaponGun];
   const sk = skinOf();
   for (const b of document.querySelectorAll('.gun-chip')) b.setAttribute('aria-checked', String(b.dataset.gun === weaponGun));
-  $('w-kind').textContent = g.sniper ? 'Sniper · sniping scenarios' : `${g.kind} · ${Math.round(60 / g.fireInterval)} rounds per minute`;
+  $('w-kind').textContent = g.melee ? 'Knife · every scenario' : g.sniper ? 'Sniper · sniping scenarios' : `${g.kind} · ${Math.round(60 / g.fireInterval)} rounds per minute`;
+  // A knife has no fire effect, stickers or fire sound.
+  for (const id of ['w-fx-h', 'w-st-h', 'w-snd-h']) $(id).closest('section').hidden = !!g.melee;
   $('w-name').textContent = g.name;
   $('w-blurb').textContent = g.blurb;
   const equip = $('w-equip');
-  if (g.sniper) {
+  if (g.melee) {
+    equip.disabled = true;
+    equip.textContent = 'Scroll the mouse wheel in a run';
+    $('w-equip-note').textContent = '3 draws the knife, 1 your gun, Q swaps, F inspects.';
+  } else if (g.sniper) {
     equip.disabled = true;
     equip.textContent = 'Used in sniping scenarios';
     $('w-equip-note').textContent = 'Only the AWP can scope.';
@@ -897,7 +903,7 @@ $('w-reset').addEventListener('click', (e) => armButton(e.currentTarget, 'Reset 
   saveSkins(skins);
   game.setSkins(skins);
   renderWeapon();
-  $('w-msg').textContent = `${GUNS[weaponGun].name} reset to the Fade skin.`;
+  $('w-msg').textContent = `${GUNS[weaponGun].name} reset to the ${SKIN_PRESETS[skins[weaponGun].preset].name} skin.`;
 }));
 // Drag the stage to turn the gun.
 const stage = $('weapon-stage');
@@ -966,6 +972,14 @@ document.addEventListener('keydown', (e) => {
   } else if (k === 'KeyR' && (game.state === 'running' || game.state === 'countdown')) {
     e.preventDefault();
     game.start();
+  } else if (k === 'Digit1' || k === 'Numpad1') {
+    game.switchWeapon('gun');
+  } else if (k === 'Digit3' || k === 'Numpad3') {
+    game.switchWeapon('knife');
+  } else if (k === 'KeyQ' && !e.repeat) {
+    game.switchWeapon('toggle');
+  } else if (k === 'KeyF' && !e.repeat) {
+    game.inspectWeapon();
   } else if (k === 'KeyR' && game.state === 'paused') {
     play(game.scn);
   } else if ((k === 'Space' || k === 'Enter') && game.state === 'results') {

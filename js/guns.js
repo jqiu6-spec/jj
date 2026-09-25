@@ -18,6 +18,7 @@ export const ZONE_LABELS = {
   suppressor: 'Suppressor',
   scope: 'Scope',
   butt: 'Butt pad',
+  handle: 'Handle',
 };
 
 export const GUNS = {
@@ -60,6 +61,15 @@ export const GUNS = {
     blurb: 'Bolt-action sniper with a thumbhole stock. Used in sniping scenarios, where it handles like the Valorant Operator.',
     zones: ['scope', 'mag', 'butt'],
     sound: () => 'sniper',
+  },
+  karambit: {
+    name: 'Karambit',
+    kind: 'Knife',
+    melee: true,
+    blurb: 'A curved claw knife with a finger ring. In a run, scroll the mouse wheel or press 3 to draw it and 1 to go back to your gun. Left click slashes, right click stabs, F inspects.',
+    zones: ['handle'],
+    sound: () => 'off',
+    defaultPreset: 'original',
   },
 };
 
@@ -424,7 +434,34 @@ function awp(mats) {
   };
 }
 
-const BUILDERS = { m4a1s, ak47, xm7, phantom, awp };
+// Simple karambit: the ring at the origin, the blade curving down toward -Y
+// with the edge on the inside of the curve (+X), like the detailed model.
+function karambit(mats) {
+  const { group, zones, part } = kit(mats);
+  const ring = new THREE.TorusGeometry(0.0165, 0.0055, 12, 40);
+  part(ring, 'handle');
+  part(extrude([[-0.013, -0.012], [-0.03, -0.045], [-0.042, -0.088], [-0.018, -0.094], [-0.012, -0.062], [0.004, -0.021]], 0.012, 0.002), 'handle');
+  // Crescent blade: the spine (outer curve) then the edge (inner curve).
+  const pts = [];
+  for (let i = 0; i <= 12; i++) {
+    const u = i / 12;
+    pts.push([-0.042 + (0.05 * u * u), -0.09 - 0.079 * Math.sin((u * Math.PI) / 2)]);
+  }
+  for (let i = 12; i >= 0; i--) {
+    const u = i / 12;
+    pts.push([-0.018 + 0.026 * u * u * u, -0.094 - 0.075 * u ** 1.4]);
+  }
+  part(extrude(pts, 0.004, 0.0008), 'body');
+  return {
+    group, zones,
+    muzzle: () => [0.008, -0.169],
+    rear: -0.022, front: 0.169,
+    fade: [-0.17, 0.022], fadeAxis: 'y',
+    slots: [],
+  };
+}
+
+const BUILDERS = { m4a1s, ak47, xm7, phantom, awp, karambit };
 
 export function buildGun(id, mats) {
   const g = BUILDERS[id](mats);

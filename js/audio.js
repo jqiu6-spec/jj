@@ -82,6 +82,27 @@ function noise(dur, { freq = 2000, q = 1, gain = 0.2, delay = 0, filter = 'bandp
   src.stop(t0 + dur + 0.02);
 }
 
+// A whoosh: band-passed noise that swells and sweeps from f0 to f1.
+function sweep(dur, f0, f1, { gain = 0.2, q = 1, delay = 0 } = {}) {
+  if (!ctx || volume === 0) return;
+  const t0 = ctx.currentTime + delay;
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuf;
+  src.loop = true;
+  const f = ctx.createBiquadFilter();
+  f.type = 'bandpass';
+  f.Q.value = q;
+  f.frequency.setValueAtTime(f0, t0);
+  f.frequency.exponentialRampToValueAtTime(f1, t0 + dur * 0.7);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0 + dur * 0.35);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(f).connect(g).connect(master);
+  src.start(t0, Math.random() * 1.5);
+  src.stop(t0 + dur + 0.02);
+}
+
 // Fire sounds the player can pick per gun. 'auto' uses the gun's own.
 export const FIRE_SOUNDS = {
   auto: 'Match the gun',
@@ -148,6 +169,26 @@ const GUN_SOUNDS = {
 
 export const sfx = {
   gun(kind) { (GUN_SOUNDS[kind] || GUN_SOUNDS.rifle)(); },
+  // Knife: the blade drawn with a bright ring, slashes, a stab, inspect spins.
+  knifeDraw() {
+    sweep(0.24, 2600, 7800, { gain: 0.12, q: 2.2 });
+    tone(2950, 0.4, { type: 'sine', gain: 0.035, delay: 0.06 });
+    tone(4420, 0.28, { type: 'sine', gain: 0.018, delay: 0.06 });
+  },
+  slash() { sweep(0.2, 520, 2600, { gain: 0.22, q: 1.2 }); },
+  stab() {
+    sweep(0.3, 380, 1700, { gain: 0.24, q: 1 });
+    noise(0.09, { filter: 'lowpass', freq: 240, q: 0.7, gain: 0.3, delay: 0.3 });
+  },
+  knifeInspect() {
+    for (const d of [0.45, 0.7, 0.92, 1.15]) sweep(0.18, 700, 2200, { gain: 0.07, q: 1.4, delay: d });
+    tone(3100, 0.05, { type: 'triangle', gain: 0.03, delay: 2.3 });
+  },
+  gunDraw() {
+    noise(0.04, { freq: 3200, q: 2, gain: 0.08, delay: 0.14 });
+    tone(1250, 0.025, { type: 'square', gain: 0.04, delay: 0.16 });
+    tone(880, 0.03, { type: 'square', gain: 0.05, delay: 0.26 });
+  },
   dry() { tone(2600, 0.02, { type: 'square', gain: 0.04 }); },
   scope() { noise(0.05, { freq: 5200, q: 4, gain: 0.04 }); },
   reload() {

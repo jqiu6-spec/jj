@@ -133,7 +133,7 @@ export function presetSkin(presetId) {
 
 export function defaultSkin(gunId) {
   return {
-    ...presetSkin('fade', gunId),
+    ...presetSkin((GUNS[gunId] && GUNS[gunId].defaultPreset) || 'fade', gunId),
     suppressor: true,
     sound: 'auto',
     stickers: Array(STICKER_SLOTS).fill(null),

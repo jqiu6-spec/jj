@@ -107,6 +107,19 @@ export const MODEL_INFO = {
       { name: 'Stock', x: -0.25, y: 0.16, size: 0.035 },
     ],
   },
+  // Karambit from Standoff 2 ("Eye of God"), origin on the ring.
+  karambit: {
+    file: 'karambit.glb',
+    knife: true,
+    zones: ['handle'],
+    rules: [
+      { zone: 'body', box: [-9, 9, -9, -0.088] }, // blade
+      { zone: 'handle' }, // handle and ring
+    ],
+    fade: [-0.17, 0.022],
+    fadeAxis: 'y',
+    slots: [],
+  },
   awp: {
     file: 'awp.glb',
     rear: -0.545, bore: 0.03,
@@ -240,8 +253,9 @@ export async function loadDetailedGun(id, mats) {
     }
   }
   const boreY = nY ? (loY + hiY) / 2 : 0;
-  const dx = info.rear - minX;
-  const dy = info.bore - boreY;
+  // Guns line up with the built-in gun; a knife keeps its pivot at the origin.
+  const dx = info.knife ? 0 : info.rear - minX;
+  const dy = info.knife ? 0 : info.bore - boreY;
 
   // Original materials read their textures from the second UV set; the first
   // set gets metric projected UVs for skins, like the built-in models.
@@ -306,10 +320,26 @@ export async function loadDetailedGun(id, mats) {
     zoneList: info.zones,
     rear: info.rear,
     front,
-    fade: info.fade.map((x) => x + dx),
+    fade: info.fade.map((x) => x + (info.fadeAxis === 'y' ? dy : dx)),
+    fadeAxis: info.fadeAxis || 'x',
     muzzle: () => [front, info.bore],
     slots: info.slots.map((s) => ({ ...s, x: s.x + dx, y: s.y + dy })),
   };
+  if (info.knife) {
+    // Framed lying along X in the Weapon tab: blade tip to ring.
+    let minY = Infinity;
+    let maxY = -Infinity;
+    let tip = [0, 0];
+    for (const b of buckets.values()) {
+      for (let i = 1; i < b.p.length; i += 3) {
+        if (b.p[i] < minY) { minY = b.p[i]; tip = [b.p[i - 1], b.p[i]]; }
+        if (b.p[i] > maxY) maxY = b.p[i];
+      }
+    }
+    model.rear = -maxY;
+    model.front = -minY;
+    model.muzzle = () => tip;
+  }
 
   if (info.suppressor) {
     const { back, length, radius } = info.suppressor;

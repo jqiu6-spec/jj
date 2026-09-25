@@ -18,6 +18,7 @@ export const ZONE_LABELS = {
   suppressor: 'Suppressor',
   scope: 'Scope',
   butt: 'Butt pad',
+  blade: 'Blade',
   handle: 'Handle',
 };
 
@@ -67,7 +68,9 @@ export const GUNS = {
     kind: 'Knife',
     melee: true,
     blurb: 'A curved claw knife with a finger ring. In a run, scroll the mouse wheel or press 3 to draw it and 1 to go back to your gun. Left click slashes, right click stabs, F inspects.',
-    zones: ['handle'],
+    zones: ['blade', 'handle'],
+    // Parts a skin leaves unset: the handle keeps the knife's own handle.
+    defaultZones: { handle: 'factory' },
     sound: () => 'off',
     defaultPreset: 'original',
   },
@@ -451,12 +454,12 @@ function karambit(mats) {
     const u = i / 12;
     pts.push([-0.018 + 0.026 * u * u * u, -0.094 - 0.075 * u ** 1.4]);
   }
-  part(extrude(pts, 0.004, 0.0008), 'body');
+  part(extrude(pts, 0.004, 0.0008), 'blade');
   return {
     group, zones,
     muzzle: () => [0.008, -0.169],
     rear: -0.022, front: 0.169,
-    fade: [-0.17, 0.022], fadeAxis: 'y',
+    fade: [-0.09, -0.17], fadeAxis: 'y',
     slots: [],
   };
 }

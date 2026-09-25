@@ -381,7 +381,7 @@ class GunView {
     const original = s.pattern === 'original';
     this.inUse.clear();
     for (const [zone, meshes] of Object.entries(this.model.zones)) {
-      const choice = zone === 'body' ? 'skin' : (zones[zone] || 'skin');
+      const choice = zone === 'body' ? 'skin' : (zones[zone] || (this.info.defaultZones && this.info.defaultZones[zone]) || 'skin');
       for (const mesh of meshes) {
         const orig = mesh.userData.orig;
         let mat;

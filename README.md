@@ -273,8 +273,11 @@ and every run starts with the gun.
 
 The animations are keyframed in `js/knife.js`: each key sets where the ring
 sits, which way the blade points, which way the flat faces, and extra spins
-around the ring. The knife wears skins like the guns: blade and handle, with
-Original showing the model's own Eye of God finish.
+around the ring. The knife is held the CS2 way: finger through the ring at the left of the
+fist, blade out to the right and curling up. Blade and handle are separate
+parts, each with its own finish; a skin paints the blade and leaves the
+knife's own handle unless you pick otherwise, and Fade runs along the blade
+from bolster to tip.
 
 ## Sniping (Valorant Operator)
 

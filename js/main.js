@@ -630,7 +630,7 @@ function renderZones() {
     name.textContent = ZONE_LABELS[zone] || zone;
     const sel = document.createElement('select');
     sel.id = `w-zone-${zone}`;
-    const cur = sk.zones[zone] || 'skin';
+    const cur = sk.zones[zone] || (GUNS[weaponGun].defaultZones && GUNS[weaponGun].defaultZones[zone]) || 'skin';
     const list = opts.includes(cur) ? opts : [...opts, cur];
     sel.innerHTML = list.map((k) => `<option value="${k}">${ZONE_FINISHES[k].label}</option>`).join('');
     sel.value = cur;

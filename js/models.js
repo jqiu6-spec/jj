@@ -111,12 +111,18 @@ export const MODEL_INFO = {
   karambit: {
     file: 'karambit.glb',
     knife: true,
-    zones: ['handle'],
+    zones: ['blade', 'handle'],
     rules: [
-      { zone: 'body', box: [-9, 9, -9, -0.088] }, // blade
+      // Both sides of the blade are the big crescents in the texture; the
+      // handle panels, claws and ring are elsewhere. This follows the
+      // bolster's edge exactly, where a cut by height would not.
+      // The handle's thin edge strips share that part of the texture, so
+      // the crescents only count below the bolster.
+      { zone: 'blade', uv: [0.02, 0.8, 0.33, 0.7], box: [-9, 9, -9, -0.085] },
+      { zone: 'blade', box: [-9, 9, -9, -0.1] }, // the blade's spine and edge strips
       { zone: 'handle' }, // handle and ring
     ],
-    fade: [-0.17, 0.022],
+    fade: [-0.09, -0.17], // along the blade, bolster to tip
     fadeAxis: 'y',
     slots: [],
   },
@@ -145,9 +151,17 @@ export const MODEL_INFO = {
   },
 };
 
-function match(rule, part, mat, x, y, chroma) {
+function match(rule, part, mat, x, y, chroma, uvAt) {
   if (rule.part && !rule.part.test(part)) return false;
   if (rule.mat && !rule.mat.test(mat)) return false;
+  // `uv`: the triangle sits in this box of the texture ([u0, u1, v0, v1],
+  // v measured down from the top of the image).
+  if (rule.uv) {
+    const c = uvAt();
+    if (!c) return false;
+    const [u0, u1, v0, v1] = rule.uv;
+    if (c[0] < u0 || c[0] > u1 || c[1] < v0 || c[1] > v1) return false;
+  }
   if (rule.box) {
     const [x0, x1, y0, y1] = rule.box;
     if (x < x0 || x > x1 || y < y0 || y > y1) return false;
@@ -280,7 +294,8 @@ export async function loadDetailedGun(id, mats) {
         if (!f) return 1;
         return f((UV.getX(t) + UV.getX(t + 1) + UV.getX(t + 2)) / 3, (UV.getY(t) + UV.getY(t + 1) + UV.getY(t + 2)) / 3);
       };
-      const rule = info.rules.find((r) => match(r, s.name, s.mat.name || '', cx, cy, chroma)) || { zone: 'body' };
+      const uvAt = () => (UV ? [(UV.getX(t) + UV.getX(t + 1) + UV.getX(t + 2)) / 3, (UV.getY(t) + UV.getY(t + 1) + UV.getY(t + 2)) / 3] : null);
+      const rule = info.rules.find((r) => match(r, s.name, s.mat.name || '', cx, cy, chroma, uvAt)) || { zone: 'body' };
       const key = `${rule.zone}|${s.mat.uuid}|${rule.round || 0}`;
       let b = buckets.get(key);
       if (!b) buckets.set(key, (b = { zone: rule.zone, mat: s.mat, round: rule.round, p: [], n: [], uv: [] }));

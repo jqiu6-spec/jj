@@ -265,18 +265,22 @@
       </fieldset>
 
       <fieldset>
-        <legend>Sniping (Valorant Operator)</legend>
-        <p class="readout">0.6 shots/s (1.67 s apart) · 2.5x and 5x zoom · infinite rounds, no reload · head 255, body 150, legs 120</p>
+        <legend>Sniping</legend>
+        <div class="seg" role="radiogroup" aria-label="Sniper handling">
+          <label><input type="radio" name="sniperHandling" id="s-handling-cs2" value="cs2"><span>CS2 AWP</span></label>
+          <label><input type="radio" name="sniperHandling" id="s-handling-operator" value="operator"><span>Valorant Operator</span></label>
+        </div>
+        <p class="readout" id="s-sniper-readout"></p>
         <div class="seg" role="radiogroup" aria-label="Scope mode">
-          <label><input type="radio" name="scopeMode" id="s-scope-toggle" value="toggle"><span>Right click cycles 2.5x, 5x, off</span></label>
-          <label><input type="radio" name="scopeMode" id="s-scope-hold" value="hold"><span>Hold right click for 2.5x</span></label>
+          <label><input type="radio" name="scopeMode" id="s-scope-toggle" value="toggle"><span id="s-scope-toggle-lbl">Right click cycles the zooms, then off</span></label>
+          <label><input type="radio" name="scopeMode" id="s-scope-hold" value="hold"><span id="s-scope-hold-lbl">Hold right click for the first zoom</span></label>
         </div>
         <div class="fields">
-          <label class="f wide"><span>Scoped sensitivity multiplier <output id="o-scopedSens"></output></span><input type="range" id="s-scopedSens" min="0.2" max="2" step="0.05"></label>
-          <label class="f wide"><span>Scope-in time <output id="o-scopeTime"></output></span><input type="range" id="s-scopeTime" min="0.05" max="0.6" step="0.01"></label>
-          <label class="check"><input type="checkbox" id="s-unscope"><span>Drop out of scope after each shot</span></label>
+          <label class="f wide"><span><span id="s-scopedSens-lbl">Scoped sensitivity multiplier</span> <output id="o-scopedSens"></output></span><input type="range" id="s-scopedSens" min="0.2" max="2" step="0.05"></label>
+          <label class="f wide" id="s-scopeTime-wrap"><span>Scope-in time <output id="o-scopeTime"></output></span><input type="range" id="s-scopeTime" min="0.05" max="0.6" step="0.01"></label>
+          <label class="check"><input type="checkbox" id="s-unscope"><span id="s-unscope-lbl">Drop out of scope after each shot</span></label>
         </div>
-        <p class="hint">Scope with the right mouse button, Shift, or Ctrl+click on a Mac trackpad. At 1.0, scoped sensitivity scales with the zoom, so 2.5x turns 2.5 times slower. Riot doesn't publish the Operator's scope-in time; 0.25 s is an estimate you can tune to match how it feels in game.</p>
+        <p class="hint" id="s-sniper-hint"></p>
       </fieldset>
 
       <fieldset>

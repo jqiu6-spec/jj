@@ -1,6 +1,6 @@
 import { Game } from './game.js';
 import {
-  SCENARIOS, CATEGORIES, HP_CHOICES, LEVEL_NAMES, OPERATOR, describe, defaultSetup, normalizeSetup, setupKey, setupLabel, countLimit,
+  SCENARIOS, CATEGORIES, HP_CHOICES, LEVEL_NAMES, SNIPERS, describe, defaultSetup, normalizeSetup, setupKey, setupLabel, countLimit,
 } from './scenarios.js';
 import {
   loadSettings, saveSettings, loadSetups, saveSetups, loadSkins, saveSkins, defaultSkin, presetSkin,
@@ -151,9 +151,10 @@ function onGameState(s) {
     let hint = 'Click each target';
     if (game.scn.weapon.type === 'beam') hint = settings.autoFire ? 'Auto-fire is on. Just track.' : 'Hold mouse 1 on the target';
     if (game.sniper) {
+      const [z1, z2] = [game.zoomMag(1), game.zoomMag(2)].map((z) => `${z.toFixed(1)}x`);
       hint = settings.sniper.scopeMode === 'hold'
-        ? 'Hold right click to scope. Left click fires.'
-        : 'Right click scopes to 2.5x, again for 5x. Left click fires.';
+        ? `Hold right click to scope (${z1}). Left click fires.`
+        : `Right click scopes to ${z1}, again for ${z2}. Left click fires.`;
     }
     $('countdown-hint').textContent = hint;
   }
@@ -169,7 +170,7 @@ function renderHud(h) {
   if (h.countdown) $('countdown-num').textContent = h.countdown;
   if (h.ammo !== null) {
     $('hud-ammo-n').textContent = '∞';
-    $('hud-ammo-info').textContent = `${h.zoom ? `${h.zoom}X SCOPE` : 'UNSCOPED'} · INFINITE ROUNDS`;
+    $('hud-ammo-info').textContent = `${h.zoom ? `${h.zoom.toFixed(1)}X SCOPE` : 'UNSCOPED'} · INFINITE ROUNDS`;
   }
 
   if (settings.showFps && performance.now() - hudFpsTimer > 250) {
@@ -339,15 +340,16 @@ function showResults(result) {
 
 function coaching(r, s, v) {
   if (s.weapon.type === 'sniper') {
+    const spec = game.sniperSpec;
     if (r.shots === 0) return 'No shots fired. Right click to scope, left click to fire.';
     let text = r.react !== null
       ? `On average you killed an agent <b>${Math.round(r.react * 1000)} ms</b> after it came into view.`
       : 'No kills this run.';
     if (r.unscoped > 0) {
-      text += ` <b>${r.unscoped}</b> of ${r.shots} shots left before the scope settled, so they carried hip-fire spread. Give the scope its ${settings.sniper.scopeTime.toFixed(2)} s.`;
+      text += ` <b>${r.unscoped}</b> of ${r.shots} shots left before the scope settled, so they carried hip-fire spread. Give the scope its ${(spec.settleTime || settings.sniper.scopeTime).toFixed(2)} s.`;
     }
-    if (r.accuracy < 0.6) text += ` Accuracy was ${pct(r.accuracy)}; every miss locks you out for ${OPERATOR.fireInterval.toFixed(2)} s.`;
-    else if (r.kills && r.headshots / r.kills < 0.3) text += ' Body shots kill with the Operator, but legs don\'t: keep the crosshair at chest height or above.';
+    if (r.accuracy < 0.6) text += ` Accuracy was ${pct(r.accuracy)}; every miss locks you out for ${spec.fireInterval.toFixed(2)} s.`;
+    else if (r.kills && r.headshots / r.kills < 0.3) text += ` Body shots kill with the ${spec.name}, but legs don't: keep the crosshair at chest height or above.`;
     return text;
   }
   if (s.weapon.type === 'beam') {
@@ -399,12 +401,34 @@ function syncForm() {
   $('s-volume').value = s.volume;
   $('s-autoFire').checked = s.autoFire;
   $('s-showFps').checked = s.showFps;
+  $('s-handling-cs2').checked = s.sniper.handling !== 'operator';
+  $('s-handling-operator').checked = s.sniper.handling === 'operator';
   $('s-scope-toggle').checked = s.sniper.scopeMode !== 'hold';
   $('s-scope-hold').checked = s.sniper.scopeMode === 'hold';
   $('s-scopedSens').value = s.sniper.scopedSens;
   $('s-scopeTime').value = s.sniper.scopeTime;
   $('s-unscope').checked = s.sniper.unscope;
   syncOutputs();
+}
+
+// What the chosen sniper handling does, in the Settings tab.
+function renderSniperSettings() {
+  const s = settings;
+  const cs2 = s.sniper.handling !== 'operator';
+  const spec = SNIPERS[cs2 ? 'cs2' : 'operator'];
+  const [z1, z2] = [1, 2].map((l) => game.zoomMag(l).toFixed(1));
+  const dmg = spec.damage;
+  $('s-sniper-readout').textContent = cs2
+    ? `CS2 AWP: ${spec.fireInterval.toFixed(3)} s between shots · zoom to 40° (${z1}x at your FOV) and 10° (${z2}x) · accurate ${spec.settleTime.toFixed(2)} s after scoping · head ${dmg.head}, chest ${dmg.body}, legs ${dmg.legs} per 100 HP · infinite rounds`
+    : `Valorant Operator: 0.6 shots/s (${spec.fireInterval.toFixed(2)} s apart) · 2.5x and 5x zoom · head ${dmg.head}, body ${dmg.body}, legs ${dmg.legs} · infinite rounds`;
+  $('s-scopedSens-lbl').textContent = cs2 ? 'Zoom sensitivity ratio (CS2 zoom_sensitivity_ratio)' : 'Scoped sensitivity multiplier';
+  $('s-scopeTime-wrap').hidden = cs2;
+  $('s-unscope-lbl').textContent = cs2 ? 'Unscope after each shot, and zoom back in when the bolt is back' : 'Drop out of scope after each shot';
+  $('s-scope-toggle-lbl').textContent = `Right click cycles ${z1}x, ${z2}x, off`;
+  $('s-scope-hold-lbl').textContent = `Hold right click for ${z1}x`;
+  $('s-sniper-hint').textContent = cs2
+    ? `Scope with the right mouse button, Shift, or Ctrl+click on a Mac trackpad. At 1.00, scoped sensitivity is your sensitivity times the zoom FOV over 90, exactly as CS2 does it, so your CS2 flicks carry over: set the ratio to your zoom_sensitivity_ratio. A shot is accurate once the scope has been up ${spec.settleTime.toFixed(2)} s, so quick-scopes work; the zoom and settle times are estimates.`
+    : 'Scope with the right mouse button, Shift, or Ctrl+click on a Mac trackpad. At 1.0, scoped sensitivity scales with the zoom, so 2.5x turns 2.5 times slower. Riot doesn\'t publish the Operator\'s scope-in time; 0.25 s is an estimate you can tune to match how it feels in game.';
 }
 
 function syncOutputs() {
@@ -416,6 +440,7 @@ function syncOutputs() {
   $('o-x-dot').textContent = `${s.crosshair.dot}px`;
   $('o-volume').textContent = `${s.volume}%`;
   $('o-scopedSens').textContent = `${s.sniper.scopedSens.toFixed(2)}×`;
+  renderSniperSettings();
   $('o-scopeTime').textContent = `${s.sniper.scopeTime.toFixed(2)} s${s.sniper.scopeTime === DEFAULTS.sniper.scopeTime ? ' (estimate)' : ''}`;
   for (const el of document.querySelectorAll('[data-mode]')) el.hidden = el.dataset.mode !== s.sensMode;
   renderSensReadout();
@@ -463,6 +488,7 @@ function readForm() {
   s.volume = parseInt($('s-volume').value, 10);
   s.autoFire = $('s-autoFire').checked;
   s.showFps = $('s-showFps').checked;
+  s.sniper.handling = $('s-handling-operator').checked ? 'operator' : 'cs2';
   s.sniper.scopeMode = $('s-scope-hold').checked ? 'hold' : 'toggle';
   s.sniper.scopedSens = parseFloat($('s-scopedSens').value);
   s.sniper.scopeTime = parseFloat($('s-scopeTime').value);

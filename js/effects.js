@@ -29,12 +29,14 @@ const TYPES = {
 // the first few metres, so nothing spills past the gun where the shot leaves.
 const ramp = (d) => 0.25 + 0.75 * Math.min(1, Math.max(0, d) / 4);
 
-// Hits are instant (hitscan), so every shot lands within one 60 fps frame:
-// the bolt and its impact burst show on the same frame as the hit marker,
-// never after it. The streak then races into the target over two frames.
-const MAX_TRAVEL = 0.016; // seconds
-// The streak is as long as the bolt travels in this time.
-const STREAK_TIME = 0.03; // seconds
+// Hits are instant (hitscan), so in play a shot is drawn as one: on the first
+// frame it is shown, the streak runs all the way from the muzzle to where it
+// lands, and the impact bursts with it. Then the streak pulls back toward the
+// impact and fades over TRACER_LIFE. Everything is timed in seconds, never in
+// frames, so every shot looks the same at 30, 60 or 144 fps.
+const TRACER_LIFE = 0.07; // seconds
+// Weapon-tab test shots instead fly at the style's own speed, slowed down.
+const STREAK_TIME = 0.03; // seconds of travel the streak spans
 
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
@@ -71,7 +73,7 @@ export class Effects {
     scene.add(this.group);
     // A streak along +Z, full width at the head (+Z) and thin at the tail, so
     // the end at the muzzle never covers more than the barrel.
-    this.boltGeo = new THREE.CylinderGeometry(1, 0.18, 1, 8, 1, true).rotateX(Math.PI / 2);
+    this.boltGeo = new THREE.CylinderGeometry(1, 0.45, 1, 8, 1, true).rotateX(Math.PI / 2);
     this.color = new THREE.Color('#ffffff');
     this.type = 'none';
   }
@@ -112,9 +114,9 @@ export class Effects {
   }
 
   // A shot from `from` to `to`. `hit` colours the impact as a hit or a miss.
-  // `burst: false` skips the impact (a preview shot into the air);
-  // `maxTravel` overrides how soon the shot must land.
-  shot(from, to, hit, { burst = true, maxTravel = MAX_TRAVEL } = {}) {
+  // `burst: false` skips the impact; `travel: true` makes the bolt fly at the
+  // style's speed (the slow-motion test shot).
+  shot(from, to, hit, { burst = true, travel = false } = {}) {
     const T = TYPES[this.type];
     if (T.bolt) {
       this.lightning(from, to);
@@ -134,10 +136,15 @@ export class Effects {
     b.dir.subVectors(to, from);
     b.total = b.dir.length();
     b.dir.normalize();
+    b.travel = travel;
+    // Every shot is first drawn whole, however far into a frame it was fired,
+    // so each one looks the same.
+    b.t = 0;
+    b.fresh = true;
     b.dist = 0;
-    b.speed = Math.max(T.speed, b.total / maxTravel);
-    b.burst = burst;
+    b.speed = T.speed;
     b.len = Math.max(T.len, b.speed * STREAK_TIME);
+    b.burst = burst;
     b.landed = false;
     b.life = 1;
     b.hit = hit;
@@ -147,6 +154,11 @@ export class Effects {
     b.head.scale.setScalar(T.width * 4 * ramp(0));
     b.obj.quaternion.setFromUnitVectors(_a.set(0, 0, 1), b.dir);
     b.trailAcc = 0;
+    b.trailDone = 0; // how far along trail particles have been laid
+    if (!travel && burst) {
+      this.burst(to, T, hit);
+      b.landed = true;
+    }
     this.flash(from, Math.min(0.08, T.width * 1.5));
   }
 
@@ -226,43 +238,61 @@ export class Effects {
       if (b.life <= 0) continue;
       // The effect was switched off mid-flight: drop the bolt quietly.
       if (!T) { b.life = 0; b.obj.visible = false; continue; }
-      const prev = Math.min(b.dist, b.total);
-      b.dist += b.speed * dt;
-      const head = Math.min(b.dist, b.total);
-      const tail = Math.max(0, b.dist - b.len);
-      if (!b.landed && b.dist >= b.total) {
-        b.landed = true;
-        if (b.burst) this.burst(b.to, T, b.hit);
+      let head;
+      let tail;
+      let fade = 1;
+      if (b.travel) {
+        // Flies at the style's speed, streak `len` long.
+        b.dist += b.speed * dt;
+        head = Math.min(b.dist, b.total);
+        tail = Math.max(0, b.dist - b.len);
+        if (!b.landed && b.dist >= b.total) {
+          b.landed = true;
+          if (b.burst) this.burst(b.to, T, b.hit);
+        }
+      } else {
+        // Hitscan: full length at once, then the muzzle end pulls back toward
+        // the impact (slowly at first, so it stays on the gun a moment).
+        if (b.fresh) b.fresh = false;
+        else b.t += dt;
+        const u = b.t / TRACER_LIFE;
+        head = b.total;
+        tail = b.total * Math.min(1, u) ** 3;
+        fade = u < 0.55 ? 1 : Math.max(0, 1 - (u - 0.55) / 0.45);
+        if (u >= 1) tail = b.total;
       }
       if (T.trail) {
-        // Trail particles along the stretch covered this frame, a set number
-        // per metre so fast shots still leave a full trail. Never behind the
-        // muzzle; the spectral trail weaves, starting flat at the gun.
+        // Trail particles along the stretch now drawn, a set number per metre.
         const perMetre = T.trail / T.speed;
-        b.trailAcc += (head - prev) * perMetre;
+        const from = Math.max(b.trailDone, tail);
+        if (head > from) {
+          b.trailAcc += (head - from) * perMetre;
+          b.trailDone = head;
+        }
         let n = Math.min(Math.floor(b.trailAcc), 30);
         b.trailAcc -= Math.floor(b.trailAcc);
         if (T.wave) _b.crossVectors(b.dir, UP).normalize();
         while (n-- > 0) {
-          const along = prev + Math.random() * (head - prev);
+          const along = from + Math.random() * (head - from);
           _c.copy(b.from).addScaledVector(b.dir, along);
           if (T.wave) _c.addScaledVector(_b, Math.sin(along * 1.6 + b.phase) * 0.08 * Math.min(1, along / 3));
           this.ghost(_c, T.width * (T.embers ? 2.5 : 1.6) * ramp(along), T.embers ? 0.25 : 0.18);
         }
       }
-      if (tail >= b.total) {
+      if (tail >= b.total || fade <= 0) {
         b.life = 0;
         b.obj.visible = false;
         continue;
       }
-      const k = ramp(head);
+      const k = ramp(tail);
       _a.copy(b.from).addScaledVector(b.dir, (head + tail) / 2);
       b.obj.position.copy(_a);
       const len = Math.max(0.02, head - tail);
-      b.mesh.scale.set(T.width * k, T.width * k, len);
-      b.mesh.material.opacity = 0.85;
+      b.mesh.scale.set(T.width * Math.max(k, ramp(head) * 0.6), T.width * Math.max(k, ramp(head) * 0.6), len);
+      b.mesh.material.opacity = 0.85 * fade;
+      b.head.material.opacity = fade;
       b.head.position.set(0, 0, len / 2);
-      b.head.scale.setScalar(T.width * 4 * k);
+      b.head.scale.setScalar(T.width * 4 * ramp(head));
     }
     for (const g of this.ghosts) {
       if (g.life <= 0) continue;

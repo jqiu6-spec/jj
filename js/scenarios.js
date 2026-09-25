@@ -7,18 +7,44 @@ export const CATEGORIES = [
   { id: 'switching', name: 'Target switching', blurb: 'Track a target down, then snap to the next one.' },
   { id: 'clicking', name: 'Clicking', blurb: 'One click per target. Speed matters, misses cost points.' },
   { id: 'valorant', name: 'Valorant movement', blurb: 'Agent-sized bots that run, counter-strafe, crouch and jump like Valorant players.' },
-  { id: 'sniping', name: 'Sniping', blurb: 'Operator training with the AWP: scope with right click, one shot every 1.67 s.' },
+  { id: 'sniping', name: 'Sniping', blurb: 'AWP flicks with CS2 handling (or the Valorant Operator, in Settings): scope with right click, flick, fire.' },
 ];
 
-// Valorant Operator numbers: 0.6 rounds/s, 2.5x and 5x zoom, 255 head /
-// 150 body / 120 legs. Ammo is infinite here: no magazine, no reload, so a
-// run is all aiming. The scope-in time is not published, so it is an
-// estimate the player can change in Settings.
-export const OPERATOR = {
-  fireInterval: 1 / 0.6,
-  zooms: [2.5, 5],
-  damage: { head: 255, body: 150, legs: 120 },
-  hipSpread: 5, // degrees; unscoped Operator shots are close to useless
+// Sniper handling for the sniping scenarios, chosen in Settings.
+//
+// CS2 AWP: the rifle's own numbers. 1.455 s between shots; zoom to a 40° and
+// then a 10° field of view (CS2's 4:3 horizontal degrees, whatever your own
+// FOV); scoped sensitivity = sensitivity x zoom_sensitivity_ratio x zoom FOV
+// / 90, as in CS2; accurate about 0.1 s after scoping in, so quick-scopes
+// work; after a shot it unscopes and zooms back in when the bolt is back.
+// Damage per 100 HP: head 459, chest 115, legs 86, so a chest shot kills and
+// a leg shot doesn't. The zoom time and settle time are estimates.
+//
+// Valorant Operator: 0.6 rounds/s, 2.5x and 5x zoom, 255 head / 150 body /
+// 120 legs per 150 HP, scoped sensitivity divided by the zoom. The scope-in
+// time is not published; the player sets it in Settings.
+//
+// Ammo is infinite with both: no magazine, no reload.
+export const SNIPERS = {
+  cs2: {
+    name: 'CS2 AWP',
+    fireInterval: 1.455,
+    zoomFov: [40, 10],
+    zoomTime: 0.06,
+    settleTime: 0.1,
+    hipSpread: 8, // degrees; a no-scope is a gamble
+    hp: 100,
+    damage: { head: 459, body: 115, legs: 86 },
+    resumeZoom: true,
+  },
+  operator: {
+    name: 'Valorant Operator',
+    fireInterval: 1 / 0.6,
+    zooms: [2.5, 5],
+    hipSpread: 5,
+    hp: 150,
+    damage: { head: 255, body: 150, legs: 120 },
+  },
 };
 
 // Long range with crates to hide behind (x, z centre; w, d footprint; h height).
@@ -338,7 +364,7 @@ export const SCENARIOS = [
     id: 'op-angles',
     name: 'Op Angles',
     category: 'sniping',
-    blurb: 'Hold an angle with the Operator. Agents wide-swing, jiggle and swap crates 26–46 m out. Scope in, wait for the peek, click.',
+    blurb: 'Hold an angle with the AWP. Agents wide-swing, jiggle and swap crates 26–46 m out. Scope in, wait for the peek, click.',
     duration: 60,
     arena: RANGE,
     weapon: OP,
@@ -351,7 +377,7 @@ export const SCENARIOS = [
     id: 'op-flicks',
     name: 'Op Flicks',
     category: 'sniping',
-    blurb: 'Agents appear anywhere across an open field at 18–42 m and stand or shift-walk. Flick, let the scope settle, fire. A miss costs you 1.67 s.',
+    blurb: 'Agents appear anywhere across an open field at 18–42 m and stand or shift-walk. Flick, let the scope settle, fire. A miss costs you the bolt.',
     duration: 60,
     arena: FIELD,
     weapon: OP,
@@ -478,7 +504,7 @@ export function describe(scn, v = defaultSetup(scn)) {
   let fire;
   let scoring;
   if (scn.weapon.type === 'sniper') {
-    fire = 'AWP with Operator handling: 0.6 shots/s, 2.5x / 5x zoom';
+    fire = 'AWP, one shot per bolt, infinite rounds; CS2 or Operator handling in Settings';
     scoring = `+${scn.weapon.points} per kill, +${scn.weapon.headBonus} headshot, −${scn.weapon.missPenalty} per miss`;
   } else if (scn.weapon.type === 'beam') {
     fire = 'Beam, hold mouse 1';

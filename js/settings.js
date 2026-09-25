@@ -41,10 +41,11 @@ export const DEFAULTS = {
     models: 'detailed', // 'detailed' real meshes, or 'simple' built-in models
   },
   sniper: {
+    handling: 'cs2', // 'cs2' (CS2 AWP) or 'operator' (Valorant Operator)
     scopeMode: 'toggle', // 'toggle' cycles 2.5x, 5x, off; 'hold' keeps 2.5x while held
-    scopedSens: 1, // multiplier on top of scaling by zoom
-    scopeTime: 0.25, // seconds to scope in (estimate; not published for the Operator)
-    unscope: true, // drop out of scope after each shot
+    scopedSens: 1, // CS2: zoom_sensitivity_ratio; Operator: multiplier on top of the zoom
+    scopeTime: 0.25, // Operator seconds to scope in (estimate; not published)
+    unscope: true, // drop out of scope after each shot (CS2 zooms back in after the bolt)
   },
   crosshair: {
     style: 'crossdot',

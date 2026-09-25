@@ -198,8 +198,12 @@ effect's colour, shots fly from the muzzle to wherever they land (a target, a
 crate or the wall), a burst marks the impact, and kills pop in the effect's
 colour. Shots start exactly at the muzzle as drawn, whatever the gun, pose,
 sway or recoil, and start barrel-thin before widening, so nothing spills off
-the gun. Hits are instant, so every shot lands within one frame (at 60 fps):
-the bolt and its impact show together with the hit, never after it. Guns are
+the gun. Hits are instant, so each shot is drawn as one: on the frame it is
+fired, the streak runs from the muzzle to where it lands and the impact bursts
+with it; then it pulls back toward the impact and fades over 70 ms. It is timed
+in seconds, not frames, so every shot looks the same at 30, 60 or 144 fps.
+Held fire is timed on the game clock too: the first round leaves as you press,
+the rest exactly one fire interval apart. Guns are
 held level and aimed so the barrel points at the crosshair, and each shot
 continues the barrel's line. **Test fire** in the Weapon tab fires one shot from the turntable gun in slow
 motion, with its flash, glow and sound.
@@ -317,22 +321,37 @@ parts, each with its own finish; a skin paints the blade and leaves the
 knife's own handle unless you pick otherwise, and Fade runs along the blade
 from bolster to tip.
 
-## Sniping (Valorant Operator)
+## Sniping
 
-The sniping scenarios use the AWP model with Valorant Operator numbers: 0.6
-shots a second (1.67 s apart), 2.5x and 5x zoom, and 255 head / 150 body / 120
-leg damage against 150 HP agents. Ammo is infinite: no magazine and no reload,
-so the whole run is aiming. A
-body shot kills; a leg shot doesn't. Crates block both shots and line of sight.
+The sniping scenarios use the AWP. Settings picks how it handles: **CS2 AWP**
+(the default) or the **Valorant Operator**. Ammo is infinite with both: no
+magazine and no reload, so the whole run is aiming. A body shot kills; a leg
+shot doesn't. Crates block both shots and line of sight.
 
-- **Right click** scopes to 2.5x, a second click goes to 5x and a third unscopes.
-  Settings also has a hold-to-scope option.
-- Shots fired before the scope settles carry hip-fire spread (about 5°).
-- By default you drop out of the scope after each shot.
-- **Scoped sensitivity** scales with the zoom (2.5x turns 2.5 times slower) times
-  a multiplier you can set.
-- **Scope-in time** defaults to 0.25 s. Riot doesn't publish this number, so it
-  is an estimate you can change in Settings.
+**CS2 AWP**, built for CS2-style flicks:
+
+- **Zoom** goes to CS2's own 40° and then 10° field of view, so the scoped view
+  matches CS2 whatever FOV you play at (about 2.9x and 12x at 103°).
+- **Scoped sensitivity** is your sensitivity times the zoom FOV over 90, times
+  a ratio, exactly as CS2 computes it. Set the ratio to your CS2
+  `zoom_sensitivity_ratio` (1.00 by default) and a flick that lands in CS2
+  lands here.
+- **Quick-scopes work**: a shot is fully accurate once the scope has been up
+  0.1 s. Earlier shots, and no-scopes, carry up to 8° of spread.
+- **1.455 s** between shots. After a shot it unscopes and zooms back in to the
+  same level when the bolt is back, as in CS2.
+- **Damage** per 100 HP: head 459, chest 115, legs 86, scaled to the target's
+  health.
+- The zoom-in time (0.06 s) and the settle time are estimates.
+
+**Valorant Operator**: 0.6 shots a second (1.67 s apart), 2.5x and 5x zoom,
+255 head / 150 body / 120 leg damage against 150 HP agents, scoped sensitivity
+divided by the zoom, and a scope-in time you set (0.25 s by default, an
+estimate).
+
+- **Right click** scopes, a second click goes to the second zoom and a third
+  unscopes. Settings also has a hold-to-scope option.
+- A shot fires the moment you click, with your aim at that instant.
 
 The results screen shows accuracy, kills, headshots, your average reaction time
 (from an agent coming into view to killing it) and how many shots you fired
@@ -341,7 +360,7 @@ before the scope settled.
 ## Controls
 
 - **Mouse 1**: fire (hold it in tracking scenarios, or turn on auto-fire in Settings); slash with the knife
-- **Mouse 2**, **Shift**, or **Ctrl+click** on a Mac: scope with the AWP in sniping scenarios; stab with the knife
+- **Mouse 2**, **Shift**, or **Ctrl+click** on a Mac: scope with the AWP in sniping scenarios (CS2 or Operator handling); stab with the knife
 - **Mouse wheel**, **1**, **3**, **Q**: swap between the gun and the knife
 - **F**: inspect the knife
 - **Esc**: pause. Press Esc again to go back to the scenario list

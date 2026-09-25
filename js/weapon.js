@@ -549,7 +549,6 @@ export class Viewmodel {
     this.flashT = 0;
     this.swayX = 0;
     this.swayY = 0;
-    this.fireAcc = 0;
     this.inspectYaw = -0.3;
     this.inspectPitch = 0.06;
     this.inspectAt = { x: 0.3, y: 0 };
@@ -670,10 +669,13 @@ export class Viewmodel {
   // `heavy` is a sniper shot: a bigger, longer blast, a hard kick and smoke.
   shot(heavy = false) {
     this.kick = Math.min(heavy ? 3.4 : 1.4, this.kick + (heavy ? 3.4 : 1));
-    this.flashT = heavy ? 0.075 : 0.045;
+    // Seconds the flash stays up: two frames at 60 fps, five at 144.
+    this.flashT = heavy ? 0.06 : 0.03;
     this.heavyFlash = heavy;
     const gv = this.current;
     if (!gv) return;
+    // Shown on this frame, with the tracer, rather than on the next.
+    this.showFlash(gv);
     gv.flash.material.rotation = Math.random() * TAU;
     gv.glowPulse = Math.min(1, gv.glowPulse + 0.5);
     if (heavy && gv.muzzle) {
@@ -700,6 +702,14 @@ export class Viewmodel {
     p.max = 0.7 + Math.random() * 0.5;
     p.life = p.max;
     p.size = 0.04 + Math.random() * 0.03;
+  }
+
+  showFlash(gv) {
+    gv.flash.visible = this.flashT > 0;
+    const big = gv.info.sniper ? (this.heavyFlash ? 0.34 : 0.2) : 0.11;
+    const s = gv.suppressed ? 0.035 : big;
+    gv.flash.scale.set(s, s, s);
+    gv.flash.material.opacity = gv.suppressed ? 0.45 : 1;
   }
 
   // Sticker slot under the pointer (NDC) on the turntable gun, or -1.
@@ -744,23 +754,7 @@ export class Viewmodel {
     const len = (gv.model.front - gv.model.rear) * 2.2;
     const from = new THREE.Vector3(gv.muzzle.x, gv.muzzle.y, 0);
     const to = new THREE.Vector3(gv.muzzle.x + len, gv.muzzle.y, 0);
-    this.fx.shot(from, to, false, { burst: false, maxTravel: Infinity });
-  }
-
-  // Held fire at `interval` seconds per round. Returns rounds fired now.
-  autoFire(dt, interval) {
-    this.fireAcc += dt;
-    let n = 0;
-    while (this.fireAcc >= interval) {
-      this.fireAcc -= interval;
-      this.shot();
-      n++;
-    }
-    return n;
-  }
-
-  resetFire(interval) {
-    this.fireAcc = interval; // the first round goes out on the next frame
+    this.fx.shot(from, to, false, { burst: false, travel: true });
   }
 
   inspectDrag(dx, dy) {
@@ -806,11 +800,7 @@ export class Viewmodel {
     const rig = this.rig;
     const gun = gv.root;
     const { rear, front } = gv.model;
-    gv.flash.visible = this.flashT > 0;
-    const big = gv.info.sniper ? (this.heavyFlash ? 0.34 : 0.2) : 0.11;
-    const s = gv.suppressed ? 0.035 : big;
-    gv.flash.scale.set(s, s, s);
-    gv.flash.material.opacity = gv.suppressed ? 0.45 : 1;
+    this.showFlash(gv);
     if (mode === 'inspect') {
       this.switching = null;
       this.camera.fov = 32;

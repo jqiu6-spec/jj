@@ -1,7 +1,7 @@
 // 3D arena, first-person camera, targets, weapons and the run state machine.
 import * as THREE from '../vendor/three.module.min.js';
 import { MOTIONS, AGENT, agentDims } from './motion.js';
-import { eyeOf, defaultSetup, setupKey, effectiveScenario, OPERATOR } from './scenarios.js';
+import { eyeOf, defaultSetup, setupKey, effectiveScenario, SNIPERS } from './scenarios.js';
 import { degPerCount, verticalFov } from './settings.js';
 import { sfx } from './audio.js';
 import { Viewmodel } from './weapon.js';
@@ -160,8 +160,10 @@ export class Game {
     this.covers = [];
     this.skins = {};
     this.inspect = null; // gun id shown on the turntable, or null
-    this.zoomLevel = 0; // 0 unscoped, 1 = 2.5x, 2 = 5x
+    this.zoomLevel = 0; // 0 unscoped, 1 first zoom, 2 second zoom
     this.scopeT = 0; // 0..1 progress into the current zoom
+    this.scopeAge = 0; // seconds since scoping in from unscoped
+    this.resumeLevel = 0; // zoom to return to when the bolt is back (CS2)
     this.punch = 0; // view kick from a sniper shot, decays to 0 (visual only)
     this.slot = 'gun'; // 'gun' or 'knife': what the player holds in a run
     this.lastWheel = 0;
@@ -273,10 +275,40 @@ export class Game {
     this.vm.setAspect(w / h);
   }
 
+  // The sniper handling chosen in Settings.
+  get sniperSpec() {
+    return SNIPERS[this.settings.sniper.handling] || SNIPERS.cs2;
+  }
+
+  // Magnification of zoom `level` (1 or 2) against the player's own FOV. CS2
+  // sets the scoped FOV itself (4:3 horizontal degrees); the Operator scales.
+  zoomMag(level) {
+    const spec = this.sniperSpec;
+    if (spec.zoomFov) {
+      const scopedV = 2 * Math.atan(Math.tan(((spec.zoomFov[level - 1] / 2) * Math.PI) / 180) * 0.75);
+      return Math.tan((this.hipFov * Math.PI) / 360) / Math.tan(scopedV / 2);
+    }
+    return spec.zooms[level - 1];
+  }
+
+  // Mouse sensitivity multiplier while scoped at `level`.
+  scopedSensitivity(level) {
+    const spec = this.sniperSpec;
+    const ratio = this.settings.sniper.scopedSens; // zoom_sensitivity_ratio in CS2
+    return spec.zoomFov ? (ratio * spec.zoomFov[level - 1]) / 90 : ratio / spec.zooms[level - 1];
+  }
+
+  // How settled the scope is, 0..1: hip-fire spread closes as it settles.
+  get scopeSettled() {
+    if (!this.zoomLevel) return 0;
+    const spec = this.sniperSpec;
+    return spec.settleTime ? Math.min(1, this.scopeAge / spec.settleTime) : this.scopeT;
+  }
+
   // Current magnification, eased in over the scope-in time.
   get zoom() {
     if (!this.zoomLevel) return 1;
-    const z = OPERATOR.zooms[this.zoomLevel - 1];
+    const z = this.zoomMag(this.zoomLevel);
     return 1 + (z - 1) * this.scopeT;
   }
 
@@ -288,8 +320,11 @@ export class Game {
 
   setZoom(level) {
     if (level === this.zoomLevel) return;
+    // Going between zoom levels keeps the scope settled; only scoping in
+    // from unscoped starts it over.
+    if (!this.zoomLevel && level) this.scopeAge = 0;
+    this.scopeT = this.zoomLevel && level ? Math.min(this.scopeT, 0.5) : 0;
     this.zoomLevel = level;
-    this.scopeT = 0;
     if (level) sfx.scope();
     this.applyZoom();
   }
@@ -303,6 +338,7 @@ export class Game {
     this.loadedKey = `${scn.id}|${setupKey(setup)}`;
     this.buildArena(scn.arena);
     this.setZoom(0);
+    this.resumeLevel = 0;
     this.refreshGun();
     const [ex, ey, ez] = eyeOf(scn);
     this.eye.set(ex, ey, ez);
@@ -489,6 +525,7 @@ export class Game {
     this.slot = next;
     this.firing = false;
     if (next === 'knife') this.setZoom(0);
+    this.resumeLevel = 0;
     this.refreshGun();
     if (next === 'knife') sfx.knifeDraw();
     else sfx.gunDraw();
@@ -533,12 +570,15 @@ export class Game {
       reactCount: 0,
       unscoped: 0,
       lastShot: -99,
+      nextShot: 0, // run time the gun may fire its next round (held fire)
       timeline: [],
       tickTimer: 0,
     };
     this.firing = false;
     this.setZoom(0);
-    this.vm.resetFire(GUNS[this.gunId].fireInterval || 0.1);
+    this.resumeLevel = 0;
+    this.wasFiring = false;
+    this.pressAt = null;
     this.resetTargets();
     this.lookAtTargets(true);
     this.pitch = Math.max(-0.35, Math.min(0.35, this.pitch));
@@ -569,6 +609,7 @@ export class Game {
   toMenu() {
     this.firing = false;
     this.setZoom(0);
+    this.resumeLevel = 0;
     this.run = null;
     this.setState('menu');
     this.resetTargets();
@@ -580,6 +621,7 @@ export class Game {
     const accuracy = beam ? (r.fireTime > 0 ? r.onTime / r.fireTime : 0) : (r.shots ? r.hits / r.shots : 0);
     while (r.timeline.length < this.scn.duration) r.timeline.push(Math.round(r.score));
     this.setZoom(0);
+    this.resumeLevel = 0;
     const result = {
       scenario: this.scn.id,
       setup: setupKey(this.setup),
@@ -614,7 +656,7 @@ export class Game {
     if (this.state !== 'running' && this.state !== 'countdown') return;
     if (this.skipMove > 0) { this.skipMove--; return; }
     // Scoped: slower in proportion to the zoom, times the scoped multiplier.
-    const scoped = this.zoomLevel ? this.settings.sniper.scopedSens / OPERATOR.zooms[this.zoomLevel - 1] : 1;
+    const scoped = this.zoomLevel ? this.scopedSensitivity(this.zoomLevel) : 1;
     const k = this.radPerCount * scoped;
     const dx = e.movementX * k;
     const dy = e.movementY * k * (this.settings.invertY ? -1 : 1);
@@ -641,6 +683,9 @@ export class Game {
     if (e.button !== 0) return;
     this.firing = true;
     if (this.state !== 'running') return;
+    // When, on the run clock, the trigger was pulled: between frames, so
+    // held fire can start exactly then rather than on a frame boundary.
+    if (this.run) this.pressAt = this.run.elapsed + Math.min(0.05, Math.max(0, (performance.now() - this.last) / 1000));
     if (this.scn.weapon.type === 'click') this.shoot();
     else if (this.sniper) this.sniperShoot();
   }
@@ -651,10 +696,12 @@ export class Game {
   }
 
   // Right mouse button, Ctrl+click on a Mac, or the Shift key. Only the
-  // sniper scopes. Toggle cycles 2.5x, 5x, off; hold is 2.5x while held.
+  // sniper scopes. Toggle cycles first zoom, second zoom, off; hold keeps
+  // the first zoom while held.
   scopePress() {
     const live = this.state === 'running' || this.state === 'countdown';
     if (!this.sniper || !live || this.knifeOut) return;
+    this.resumeLevel = 0; // the player has taken over the scope
     if (this.settings.sniper.scopeMode === 'hold') this.setZoom(1);
     else this.setZoom((this.zoomLevel + 1) % 3);
   }
@@ -796,22 +843,23 @@ export class Game {
     this.fx.shot(_from, _to, hitDist > 0);
   }
 
-  // Operator handling: 1.67 s between shots, 5 rounds, 3.7 s reload,
-  // hip-fire spread that closes as the scope settles.
+  // Sniper shot, with the chosen handling (CS2 AWP or Valorant Operator):
+  // one shot per bolt, hip-fire spread that closes as the scope settles.
   sniperShoot() {
     const r = this.run;
     const w = this.scn.weapon;
-    if (r.elapsed - r.lastShot < OPERATOR.fireInterval) { sfx.dry(); return; }
+    const spec = this.sniperSpec;
+    if (r.elapsed - r.lastShot < spec.fireInterval) { sfx.dry(); return; }
     r.lastShot = r.elapsed;
     r.shots++;
-    const settled = this.zoomLevel ? this.scopeT : 0;
+    const settled = this.scopeSettled;
     if (settled < 1) r.unscoped++;
     this.vm.shot(true);
     this.punch = 1;
     this.fireSound();
     this.updateForward();
     const dir = this.fwd.clone();
-    const spread = OPERATOR.hipSpread * DEG * (1 - settled);
+    const spread = spec.hipSpread * DEG * (1 - settled);
     if (spread > 0) {
       // Uniform point in a cone around the aim direction.
       const a = Math.random() * Math.PI * 2;
@@ -825,7 +873,8 @@ export class Game {
     if (t) {
       r.hits++;
       const part = this.pickPart;
-      const dmg = OPERATOR.damage[part];
+      // Damage scaled to the target's health, so the kill rules hold.
+      const dmg = (spec.damage[part] * (t.maxHp === Infinity ? spec.hp : t.maxHp)) / spec.hp;
       t.hp -= dmg;
       t.flash = 1;
       t.flashPart = part === 'head' ? 'head' : 'body';
@@ -839,7 +888,11 @@ export class Game {
     } else {
       r.score = Math.max(0, r.score - w.missPenalty);
     }
-    if (this.settings.sniper.unscope) this.setZoom(0);
+    if (this.settings.sniper.unscope) {
+      // CS2 zooms back in by itself once the bolt is back.
+      if (spec.resumeZoom && this.zoomLevel && this.settings.sniper.scopeMode === 'toggle') this.resumeLevel = this.zoomLevel;
+      this.setZoom(0);
+    }
   }
 
   // ------------------------------------------------------------- effects
@@ -889,6 +942,16 @@ export class Game {
     const motion = this.scn ? MOTIONS[this.scn.motion.type] : null;
     const ctx = this.ctx();
 
+    // Pose the gun before this frame's shots, so a tracer starts from the
+    // muzzle exactly where it is drawn this frame (recoil shows next frame).
+    const viewMode = () => {
+      const live = this.state === 'countdown' || this.state === 'running' || this.state === 'paused';
+      if (this.inspect && this.state === 'menu') return 'inspect';
+      return live && this.gunVisible ? 'play' : null;
+    };
+    const posed = viewMode();
+    if (posed) this.vm.update(dt, posed);
+
     if (this.state === 'menu' && motion) {
       for (const t of this.targets) motion.update(t, dt, ctx);
       this.lookAtTargets(false);
@@ -903,8 +966,15 @@ export class Game {
       for (const t of this.targets) motion.update(t, dt, ctx);
     }
 
+    if (this.zoomLevel) this.scopeAge += dt;
+    if (this.resumeLevel && this.run && this.state === 'running' && this.sniper && !this.knifeOut
+      && this.run.elapsed - this.run.lastShot >= this.sniperSpec.fireInterval) {
+      this.setZoom(this.resumeLevel);
+      this.resumeLevel = 0;
+    }
     if (this.zoomLevel && this.scopeT < 1) {
-      this.scopeT = Math.min(1, this.scopeT + dt / Math.max(0.01, this.settings.sniper.scopeTime));
+      const zoomTime = this.sniperSpec.zoomTime || this.settings.sniper.scopeTime;
+      this.scopeT = Math.min(1, this.scopeT + dt / Math.max(0.01, zoomTime));
       this.applyZoom();
     }
     this.camera.position.copy(this.eye);
@@ -917,12 +987,9 @@ export class Game {
     this.renderer.render(this.scene, this.camera);
 
     // The gun renders on top with its own camera, so it never clips walls.
-    const live = this.state === 'countdown' || this.state === 'running' || this.state === 'paused';
-    let mode = null;
-    if (this.inspect && this.state === 'menu') mode = 'inspect';
-    else if (live && this.gunVisible) mode = 'play';
+    const mode = viewMode();
     if (mode) {
-      this.vm.update(dt, mode);
+      if (mode !== posed) this.vm.update(0, mode);
       this.renderer.autoClear = false;
       this.renderer.clearDepth();
       this.vm.render(this.renderer);
@@ -991,12 +1058,25 @@ export class Game {
     if (this.knifeOut && this.firing && this.vm.knifeAttack('slash')) sfx.slash();
     const firing = !this.knifeOut && (this.firing || (w.type === 'beam' && this.settings.autoFire));
     if (w.type === 'beam' && firing) {
-      // The gun cycles at its own rate while the beam is held.
-      const rounds = this.vm.autoFire(dt, GUNS[this.gunId].fireInterval || 0.1);
-      if (rounds) this.fireSound();
+      // The gun cycles at its own rate while the trigger is held, timed on
+      // the run clock rather than by frames: the first round leaves when the
+      // trigger is pulled (once the gun has cycled from the last burst), the
+      // rest exactly one interval apart, whatever the frame rate.
+      const interval = GUNS[this.gunId].fireInterval || 0.1;
+      if (!this.wasFiring) r.nextShot = Math.max(r.nextShot, this.pressAt ?? r.elapsed);
+      r.nextShot = Math.max(r.nextShot, r.elapsed - interval * 2); // no burst of catch-up after a hitch
+      let rounds = 0;
+      while (r.nextShot <= r.elapsed) {
+        rounds++;
+        r.nextShot += interval;
+      }
       r.fireTime += dt;
       const t = this.pick();
-      for (let i = 0; i < rounds; i++) this.tracer(this.fwd, t ? this.pickDist : 0);
+      for (let i = 0; i < rounds; i++) {
+        this.vm.shot();
+        this.fireSound();
+        this.tracer(this.fwd, t ? this.pickDist : 0);
+      }
       if (t) {
         r.onTime += dt;
         if (this.pickPart === 'head' && t.shape === 'agent') r.headTime += dt;
@@ -1013,6 +1093,8 @@ export class Game {
       }
     }
     if (w.type === 'beam' && firing) this.measureLead(dt);
+    this.wasFiring = w.type === 'beam' && firing;
+    if (!firing) this.pressAt = null;
 
     while (r.timeline.length < Math.floor(r.elapsed) && r.timeline.length < this.scn.duration) {
       r.timeline.push(Math.round(r.score));
@@ -1081,7 +1163,7 @@ export class Game {
       kills: r.kills,
       fps: this.fps,
       ammo: this.sniper ? Infinity : null, // the AWP never runs dry
-      zoom: this.zoomLevel ? OPERATOR.zooms[this.zoomLevel - 1] : 0,
+      zoom: this.zoomLevel ? this.zoomMag(this.zoomLevel) : 0,
       onTarget: beam && this.targets.some((t) => t.flash > 0.9),
     };
   }

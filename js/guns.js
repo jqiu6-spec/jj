@@ -25,7 +25,7 @@ export const GUNS = {
     name: 'M4A1-S',
     kind: 'Rifle',
     fireInterval: 0.1, // 600 rounds per minute
-    blurb: 'Suppressed 5.56 carbine with a ribbed handguard and a fixed stock. 600 rounds per minute; the suppressor comes off.',
+    blurb: 'Suppressed 5.56 carbine with a ribbed handguard. 600 rounds per minute; the suppressor comes off.',
     zones: ['handguard', 'stock', 'grip', 'mag', 'suppressor'],
     sound: (skin) => (skin.suppressor === false ? 'rifle' : 'suppressed'),
   },
@@ -49,7 +49,7 @@ export const GUNS = {
     name: 'Phantom',
     kind: 'Rifle',
     fireInterval: 1 / 11, // Valorant Phantom: 11 rounds per second
-    blurb: 'An original Phantom-style rifle: integrated suppressor, vertical foregrip, blue laser module. Fires at Valorant\'s 11 rounds per second.',
+    blurb: 'Valorant\'s suppressed rifle. Fires at Valorant\'s 11 rounds per second.',
     zones: ['handguard', 'stock', 'grip', 'foregrip', 'mag', 'suppressor'],
     sound: () => 'suppressed',
   },
@@ -88,7 +88,7 @@ function extrude(points, depth, bevel = 0.002, holes) {
 }
 
 // Cylinder along X. r1 is the radius at x0, r2 at x1.
-function tube(r1, x0, x1, y, r2 = r1, seg = 28) {
+export function tube(r1, x0, x1, y, r2 = r1, seg = 28) {
   const g = new THREE.CylinderGeometry(r2, r1, x1 - x0, seg);
   g.rotateZ(-Math.PI / 2);
   g.translate((x0 + x1) / 2, y, 0);
@@ -113,7 +113,7 @@ function rail(x0, x1, y, w) {
 
 // UVs in metres so a pattern keeps one scale across every part. Flat parts
 // use a box projection; round parts wrap around their own axis.
-function projectUVs(geo, round) {
+export function projectUVs(geo, round) {
   const p = geo.attributes.position;
   const n = geo.attributes.normal;
   const uv = new Float32Array(p.count * 2);

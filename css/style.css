@@ -208,6 +208,8 @@ body.in-menu #crosshair { display: none; }
   letter-spacing: 0.02em; text-transform: uppercase; text-wrap: balance;
 }
 .blurb { margin: 0; color: var(--text-2); max-width: 60ch; }
+.model-note { margin: 6px 0 0; color: var(--muted); font-size: 12.5px; max-width: 60ch; }
+.model-note:empty { display: none; }
 .specs {
   display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0;
   padding: 12px 0; border-block: 1px solid var(--line);

@@ -9,6 +9,7 @@ import {
 import { drawCrosshair } from './crosshair.js';
 import { initAudio, setVolume, sfx, FIRE_SOUNDS } from './audio.js';
 import { GUNS, ZONE_LABELS } from './guns.js';
+import { MODEL_INFO } from './models.js';
 import {
   SKIN_PRESETS, PATTERNS, COLOR_ROLES, FINISHES, ZONE_FINISHES, STICKERS, STICKER_FINISHES, SKIN_KEYS,
   stickerCanvas, wearLabel, randomSkin,
@@ -584,27 +585,46 @@ function renderWeapon() {
   $('w-hand-right').checked = settings.weapon.hand !== 'left';
   $('w-hand-left').checked = settings.weapon.hand === 'left';
   $('w-fov').value = settings.weapon.fov;
+  $('w-models').value = settings.weapon.models;
+  renderModelNote();
   renderStickers();
   renderWeaponOutputs();
   requestAnimationFrame(renderPatternPreview);
 }
 
+// Which model the Weapon tab shows, and whether a detailed one is on its way.
+function renderModelNote() {
+  const gv = game.vm.guns[weaponGun];
+  let text = 'Simple built-in model.';
+  if (settings.weapon.models !== 'simple' && MODEL_INFO[weaponGun]) {
+    if (gv && gv.model.detailed) text = 'Detailed model: real mesh with its own normal maps. Pick "Original" to see its factory textures.';
+    else if (gv && gv.failed) text = 'The detailed model could not load here, so the simple one is shown.';
+    else text = 'Loading the detailed model…';
+  }
+  $('w-model-note').textContent = text;
+}
+
 // One select per part the gun has, with the finishes it can wear.
 function renderZones() {
-  const g = GUNS[weaponGun];
   const sk = skinOf();
   const host = $('w-zones');
   host.textContent = '';
-  const opts = ['skin', 'black', 'gray', 'tan', 'wood', 'gold', 'steel'];
-  for (const zone of g.zones) {
+  const detailed = game.vm.isDetailed(weaponGun);
+  const opts = ['skin', ...(detailed ? ['factory'] : []), 'black', 'gray', 'tan', 'wood', 'gold', 'steel'];
+  $('w-zones-hint').textContent = detailed
+    ? 'Each part wears the pattern, its factory textures, or a solid finish.'
+    : 'Each part wears the pattern or a solid finish.';
+  for (const zone of game.vm.zonesFor(weaponGun)) {
     const label = document.createElement('label');
     label.className = 'f';
     const name = document.createElement('span');
     name.textContent = ZONE_LABELS[zone] || zone;
     const sel = document.createElement('select');
     sel.id = `w-zone-${zone}`;
-    sel.innerHTML = opts.map((k) => `<option value="${k}">${ZONE_FINISHES[k].label}</option>`).join('');
-    sel.value = sk.zones[zone] || 'skin';
+    const cur = sk.zones[zone] || 'skin';
+    const list = opts.includes(cur) ? opts : [...opts, cur];
+    sel.innerHTML = list.map((k) => `<option value="${k}">${ZONE_FINISHES[k].label}</option>`).join('');
+    sel.value = cur;
     sel.addEventListener('input', () => {
       sk.zones[zone] = sel.value;
       skinChanged(false);
@@ -854,6 +874,15 @@ viewInput('w-sounds', (el) => { settings.weapon.sounds = el.checked; });
 viewInput('w-hand-right', () => { settings.weapon.hand = 'right'; });
 viewInput('w-hand-left', () => { settings.weapon.hand = 'left'; });
 viewInput('w-fov', (el) => { settings.weapon.fov = parseInt(el.value, 10); });
+viewInput('w-models', (el) => { settings.weapon.models = el.value === 'simple' ? 'simple' : 'detailed'; });
+$('w-models').addEventListener('input', () => { renderZones(); renderStickers(); renderModelNote(); });
+// A detailed model finished loading: its parts and sticker spots differ.
+game.vm.onModel = (id) => {
+  if (id !== weaponGun || $('panel-weapon').hidden) return;
+  renderZones();
+  renderStickers();
+  renderModelNote();
+};
 $('w-reset').addEventListener('click', (e) => armButton(e.currentTarget, 'Reset this gun', () => {
   skins[weaponGun] = defaultSkin(weaponGun);
   saveSkins(skins);

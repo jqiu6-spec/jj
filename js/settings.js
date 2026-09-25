@@ -38,6 +38,7 @@ export const DEFAULTS = {
     hand: 'right',
     fov: 60, // viewmodel field of view
     sounds: true,
+    models: 'detailed', // 'detailed' real meshes, or 'simple' built-in models
   },
   sniper: {
     scopeMode: 'toggle', // 'toggle' cycles 2.5x, 5x, off; 'hold' keeps 2.5x while held

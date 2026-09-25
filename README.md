@@ -15,9 +15,10 @@ Operator.
 ## Run it
 
 **Easiest, on a Mac or Windows PC:** download `dist/trackline.html` and
-double-click it. It's the whole trainer in one file and opens straight from disk
-in Chrome, Edge, Firefox or Safari. Your settings, skins and scores are saved in
-that browser.
+`dist/trackline-models.js` into the same folder and double-click the HTML file.
+It opens straight from disk in Chrome, Edge, Firefox or Safari. The second file
+holds the detailed gun models; without it the trainer still runs, with the
+simple built-in guns. Your settings, skins and scores are saved in that browser.
 
 **From the source:** the site uses ES modules, so serve the folder over HTTP.
 Opening `index.html` straight from disk won't work.
@@ -129,15 +130,19 @@ Clicking scenarios are hitscan: a kill is worth +100 and a miss costs −20.
 ## Weapons
 
 Open the **Weapon** tab to pick a gun, edit its skin and preview it on a
-turntable (drag to turn it). The models are original low-poly builds made from
-primitives; no game assets are used.
+turntable (drag to turn it). Each gun has a **detailed model**, a real mesh with
+its own textures and normal maps, and a **simple model** built from primitives
+in code. The simple one shows while the detailed one loads, and stays if it
+can't load. **Gun models** under First-person view switches between them; Simple
+is lighter on older machines. See [Gun models](#gun-models) for where the meshes
+come from.
 
 | Gun | Fire rate | Notes |
 |---|---|---|
 | M4A1-S | 600 RPM | The suppressor comes off |
 | AK-47 | 600 RPM | Wood furniture by default |
 | XM7 | 800 RPM | The US Army's 6.8 mm rifle, with a Coyote tan preset |
-| Phantom | 11 rounds/s | An original Phantom-style rifle with a blue laser module |
+| Phantom | 11 rounds/s | Valorant's suppressed rifle (the simple model is an original take with a laser module) |
 | AWP | Operator handling | Sniping scenarios only; the only gun that scopes |
 
 Pick one of the first four with **Use for tracking and clicking**. While you
@@ -146,17 +151,23 @@ come faster than that rate.
 
 ### Skins
 
-- **Presets**: Fade (the default: crimson at the front, magenta and purple
-  through the receiver, blue at the rear, a gold suppressor, black furniture),
-  Recon Digital, Coyote, Factory, Woodland, Arctic Digital, Carbon Weave, Ember
-  Tiger, Cobalt Hex, Neon Splatter and Damascus.
-- **Pattern**: solid, fade, woodland camo, digital camo, carbon fibre, hex grid,
-  tiger stripe, splatter or Damascus steel, each with three colours.
+- **Presets**: Original (the model's own factory textures), Fade (the default:
+  crimson at the front, magenta and purple through the receiver, blue at the
+  rear, a gold suppressor, black furniture), Recon Digital, Coyote, Gunmetal,
+  Woodland, Arctic Digital, Carbon Weave, Ember Tiger, Cobalt Hex, Neon Splatter
+  and Damascus.
+- **Pattern**: original textures, solid, fade, woodland camo, digital camo,
+  carbon fibre, hex grid, tiger stripe, splatter or Damascus steel, each with
+  three colours. On the detailed models the paint keeps the model's normal maps,
+  so it follows every machined edge and screw, and barrels, sights and small
+  metal parts stay metal.
 - **Finish** (matte, satin, gloss, anodized, metallic), **wear** (0–1, adding
   scratches and chipped paint), **pattern scale** and **pattern seed**.
 - **Parts**: every part a gun has (handguard, stock, grip, foregrip, magazine,
   suppressor, scope, butt pad) wears the pattern or a solid finish: black, gunmetal,
-  tan, wood, gold or steel. The list changes with the gun.
+  tan, wood, gold or steel. Detailed models add **Factory**, the part's own
+  textures, so you can paint the receiver and keep the AK's real wood. The list
+  changes with the gun.
 - **Fade direction**: run the fade back to front or front to back.
 - **Randomise** makes a new skin from one hue and its complement; **Apply this
   skin to every gun** copies the pattern, colours, finish and fire effect (parts
@@ -170,7 +181,9 @@ bolt**, **flame**, **spectral** or **lightning**, in any colour, with an optiona
 glow on the skin that brightens with every shot. The muzzle flash takes the
 effect's colour, shots fly from the muzzle to wherever they land (a target, a
 crate or the wall), a burst marks the impact, and kills pop in the effect's
-colour. **Test fire** previews the flash, glow and sound in the Weapon tab.
+colour. Shots start exactly at the muzzle as drawn, whatever the gun, pose,
+sway or recoil, and start barrel-thin before widening, so nothing spills off
+the gun. **Test fire** previews the flash, glow and sound in the Weapon tab.
 Presets come with effects (Fade is a plasma bolt, Ember Tiger flame, Cobalt Hex
 lightning, Neon Splatter spectral).
 
@@ -179,7 +192,8 @@ lightning, Neon Splatter spectral).
 Each gun has five sticker slots on the side you see in first person. A slot takes
 one of twelve designs, including a text sticker with your own text. You can set
 its colour, finish (paper, glossy, holo or gold foil), size, rotation, position
-and scrape.
+and scrape. On the detailed models stickers are projected onto the mesh, so they
+wrap around curved magazines and receivers.
 
 ### Fire sounds
 
@@ -187,6 +201,44 @@ Choose a sound for each gun: suppressed, rifle crack, heavy rifle, SMG snap,
 sniper boom, laser, soft click or silent. **Match the gun** picks one
 automatically, and taking the M4A1-S suppressor off switches it to the rifle
 crack.
+
+### Gun models
+
+The detailed meshes live in `models/` as `.glb` files, all in one frame:
+metres, +X toward the muzzle, +Y up, +Z the gun's right side.
+
+| File | Source | Notes |
+|---|---|---|
+| `ak47.glb` | AK-47 `.usdz` supplied by the project owner | Wood and steel textures |
+| `m4a1s.glb` | M4A1 `.usdz` supplied by the project owner | The model has a bare flash hider; Trackline adds the M4A1-S suppressor in code |
+| `awp.glb` | AWP `.usdz` supplied by the project owner | Spec/gloss textures converted to metal/rough |
+| `xm7.glb` | SIG XM7 `.obj` supplied by the project owner | Plain materials, no textures |
+| `phantom.glb` | "VALORANT Weapon Phantom Rifle" `.fbx` supplied by the project owner | A Riot Games asset from Valorant |
+
+The original authors and licences of the four real-world rifles have not been
+recorded yet; add them here before publishing the models anywhere. The Phantom is
+Riot Games' artwork: Riot's fan content policy allows free, non-commercial fan
+projects that credit Riot, so keep Trackline free and don't redistribute the
+mesh on its own. Trackline isn't endorsed by Riot Games.
+
+`js/models.js` loads each file, sorts its triangles into skin zones (by part
+name, material, position, or the texture's own colour), lines it up with the
+built-in gun, and lists its sticker spots.
+
+To add or replace a model, convert it with `tools/convert_model.py`:
+
+```sh
+pip install usd-core numpy pillow pygltflib   # plus `npm install fbx2gltf` for .fbx
+python3 tools/convert_model.py AK-47.usdz models/ak47.glb --max-texture 1024 --scale 0.459
+python3 tools/convert_model.py awp.usdz models/awp.glb --max-texture 1024 --rotate y90 --scale 0.0798
+```
+
+It reads `.usdz`/`.usdc`/`.usda`, `.obj` + `.mtl`, `.glb`/`.gltf` and `.fbx`,
+bakes every transform, converts spec/gloss and DirectX normal maps, and writes a
+static `.glb`. Use `--rotate` and `--scale` to bring a model into the frame
+above (the script prints the resulting size), `--tex` to point a material at a
+texture set, and `--help` for the rest. Then add an entry to `MODEL_INFO` in
+`js/models.js` and run `npm run build`.
 
 ## Sniping (Valorant Operator)
 
@@ -242,13 +294,17 @@ js/stats.js           run history
 js/chart.js           pace chart and history sparkline (SVG)
 js/crosshair.js       crosshair drawing
 js/audio.js           synthesized sound effects and fire sounds
-js/guns.js            gun models, zones, fire rates and sticker slots
+js/guns.js            simple gun models, zones, fire rates and sticker slots
+js/models.js          detailed gun models: loading, skin zones, sticker decals
 js/skins.js           skin patterns, presets, random skins and sticker designs
 js/effects.js         fire effects: tracers, impacts, muzzle glow
 js/weapon.js          first-person gun view, skins, stickers, turntable
+models/               detailed gun meshes (.glb)
+tools/convert_model.py  converts .usdz, .obj, .gltf and .fbx guns into Trackline .glb files
 build.mjs             bundles everything into dist/trackline.html
 dist/trackline.html   the single-file build, opens from disk
-vendor/               three.js r186 (MIT), bundled into one ES module
+dist/trackline-models.js  the detailed models for the single-file build
+vendor/               three.js r186 (MIT) and its GLTFLoader and DecalGeometry
 ```
 
 To add a scenario, add an entry to `SCENARIOS` in `js/scenarios.js`, reusing one of

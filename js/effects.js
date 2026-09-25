@@ -22,6 +22,10 @@ const TYPES = {
   lightning: { len: 0, width: 0.05, speed: 0, trail: 0, burst: 16, burstSpeed: 6, burstLife: 0.16, gravity: 0, bolt: true },
 };
 
+// Near the muzzle every effect starts barrel-thin and grows to full size over
+// the first few metres, so nothing spills past the gun where the shot leaves.
+const ramp = (d) => 0.25 + 0.75 * Math.min(1, Math.max(0, d) / 4);
+
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _c = new THREE.Vector3();
@@ -100,7 +104,7 @@ export class Effects {
     if (T.bolt) {
       this.lightning(from, to);
       this.burst(to, T, hit);
-      this.flash(from, 0.35);
+      this.flash(from, 0.07);
       return;
     }
     const b = this.take(this.bolts, () => {
@@ -121,10 +125,10 @@ export class Effects {
     b.phase = Math.random() * Math.PI * 2;
     b.mesh.material.color.copy(this.color);
     b.head.material.color.copy(this.color);
-    b.head.scale.setScalar(T.width * 4);
+    b.head.scale.setScalar(T.width * 4 * ramp(0));
     b.obj.quaternion.setFromUnitVectors(_a.set(0, 0, 1), b.dir);
     b.trailAcc = 0;
-    this.flash(from, T.width * 3);
+    this.flash(from, Math.min(0.08, T.width * 1.5));
   }
 
   flash(at, size) {
@@ -154,8 +158,10 @@ export class Effects {
     _c.crossVectors(_a, _b);
     for (let i = 0; i < n; i++) {
       const t = i / (n - 1);
-      const jag = i === 0 || i === n - 1 ? 0 : Math.min(0.35, len * 0.03) * (Math.random() - 0.5) * 2;
-      const jag2 = i === 0 || i === n - 1 ? 0 : Math.min(0.35, len * 0.03) * (Math.random() - 0.5) * 2;
+      // Jagged in the middle, pinned to the muzzle and the impact.
+      const amp = i === 0 || i === n - 1 ? 0 : Math.min(0.35, len * 0.03) * Math.min(1, (t * len) / 3);
+      const jag = amp * (Math.random() - 0.5) * 2;
+      const jag2 = amp * (Math.random() - 0.5) * 2;
       pos.setXYZ(i, from.x + _a.x * len * t + _b.x * jag + _c.x * jag2, from.y + _a.y * len * t + _b.y * jag + _c.y * jag2, from.z + _a.z * len * t + _b.z * jag + _c.z * jag2);
     }
     pos.needsUpdate = true;
@@ -210,23 +216,28 @@ export class Effects {
       }
       const head = Math.min(b.dist, b.total);
       const tail = Math.max(0, b.dist - T.len);
+      const k = ramp(head);
       _a.copy(b.from).addScaledVector(b.dir, (head + tail) / 2);
+      const wave = T.wave ? Math.sin(b.dist * 6 + b.phase) * 0.08 * Math.min(1, head / 3) : 0;
       if (T.wave) {
         _b.crossVectors(b.dir, UP).normalize();
-        _a.addScaledVector(_b, Math.sin(b.dist * 6 + b.phase) * 0.08);
+        _a.addScaledVector(_b, wave);
       }
       b.obj.position.copy(_a);
-      const len = Math.max(0.05, head - tail);
-      b.mesh.scale.set(T.width, T.width, len);
+      const len = Math.max(0.02, head - tail);
+      b.mesh.scale.set(T.width * k, T.width * k, len);
       b.mesh.material.opacity = 0.85;
       b.head.position.set(0, 0, len / 2);
+      b.head.scale.setScalar(T.width * 4 * k);
       if (T.trail) {
         b.trailAcc += dt * T.trail;
         while (b.trailAcc >= 1) {
           b.trailAcc -= 1;
-          _c.copy(b.from).addScaledVector(b.dir, head - Math.random() * T.len);
-          if (T.wave) _c.addScaledVector(_b, Math.sin(b.dist * 6 + b.phase) * 0.08);
-          this.ghost(_c, T.width * (T.embers ? 2.5 : 1.6), T.embers ? 0.25 : 0.18);
+          // Only along the path already travelled, never behind the muzzle.
+          const along = head - Math.random() * Math.min(T.len, head);
+          _c.copy(b.from).addScaledVector(b.dir, along);
+          if (T.wave) _c.addScaledVector(_b, wave);
+          this.ghost(_c, T.width * (T.embers ? 2.5 : 1.6) * ramp(along), T.embers ? 0.25 : 0.18);
         }
       }
     }

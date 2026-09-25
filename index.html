@@ -104,6 +104,7 @@
         <p class="eyebrow" id="w-kind"></p>
         <h1 id="w-name"></h1>
         <p class="blurb" id="w-blurb"></p>
+        <p class="model-note" id="w-model-note" role="status"></p>
         <div class="gun-use">
           <button type="button" id="w-equip" class="btn-equip">Use for tracking and clicking</button>
           <span class="hint" id="w-equip-note"></span>
@@ -134,7 +135,7 @@
           <div class="f"><label for="w-seed"><span>Pattern seed</span></label><div class="seed-row"><input type="number" id="w-seed" min="1" max="999" step="1"><button type="button" id="w-shuffle" class="btn-small">Shuffle</button></div></div>
         </div>
         <h3 class="w-sub">Parts</h3>
-        <p class="hint">Each part wears the pattern or a solid finish.</p>
+        <p class="hint" id="w-zones-hint">Each part wears the pattern or a solid finish.</p>
         <div class="fields" id="w-zones"></div>
         <label class="check" id="w-suppressor-wrap"><input type="checkbox" id="w-suppressor"><span>Suppressor fitted</span></label>
       </section>
@@ -189,6 +190,7 @@
             </div>
           </div>
           <label class="f"><span>Viewmodel FOV <output id="o-w-fov"></output></span><input type="range" id="w-fov" min="50" max="75" step="1"></label>
+          <label class="f"><span>Gun models</span><select id="w-models"><option value="detailed">Detailed (real meshes)</option><option value="simple">Simple (lighter on older machines)</option></select></label>
         </div>
       </section>
       <div class="danger">

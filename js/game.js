@@ -224,6 +224,11 @@ export class Game {
     return this.scn && this.scn.weapon.type === 'sniper';
   }
 
+  // The first-person gun is drawn (not hidden in settings, not scoped in).
+  get gunVisible() {
+    return this.settings.weapon.show && !(this.zoomLevel && this.scopeT > 0.25);
+  }
+
   fireSound() {
     if (!this.settings.weapon.sounds) return;
     const skin = this.skins[this.gunId];
@@ -698,14 +703,30 @@ export class Game {
       dist = Math.min(this.coverHit(this.eye, dir), _ray.intersectBox(this.arenaBox, _hit) ? _hit.distanceTo(this.eye) : 60);
     }
     _to.copy(this.eye).addScaledVector(dir, dist);
-    // Start low and to the gun-hand side, well off the view axis. The drawn
-    // muzzle sits only a few degrees from the crosshair, so a shot from there
-    // would fly straight away from the camera and read as a dot; from here the
-    // streak crosses the screen toward the impact, the way game tracers do.
-    const side = this.settings.weapon.hand === 'left' ? -0.3 : 0.3;
-    _from.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw)).multiplyScalar(side); // camera right
-    _from.add(this.eye).addScaledVector(this.fwd, 0.45);
-    _from.y -= 0.24;
+    // Start where the muzzle is drawn. The gun renders with its own camera, so
+    // take the muzzle's screen position and put the start on the world ray
+    // through that pixel, at the depth that gives the same apparent size.
+    // The shot then leaves the barrel exactly, in any pose, sway or recoil.
+    let nx;
+    let ny;
+    let depth;
+    const mv = this.gunVisible ? this.vm.muzzleView() : null;
+    if (mv && mv.depth > 0.05) {
+      nx = mv.x;
+      ny = mv.y;
+      depth = (mv.depth * Math.tan((mv.fov * DEG) / 2)) / Math.tan((this.camera.fov * DEG) / 2);
+    } else {
+      // No gun on screen (hidden, or scoped in): from just under the view.
+      const side = this.settings.weapon.hand === 'left' ? -1 : 1;
+      nx = this.zoomLevel ? 0 : 0.28 * side;
+      ny = this.zoomLevel ? -0.2 : -0.42;
+      depth = 0.9;
+    }
+    this.camera.position.copy(this.eye);
+    this.camera.rotation.set(this.pitch, this.yaw, 0);
+    this.camera.updateMatrixWorld();
+    _from.set(nx, ny, 0.5).unproject(this.camera).sub(this.eye).normalize();
+    _from.multiplyScalar(depth / Math.max(0.2, _from.dot(this.fwd))).add(this.eye);
     this.fx.shot(_from, _to, hitDist > 0);
   }
 
@@ -837,7 +858,7 @@ export class Game {
     const live = this.state === 'countdown' || this.state === 'running' || this.state === 'paused';
     let mode = null;
     if (this.inspect && this.state === 'menu') mode = 'inspect';
-    else if (live && this.settings.weapon.show && !(this.zoomLevel && this.scopeT > 0.25)) mode = 'play';
+    else if (live && this.gunVisible) mode = 'play';
     if (mode) {
       this.vm.update(dt, mode);
       this.renderer.autoClear = false;

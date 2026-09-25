@@ -5,6 +5,7 @@ import * as THREE from '../vendor/three.module.min.js';
 const TAU = Math.PI * 2;
 
 export const PATTERNS = {
+  original: 'Original (model textures)',
   solid: 'Solid',
   fade: 'Fade',
   camo: 'Woodland camo',
@@ -18,6 +19,7 @@ export const PATTERNS = {
 
 // What each colour slot does in a pattern, for the form labels.
 export const COLOR_ROLES = {
+  original: ['Simple model paint', null, null],
   solid: ['Paint', null, null],
   fade: ['Rear', 'Middle', 'Front'],
   camo: ['Base', 'Dark blotches', 'Light blotches'],
@@ -38,9 +40,11 @@ export const FINISHES = {
 };
 
 // Solid choices for a gun's zones (stock, grip, magazine, suppressor, scope
-// and so on); 'skin' paints the zone with the pattern instead.
+// and so on); 'skin' paints the zone with the pattern instead, and 'factory'
+// shows a detailed model's own textures (black on the simple models).
 export const ZONE_FINISHES = {
   skin: { label: 'Skin pattern' },
+  factory: { label: 'Factory (model textures)' },
   black: { label: 'Black polymer', color: '#16171a', roughness: 0.7, metalness: 0.05 },
   tan: { label: 'Tan polymer', color: '#b59a70', roughness: 0.72, metalness: 0.02 },
   wood: { label: 'Wood', color: '#ffffff', roughness: 0.6, metalness: 0, wood: true },
@@ -55,10 +59,11 @@ export const ZONE_FINISHES = {
 // front, magenta and purple through the receiver, blue at the rear, a gold
 // suppressor and black furniture.
 export const SKIN_PRESETS = {
+  original: { name: 'Original', pattern: 'original', c1: '#2b2e33', c2: '#4a4f57', c3: '#7d848e', finish: 'satin', wear: 0.02, scale: 1, seed: 1, zones: {}, fx: { type: 'none', color: '#ffd27a', glow: false } },
   fade: { name: 'Fade', pattern: 'fade', c1: '#3a5ae8', c2: '#b02ec2', c3: '#e8234d', finish: 'anodized', wear: 0.01, scale: 1, seed: 1, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black', suppressor: 'gold' }, fx: { type: 'plasma', color: '#ff4fd8', glow: true } },
   recon: { name: 'Recon Digital', pattern: 'digital', c1: '#dfe4ea', c2: '#8a97a6', c3: '#34414f', finish: 'matte', wear: 0.04, scale: 0.55, seed: 9, zones: { stock: 'gray', grip: 'gray', foregrip: 'gray', mag: 'gray', butt: 'black' }, fx: { type: 'tracer', color: '#5fd8ff', glow: false } },
   coyote: { name: 'Coyote', pattern: 'solid', c1: '#a8875c', c2: '#8a6d49', c3: '#5e4a33', finish: 'matte', wear: 0.05, scale: 1, seed: 1, zones: { stock: 'tan', grip: 'tan', foregrip: 'tan', mag: 'black', butt: 'black' }, fx: { type: 'none', color: '#ffb35c', glow: false } },
-  factory: { name: 'Factory', pattern: 'solid', c1: '#2a2d32', c2: '#4a4f57', c3: '#7d848e', finish: 'satin', wear: 0.06, scale: 1, seed: 1, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black' }, fx: { type: 'none', color: '#ffd27a', glow: false } },
+  factory: { name: 'Gunmetal', pattern: 'solid', c1: '#2a2d32', c2: '#4a4f57', c3: '#7d848e', finish: 'satin', wear: 0.06, scale: 1, seed: 1, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black' }, fx: { type: 'none', color: '#ffd27a', glow: false } },
   woodland: { name: 'Woodland', pattern: 'camo', c1: '#56663f', c2: '#2c3622', c3: '#8e7b52', finish: 'matte', wear: 0.24, scale: 1, seed: 7, zones: { butt: 'black' }, fx: { type: 'none', color: '#ffb35c', glow: false } },
   arctic: { name: 'Arctic Digital', pattern: 'digital', c1: '#dde4ea', c2: '#98a5b2', c3: '#4b5764', finish: 'matte', wear: 0.14, scale: 1, seed: 3, zones: { butt: 'black' }, fx: { type: 'tracer', color: '#dff4ff', glow: false } },
   carbon: { name: 'Carbon Weave', pattern: 'carbon', c1: '#141619', c2: '#454c56', c3: '#000000', finish: 'gloss', wear: 0.04, scale: 1, seed: 1, zones: { mag: 'steel', suppressor: 'steel', scope: 'steel', butt: 'black' }, fx: { type: 'tracer', color: '#ffffff', glow: false } },

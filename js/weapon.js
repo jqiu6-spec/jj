@@ -28,6 +28,7 @@ const FIXED = {
 const PLAY_POSE = {
   m4a1s: { x: 0.13, y: -0.15, z: -0.34 },
   ak47: { x: 0.13, y: -0.14, z: -0.34 },
+  vandal: { x: 0.13, y: -0.14, z: -0.34 },
   xm7: { x: 0.13, y: -0.15, z: -0.33 },
   phantom: { x: 0.13, y: -0.152, z: -0.34 },
   awp: { x: 0.17, y: -0.21, z: -0.5 },
@@ -38,6 +39,7 @@ const PLAY_POSE = {
 export const DETAILED_POSE = {
   m4a1s: { x: 0.2, y: -0.18, z: -0.5 },
   ak47: { x: 0.18, y: -0.16, z: -0.48 },
+  vandal: { x: 0.18, y: -0.16, z: -0.48 },
   xm7: { x: 0.2, y: -0.18, z: -0.5 },
   phantom: { x: 0.2, y: -0.18, z: -0.5 },
   awp: { x: 0.2, y: -0.21, z: -0.6 },

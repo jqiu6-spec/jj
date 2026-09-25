@@ -134,8 +134,10 @@ export function presetSkin(presetId) {
 export function defaultSkin(gunId) {
   return {
     ...presetSkin((GUNS[gunId] && GUNS[gunId].defaultPreset) || 'fade', gunId),
+    ...(GUNS[gunId] && GUNS[gunId].defaultFx ? { fx: { ...GUNS[gunId].defaultFx } } : {}),
     suppressor: true,
     sound: 'auto',
+    killSound: 'auto',
     stickers: Array(STICKER_SLOTS).fill(null),
   };
 }
@@ -167,7 +169,7 @@ export function loadSkins() {
       if (s.accent && s.accent !== 'skin') for (const z of map.accent) skin.zones[z] = s.accent;
       if (!s.furniture && !s.accent) skin.zones = { ...d.zones };
     }
-    if (!s.fx || typeof s.fx !== 'object') skin.fx = { ...(SKIN_PRESETS[s.preset] ? SKIN_PRESETS[s.preset].fx : { type: 'none', color: '#ffd27a', glow: false }) };
+    if (!s.fx || typeof s.fx !== 'object') skin.fx = { ...(SKIN_PRESETS[s.preset] ? SKIN_PRESETS[s.preset].fx : d.fx) };
     delete skin.furniture;
     delete skin.accent;
     const list = Array.isArray(s.stickers) ? s.stickers : [];

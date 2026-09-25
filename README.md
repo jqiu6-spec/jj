@@ -143,6 +143,7 @@ come from.
 | AK-47 | 600 RPM | Wood furniture by default |
 | XM7 | 800 RPM | The US Army's 6.8 mm rifle, with a Coyote tan preset |
 | Phantom | 11 rounds/s | Valorant's suppressed rifle (the simple model is an original take with a laser module) |
+| Vandal 2021 | 9.75 rounds/s | Valorant's Vandal in the Champions 2021 finish, with its recorded fire sound and a kill sound that climbs through a streak |
 | AWP | Operator handling | Sniping scenarios only; the only gun that scopes |
 | Karambit | Knife | Scroll the mouse wheel to draw it in any scenario; see [Karambit](#karambit) |
 
@@ -221,15 +222,28 @@ The Weapon tab's designs are original. Stickers from CS2 and csgoskins.gg are
 Valve's and the teams' artwork, so none are bundled; add any you own with
 "Add your own sticker".
 
-### Fire sounds
+### Gun sounds
 
-Choose a sound for each gun: suppressed, rifle crack, heavy rifle, SMG snap,
-sniper boom, laser, soft click or silent. **Match the gun** picks one
-automatically, and taking the M4A1-S suppressor off switches it to the rifle
-crack. The AWP is the loudest by far, like in CS2: a sharp crack, a heavy blast
-and a low boom that echoes round the room, then the bolt worked by hand. Its
-shot also throws a bigger muzzle blast and smoke, and kicks the view up for a
-moment without moving your aim.
+Choose a fire sound for each gun: Champions 2021 Vandal, suppressed, rifle
+crack, heavy rifle, SMG snap, sniper boom, laser, soft click or silent. **Match
+the gun** picks one automatically, and taking the M4A1-S suppressor off switches
+it to the rifle crack. The AWP is the loudest by far, like in CS2: a sharp
+crack, a heavy blast and a low boom that echoes round the room, then the bolt
+worked by hand. Its shot also throws a bigger muzzle blast and smoke, and kicks
+the view up for a moment without moving your aim.
+
+Each gun also has a **kill sound**: the classic ping, or the Champions 2021
+streak, where kills less than 2.5 s apart climb a step each, up to a five-kill
+fanfare. The Vandal uses it by default.
+
+- **The Vandal's fire sound** is two single shots cut from a recording the
+  project owner supplied (Riot Games audio from VALORANT), stored in
+  `js/vandal-sounds.js` and played with a slight random pitch change.
+- **The Champions kill sound** is made in code, as an approximation: the
+  recording had gunfire only.
+- **Your own sound files**: "Add your own sound file" takes an MP3, WAV or OGG
+  under 1.5 MB (trim it to the shot). It is kept in this browser and can be
+  picked for firing or kills on any gun.
 
 ### Gun models
 
@@ -244,10 +258,12 @@ metres, +X toward the muzzle, +Y up, +Z the gun's right side.
 | `xm7.glb` | SIG XM7 `.obj` supplied by the project owner | Plain materials, no textures |
 | `phantom.glb` | "VALORANT Weapon Phantom Rifle" `.fbx` supplied by the project owner | A Riot Games asset from Valorant |
 | `karambit.glb` | "Karambit Standoff 2 Eye of God" `.fbx` and texture supplied by the project owner | An Axlebolt asset from Standoff 2; origin on the ring |
+| `vandal.glb` | "Champions Vandal" `.glb` and texture supplied by the project owner | An AI-reconstructed mesh (Tripo) of Riot's Champions 2021 Vandal; reduced from 223,000 to 67,000 triangles with `--decimate 0.3` |
 
 The original authors and licences of the four real-world rifles have not been
 recorded yet; add them here before publishing the models anywhere. The Phantom is
-Riot Games' artwork: Riot's fan content policy allows free, non-commercial fan
+Riot Games' artwork, as are the Champions Vandal's look and its recorded shot:
+Riot's fan content policy allows free, non-commercial fan
 projects that credit Riot, so keep Trackline free and don't redistribute the
 mesh on its own. Trackline isn't endorsed by Riot Games.
 
@@ -352,6 +368,7 @@ js/audio.js           synthesized sound effects and fire sounds
 js/guns.js            simple gun models, zones, fire rates and sticker slots
 js/models.js          detailed gun models: loading, skin zones, sticker decals
 js/knife.js           karambit animations: draw, slashes, stab, inspect
+js/vandal-sounds.js   the Champions Vandal's recorded shots (base64 WAV)
 js/skins.js           skin patterns, presets, random skins and sticker designs
 js/effects.js         fire effects: tracers, impacts, muzzle glow
 js/weapon.js          first-person gun view, skins, stickers, turntable

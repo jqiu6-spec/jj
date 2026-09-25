@@ -247,6 +247,13 @@ export class Game {
     return this.settings.weapon.show && !(this.zoomLevel && this.scopeT > 0.25);
   }
 
+  // The equipped gun's kill sound: the player's choice, else the gun's own.
+  killSound() {
+    const skin = this.skins[this.gunId];
+    const choice = skin && skin.killSound && skin.killSound !== 'auto' ? skin.killSound : null;
+    return choice || GUNS[this.gunId].killSound || 'classic';
+  }
+
   fireSound() {
     if (!this.settings.weapon.sounds) return;
     const skin = this.skins[this.gunId];
@@ -716,7 +723,11 @@ export class Game {
       r.reactCount++;
     }
     this.popAt(t);
-    sfx.kill();
+    // Kills close together build a streak (up to 5), as in Valorant, and
+    // the Champions kill sound climbs with it.
+    r.streak = r.elapsed - (r.lastStreakKill ?? -99) < 2.5 ? Math.min(5, (r.streak || 0) + 1) : 1;
+    r.lastStreakKill = r.elapsed;
+    sfx.kill(this.killSound(), r.streak);
     this.hooks.onHit(true);
     // Keep respawns away from where the player is currently aiming.
     this.updateForward();

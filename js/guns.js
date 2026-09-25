@@ -55,6 +55,17 @@ export const GUNS = {
     zones: ['handguard', 'stock', 'grip', 'foregrip', 'mag', 'suppressor'],
     sound: () => 'suppressed',
   },
+  vandal: {
+    name: 'Vandal 2021',
+    kind: 'Rifle',
+    fireInterval: 1 / 9.75, // Valorant Vandal: 9.75 rounds per second
+    blurb: 'Valorant\'s Vandal in the Champions 2021 finish. 9.75 rounds per second, a gold tracer, and a kill sound that climbs with each kill in a streak.',
+    zones: ['handguard', 'stock', 'grip', 'mag'],
+    sound: () => 'champions',
+    killSound: 'champions',
+    defaultPreset: 'original',
+    defaultFx: { type: 'tracer', color: '#ffcf5a', glow: false },
+  },
   awp: {
     name: 'AWP',
     kind: 'Sniper',
@@ -76,7 +87,7 @@ export const GUNS = {
   },
 };
 
-export const PRIMARY_GUNS = ['m4a1s', 'ak47', 'xm7', 'phantom'];
+export const PRIMARY_GUNS = ['m4a1s', 'ak47', 'xm7', 'phantom', 'vandal'];
 
 // ----------------------------------------------------------------- helpers
 function shape(points, holes = []) {
@@ -464,7 +475,8 @@ function karambit(mats) {
   };
 }
 
-const BUILDERS = { m4a1s, ak47, xm7, phantom, awp, karambit };
+// The Vandal's simple stand-in is the AK it is modelled on.
+const BUILDERS = { m4a1s, ak47, xm7, phantom, awp, karambit, vandal: ak47 };
 
 export function buildGun(id, mats) {
   const g = BUILDERS[id](mats);

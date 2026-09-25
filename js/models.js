@@ -107,6 +107,29 @@ export const MODEL_INFO = {
       { name: 'Stock', x: -0.25, y: 0.16, size: 0.035 },
     ],
   },
+  // Champions 2021 Vandal: one textured mesh, sorted into parts by position.
+  vandal: {
+    file: 'vandal.glb',
+    rear: -0.484, bore: 0.012,
+    zones: ['handguard', 'stock', 'grip', 'mag'],
+    rules: [
+      { zone: 'fixed', box: [0.275, 9, -9, 9] }, // barrel, front sight, muzzle brake
+      { zone: 'fixed', box: [-0.11, -0.03, -0.02, 0.045] }, // trigger and guard
+      { zone: 'grip', box: [-0.235, -0.13, -0.09, 0.02] },
+      { zone: 'mag', box: [-0.02, 0.135, -0.16, 0.03] },
+      { zone: 'stock', box: [-9, -0.195, -9, 9] },
+      { zone: 'handguard', box: [0.07, 0.275, 0.04, 0.13] },
+      { zone: 'body' },
+    ],
+    fade: [-0.45, 0.27],
+    slots: [
+      { name: 'Receiver rear', x: -0.12, y: 0.08, size: 0.036 },
+      { name: 'Receiver', x: 0.0, y: 0.08, size: 0.032 },
+      { name: 'Magazine', x: 0.07, y: -0.05, size: 0.04 },
+      { name: 'Handguard', x: 0.17, y: 0.075, size: 0.036 },
+      { name: 'Stock', x: -0.33, y: 0.06, size: 0.045 },
+    ],
+  },
   // Karambit from Standoff 2 ("Eye of God"), origin on the ring.
   karambit: {
     file: 'karambit.glb',

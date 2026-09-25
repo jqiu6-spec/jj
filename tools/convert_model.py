@@ -609,6 +609,7 @@ def main():
     ap.add_argument('--dx-normal', action='append', default=[], help='MATERIAL with a DirectX normal map')
     ap.add_argument('--emissive', action='append', default=[], help='MATERIAL=#rrggbb')
     ap.add_argument('--drop', action='append', default=[], help='drop parts whose name contains this')
+    ap.add_argument('--decimate', type=float, default=0, help='keep this fraction of triangles (e.g. 0.3); needs pip install fast-simplification')
     ap.add_argument('--verbose', action='store_true')
     a = ap.parse_args()
 
@@ -669,7 +670,31 @@ def main():
             p.P[:, 0] *= -1
             p.N[:, 0] *= -1
             p.idx = p.idx.reshape(-1, 3)[:, [0, 2, 1]].reshape(-1)
+    if a.decimate and 0 < a.decimate < 1:
+        for p in parts:
+            decimate(p, a.decimate)
     write_glb(parts, mats, a.dst, a.max_texture)
+
+
+def decimate(p, keep):
+    """Quadric-reduce a part to about `keep` of its triangles. Each vertex
+    that survives keeps its own texture coordinate and normal, and the
+    texture's seams stay borders, so the texture still lines up."""
+    import fast_simplification as fs
+    tri = p.idx.reshape(-1, 3).astype(np.int64)
+    if len(tri) < 2000:
+        return
+    _, _, collapses = fs.simplify(p.P.astype(np.float32), tri, target_reduction=1 - keep, return_collapses=True)
+    P2, F2, mapping = fs.replay_simplification(p.P.astype(np.float32), tri, collapses)
+    first = np.full(len(P2), -1, np.int64)
+    for old in range(len(mapping) - 1, -1, -1):
+        first[mapping[old]] = old
+    first[first < 0] = 0
+    p.P = P2.astype(np.float64)
+    p.UV = p.UV[first]
+    p.N = p.N[first]
+    p.idx = F2.reshape(-1).astype(np.int64)
+    print(f'  {p.name}: {len(tri)} -> {len(F2)} triangles')
 
 
 if __name__ == '__main__':

@@ -340,13 +340,13 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
   margin-bottom: 12px; padding: 5px 10px; border-radius: 999px; background: var(--glass);
   border: 1px solid var(--line); color: var(--muted); font-size: 12px; pointer-events: none;
 }
-.gun-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.gun-picker { display: flex; flex-wrap: wrap; gap: 6px; }
 .gun-chip {
   display: grid; gap: 2px; padding: 8px 10px; text-align: left;
   border: 1px solid var(--line); border-radius: 8px; background: rgba(0, 0, 0, 0.2);
 }
-.gun-chip { padding: 8px 7px; min-width: 0; }
-.gun-chip b { font: 700 15px/1 var(--font-display); letter-spacing: 0.02em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gun-chip { padding: 8px 10px; flex: 1 1 auto; }
+.gun-chip b { font: 700 15px/1 var(--font-display); letter-spacing: 0.02em; text-transform: uppercase; white-space: nowrap; }
 .gun-chip span { font-size: 11px; color: var(--muted); }
 .gun-chip:hover { border-color: var(--line-hi); }
 .gun-chip[aria-checked='true'] { border-color: rgba(244, 211, 94, 0.5); background: var(--row-sel); }
@@ -501,7 +501,6 @@ body.scoped #crosshair { visibility: hidden; }
 }
 @media (max-width: 720px) {
   #menu { padding-inline: 16px; }
-  .gun-picker { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .panel-scenarios { grid-template-columns: minmax(0, 1fr); }
   .scn-list, .scn-detail { grid-column: 1; }
   .scn-detail h1 { font-size: 40px; }

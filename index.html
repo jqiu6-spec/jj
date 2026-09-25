@@ -180,11 +180,21 @@
       </section>
 
       <section class="w-section" aria-labelledby="w-snd-h">
-        <h2 class="w-h" id="w-snd-h">Fire sound</h2>
+        <h2 class="w-h" id="w-snd-h">Sounds</h2>
         <div class="sound-row">
           <label class="f"><span>Sound</span><select id="w-sound"></select></label>
           <button type="button" id="w-sound-test" class="btn-small">Play</button>
         </div>
+        <div class="sound-row">
+          <label class="f"><span>Kill sound</span><select id="w-kill-sound"></select></label>
+          <button type="button" id="w-kill-test" class="btn-small">Play a 5-kill streak</button>
+        </div>
+        <div class="w-actions">
+          <button type="button" id="w-snd-add" class="btn-small">Add your own sound file</button>
+          <input type="file" id="w-snd-upload" accept="audio/*,.mp3,.wav,.ogg,.m4a" hidden>
+          <button type="button" id="w-snd-delete" class="btn-small" hidden>Delete this sound file</button>
+        </div>
+        <p class="hint" id="w-snd-note">Have a clip of the real gun? Add it here (MP3, WAV or OGG, under 1.5 MB) and pick it for firing or kills. It stays in this browser.</p>
       </section>
 
       <section class="w-section" aria-labelledby="w-view-h">

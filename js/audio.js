@@ -1,4 +1,6 @@
-// Small synthesized sound set. The AudioContext starts on the first user gesture.
+// Small synthesized sound set, plus the Champions Vandal's recorded shots.
+// The AudioContext starts on the first user gesture.
+import { VANDAL_FIRE } from './vandal-sounds.js';
 
 let ctx = null;
 let master = null;
@@ -41,6 +43,125 @@ export function initAudio() {
   const wet = ctx.createGain();
   wet.gain.value = 0.55;
   verb.connect(wet).connect(master);
+  for (const c of Object.values(customSounds)) decodeCustom(c);
+  for (const [kind, list] of Object.entries(SAMPLE_DATA)) {
+    samples[kind] = [];
+    for (const b64 of list) {
+      ctx.decodeAudioData(b64ToBuffer(b64)).then((b) => samples[kind].push(b)).catch(() => {});
+    }
+  }
+}
+
+// Recorded fire sounds that ship with Trackline.
+const SAMPLE_DATA = { champions: VANDAL_FIRE };
+const SAMPLE_GAIN = { champions: 0.22 };
+const samples = {}; // kind -> decoded AudioBuffers
+
+function b64ToBuffer(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+
+// One of `kind`'s recordings, slightly re-pitched. False until decoded.
+function playSample(kind) {
+  const list = samples[kind];
+  if (!ctx || volume === 0 || !list || !list.length) return false;
+  const src = ctx.createBufferSource();
+  src.buffer = list[Math.floor(Math.random() * list.length)];
+  src.playbackRate.value = 0.97 + Math.random() * 0.06;
+  const g = ctx.createGain();
+  g.gain.value = SAMPLE_GAIN[kind] || 0.3;
+  src.connect(g).connect(master);
+  src.start();
+  return true;
+}
+
+// ------------------------------------------------ the player's own sounds
+// Sound files the player adds (a clip of a real gun, say). They live in this
+// browser only and appear in the fire and kill sound lists.
+const CUSTOM_SOUNDS_KEY = 'trackline.sounds.custom.v1';
+const MAX_SOUND_BYTES = 1_500_000;
+const customSounds = {}; // id -> { name, data, buffer }
+
+function readCustomSounds() {
+  try {
+    const list = JSON.parse(localStorage.getItem(CUSTOM_SOUNDS_KEY));
+    return Array.isArray(list) ? list : [];
+  } catch (e) { return []; }
+}
+
+function decodeCustom(c) {
+  if (!ctx || c.buffer || c.decoding) return;
+  c.decoding = true;
+  const bin = atob(c.data.split(',')[1] || '');
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  ctx.decodeAudioData(bytes.buffer).then((b) => { c.buffer = b; }).catch(() => { c.failed = true; });
+}
+
+export function loadCustomSounds() {
+  for (const r of readCustomSounds()) if (r && r.id && r.data) customSounds[r.id] = { name: r.name, data: r.data };
+}
+
+export function customSoundList() {
+  return Object.entries(customSounds).map(([id, c]) => [id, c.name]);
+}
+
+// Add an audio file. Resolves to its id; rejects with a message to show.
+export function addCustomSound(file) {
+  return new Promise((resolve, reject) => {
+    if (file.size > MAX_SOUND_BYTES) {
+      reject(new Error('That file is over 1.5 MB. Trim it to the shot itself (a second or two) and try again.'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('That file could not be read.'));
+    reader.onload = () => {
+      const probe = window.AudioContext || window.webkitAudioContext;
+      const test = probe ? new probe() : null;
+      const bin = atob(String(reader.result).split(',')[1] || '');
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const done = (ok) => {
+        if (test) test.close();
+        if (!ok) { reject(new Error('This browser can\'t play that file. MP3, WAV and OGG work everywhere.')); return; }
+        const rec = { id: `snd-${Date.now().toString(36)}`, name: (file.name || 'My sound').replace(/\.[a-z0-9]+$/i, '').slice(0, 28), data: reader.result };
+        const list = readCustomSounds();
+        list.push(rec);
+        try {
+          localStorage.setItem(CUSTOM_SOUNDS_KEY, JSON.stringify(list));
+        } catch (e) {
+          reject(new Error('This browser has no room left for another sound. Delete one first.'));
+          return;
+        }
+        customSounds[rec.id] = { name: rec.name, data: rec.data };
+        decodeCustom(customSounds[rec.id]);
+        resolve(rec.id);
+      };
+      if (!test) { done(true); return; }
+      test.decodeAudioData(bytes.buffer).then(() => done(true)).catch(() => done(false));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+export function removeCustomSound(id) {
+  delete customSounds[id];
+  try { localStorage.setItem(CUSTOM_SOUNDS_KEY, JSON.stringify(readCustomSounds().filter((r) => r.id !== id))); } catch (e) { /* storage unavailable */ }
+}
+
+function playCustom(id, gain = 1) {
+  const c = customSounds[id];
+  if (!ctx || !c || volume === 0) return;
+  if (!c.buffer) { decodeCustom(c); return; }
+  const src = ctx.createBufferSource();
+  src.buffer = c.buffer;
+  const g = ctx.createGain();
+  g.gain.value = gain;
+  src.connect(g).connect(master);
+  src.start();
 }
 
 export function setVolume(v) {
@@ -106,6 +227,7 @@ function sweep(dur, f0, f1, { gain = 0.2, q = 1, delay = 0 } = {}) {
 // Fire sounds the player can pick per gun. 'auto' uses the gun's own.
 export const FIRE_SOUNDS = {
   auto: 'Match the gun',
+  champions: 'Champions 2021 Vandal',
   suppressed: 'Suppressed thump',
   rifle: 'Rifle crack',
   heavy: 'Heavy rifle',
@@ -116,7 +238,29 @@ export const FIRE_SOUNDS = {
   off: 'Silent',
 };
 
+// Kill sounds. 'auto' uses the gun's own.
+export const KILL_SOUNDS = {
+  auto: 'Match the gun',
+  classic: 'Classic ping',
+  champions: 'Champions 2021 streak (made in code)',
+  off: 'Silent',
+};
+
 const GUN_SOUNDS = {
+  // The Champions 2021 Vandal's recorded shot. Until it has decoded, a
+  // synthesised stand-in: a heavy crack with a bright metallic ring.
+  champions() {
+    if (playSample('champions')) return;
+    noise(0.05, { filter: 'highpass', freq: 3000, q: 0.7, gain: 0.34 });
+    noise(0.14, { freq: 1500, q: 0.55, gain: 0.34 });
+    tone(92, 0.13, { type: 'triangle', gain: 0.3, slide: -40 });
+    tone(46, 0.18, { type: 'sine', gain: 0.22, slide: -14 });
+    // Ring: inharmonic partials, like a struck bell.
+    tone(1870, 0.2, { type: 'sine', gain: 0.045, delay: 0.004 });
+    tone(2790, 0.14, { type: 'sine', gain: 0.03, delay: 0.004 });
+    tone(4150, 0.09, { type: 'sine', gain: 0.018, delay: 0.004 });
+    noise(0.16, { filter: 'lowpass', freq: 520, q: 0.7, gain: 0.07, delay: 0.03 });
+  },
   suppressed() {
     noise(0.07, { freq: 1400, q: 0.9, gain: 0.16 });
     tone(140, 0.06, { gain: 0.12, slide: -60 });
@@ -167,8 +311,29 @@ const GUN_SOUNDS = {
   off() {},
 };
 
+// Champions-style kill: a bright bell arpeggio that starts higher with each
+// kill of a streak; the fifth adds a full chord and a shimmer.
+function championsKill(level) {
+  const L = Math.max(1, Math.min(5, level));
+  const root = 523.25 * 2 ** ((L - 1) * 2 / 12); // up a whole tone per kill
+  const steps = [0, 4, 7, 12].slice(0, Math.min(4, L + 1));
+  steps.forEach((st, i) => {
+    const f = root * 2 ** (st / 12);
+    tone(f, 0.32, { type: 'triangle', gain: 0.13, delay: i * 0.055 });
+    tone(f * 2.01, 0.2, { type: 'sine', gain: 0.045, delay: i * 0.055 });
+  });
+  noise(0.06, { freq: 7000, q: 1.5, gain: 0.05 });
+  if (L >= 5) {
+    for (const st of [0, 4, 7, 12, 16]) tone(root * 2 ** (st / 12), 0.7, { type: 'triangle', gain: 0.07, delay: 0.24 });
+    sweep(0.8, 3000, 9000, { gain: 0.05, q: 3, delay: 0.24 });
+  }
+}
+
 export const sfx = {
-  gun(kind) { (GUN_SOUNDS[kind] || GUN_SOUNDS.rifle)(); },
+  gun(kind) {
+    if (customSounds[kind]) { playCustom(kind); return; }
+    (GUN_SOUNDS[kind] || GUN_SOUNDS.rifle)();
+  },
   // Knife: the blade drawn with a bright ring, slashes, a stab, inspect spins.
   knifeDraw() {
     sweep(0.24, 2600, 7800, { gain: 0.12, q: 2.2 });
@@ -197,7 +362,12 @@ export const sfx = {
     tone(900, 0.04, { type: 'square', gain: 0.06, delay: 3.4 });
   },
   shot() { noise(0.05, { freq: 3200, q: 0.8, gain: 0.12 }); },
-  kill() {
+  // `kind` from KILL_SOUNDS or a custom sound id; `level` 1-5 is the kill's
+  // place in a streak (the Champions sound climbs with it).
+  kill(kind = 'classic', level = 1) {
+    if (kind === 'off') return;
+    if (customSounds[kind]) { playCustom(kind); return; }
+    if (kind === 'champions') { championsKill(level); return; }
     tone(1180, 0.07, { type: 'triangle', gain: 0.22 });
     tone(1770, 0.09, { type: 'triangle', gain: 0.16, delay: 0.035 });
   },

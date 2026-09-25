@@ -7,7 +7,9 @@ import {
   DEFAULTS, GAMES, CROSSHAIR_STYLES, degPerCount, cmPer360,
 } from './settings.js';
 import { drawCrosshair } from './crosshair.js';
-import { initAudio, setVolume, sfx, FIRE_SOUNDS } from './audio.js';
+import {
+  initAudio, setVolume, sfx, FIRE_SOUNDS, KILL_SOUNDS, loadCustomSounds, customSoundList, addCustomSound, removeCustomSound,
+} from './audio.js';
 import { GUNS, ZONE_LABELS } from './guns.js';
 import { MODEL_INFO } from './models.js';
 import {
@@ -587,7 +589,9 @@ function renderWeapon() {
   $('w-seed').value = sk.seed;
   $('w-suppressor-wrap').hidden = weaponGun !== 'm4a1s';
   $('w-suppressor').checked = sk.suppressor !== false;
-  $('w-sound').value = sk.sound || 'auto';
+  $('w-sound').value = FIRE_SOUNDS[sk.sound] || customSoundList().some(([id]) => id === sk.sound) ? sk.sound : 'auto';
+  $('w-kill-sound').value = KILL_SOUNDS[sk.killSound] || customSoundList().some(([id]) => id === sk.killSound) ? sk.killSound : 'auto';
+  $('w-snd-delete').hidden = !customSoundList().some(([id]) => id === sk.sound || id === sk.killSound);
   $('w-show').checked = settings.weapon.show;
   $('w-sounds').checked = settings.weapon.sounds;
   $('w-hand-right').checked = settings.weapon.hand !== 'left';
@@ -768,7 +772,14 @@ fill($('w-pattern'), Object.entries(PATTERNS));
 fill($('w-finish'), Object.entries(FINISHES).map(([k, f]) => [k, f.label]));
 fill($('w-fx-type'), Object.entries(FX_TYPES));
 fill($('w-st-finish'), Object.entries(STICKER_FINISHES));
-fill($('w-sound'), Object.entries(FIRE_SOUNDS));
+// Fire and kill sound lists, with the player's own sound files at the end.
+loadCustomSounds();
+function fillSounds() {
+  const mine = customSoundList().map(([id, name]) => [id, `My sound: ${name}`]);
+  fill($('w-sound'), [...Object.entries(FIRE_SOUNDS), ...mine]);
+  fill($('w-kill-sound'), [...Object.entries(KILL_SOUNDS), ...mine]);
+}
+fillSounds();
 
 for (const b of document.querySelectorAll('.gun-chip')) {
   b.addEventListener('click', () => {
@@ -871,12 +882,58 @@ $('w-st-color').addEventListener('change', renderStickers);
 $('w-sound').addEventListener('change', (e) => {
   skinOf().sound = e.target.value;
   skinChanged(false);
+  $('w-snd-delete').hidden = !customSoundList().some(([id]) => id === skinOf().sound || id === skinOf().killSound);
 });
 $('w-sound-test').addEventListener('click', () => {
   initAudio();
   const sk = skinOf();
   sfx.gun(sk.sound && sk.sound !== 'auto' ? sk.sound : GUNS[weaponGun].sound(sk));
 });
+$('w-kill-sound').addEventListener('change', (e) => {
+  skinOf().killSound = e.target.value;
+  skinChanged(false);
+  renderWeapon();
+});
+const killKind = () => {
+  const sk = skinOf();
+  return sk.killSound && sk.killSound !== 'auto' ? sk.killSound : GUNS[weaponGun].killSound || 'classic';
+};
+$('w-kill-test').addEventListener('click', () => {
+  initAudio();
+  const kind = killKind();
+  for (let i = 0; i < 5; i++) setTimeout(() => sfx.kill(kind, i + 1), i * 450);
+});
+$('w-snd-add').addEventListener('click', () => $('w-snd-upload').click());
+$('w-snd-upload').addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  initAudio();
+  try {
+    const id = await addCustomSound(file);
+    fillSounds();
+    // New files go on firing; pick them for kills from the list.
+    skinOf().sound = id;
+    skinChanged(false);
+    renderWeapon();
+    $('w-snd-note').textContent = `Added "${customSoundList().find(([k]) => k === id)[1]}" as this gun's fire sound. You can also choose it as the kill sound.`;
+  } catch (err) {
+    $('w-snd-note').textContent = err.message;
+  }
+});
+$('w-snd-delete').addEventListener('click', (e) => armButton(e.currentTarget, 'Delete this sound file', () => {
+  const sk = skinOf();
+  const id = customSoundList().map(([k]) => k).find((k) => k === sk.sound || k === sk.killSound);
+  if (!id) return;
+  for (const s2 of Object.values(skins)) {
+    if (s2.sound === id) s2.sound = 'auto';
+    if (s2.killSound === id) s2.killSound = 'auto';
+  }
+  removeCustomSound(id);
+  fillSounds();
+  skinChanged(false);
+  renderWeapon();
+}));
 const viewInput = (id, apply) => {
   $(id).addEventListener('input', (e) => {
     apply(e.target);

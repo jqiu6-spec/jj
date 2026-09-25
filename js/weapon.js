@@ -4,6 +4,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { GUNS, buildGun } from './guns.js';
 import { MODEL_INFO, loadDetailedGun } from './models.js';
+import { Effects } from './effects.js';
 import {
   SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, woodCanvas, stickerCanvas, STICKERS,
 } from './skins.js';
@@ -99,6 +100,22 @@ function flashTexture() {
 }
 
 const FLASH_PLAIN = new THREE.Color('#ffc46a');
+
+// Soft grey puff for the smoke a sniper shot leaves at the muzzle.
+function smokeTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0, 'rgba(255,255,255,0.9)');
+  grd.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 
 function stickerMaterial(finish, map) {
   const base = { map, alphaTest: 0.4, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 };
@@ -366,7 +383,9 @@ class GunView {
   // factory parts): a faint base plus a pulse per shot.
   setGlow(dt) {
     this.glowPulse *= Math.exp(-dt * 9);
-    const k = this.glowBase + this.glowPulse;
+    // Only a skin with its glow switched on lights up; shots never tint the
+    // paint otherwise.
+    const k = this.glowBase > 0 ? this.glowBase + this.glowPulse : 0;
     for (const m of this.inUse) {
       if (!m.emissive) continue;
       if (k > 0.001) {
@@ -428,6 +447,11 @@ export class Viewmodel {
     this.hand.add(this.rig);
     this.scene.add(this.hand);
     this.flashMap = flashTexture();
+    this.smokeMap = smokeTexture();
+    this.puffs = [];
+    this.heavyFlash = false;
+    // Test shots in the Weapon tab fly from the turntable gun in this scene.
+    this.fx = new Effects(this.scene);
     this.guns = {};
     this.current = null;
 
@@ -496,13 +520,54 @@ export class Viewmodel {
     this.swayY = Math.max(-0.05, Math.min(0.05, this.swayY + dy * 0.5));
   }
 
+  // `heavy` is a sniper shot: a bigger, longer blast, a hard kick and smoke.
   shot(heavy = false) {
-    this.kick = Math.min(heavy ? 3 : 1.4, this.kick + (heavy ? 3 : 1));
-    this.flashT = 0.045;
-    if (this.current) {
-      this.current.flash.material.rotation = Math.random() * TAU;
-      this.current.glowPulse = Math.min(1, this.current.glowPulse + 0.5);
+    this.kick = Math.min(heavy ? 3.4 : 1.4, this.kick + (heavy ? 3.4 : 1));
+    this.flashT = heavy ? 0.075 : 0.045;
+    this.heavyFlash = heavy;
+    const gv = this.current;
+    if (!gv) return;
+    gv.flash.material.rotation = Math.random() * TAU;
+    gv.glowPulse = Math.min(1, gv.glowPulse + 0.5);
+    if (heavy && gv.muzzle) {
+      for (let i = 0; i < 5; i++) this.puff(gv, i);
     }
+  }
+
+  puff(gv, i) {
+    let p = this.puffs.find((x) => x.life <= 0);
+    if (!p) {
+      p = {
+        sprite: new THREE.Sprite(new THREE.SpriteMaterial({ map: this.smokeMap, color: 0xc4c8cf, transparent: true, depthWrite: false })),
+        vel: new THREE.Vector3(),
+        life: 0,
+      };
+      this.puffs.push(p);
+    }
+    if (p.sprite.parent !== gv.root) gv.root.add(p.sprite);
+    p.sprite.visible = true;
+    p.sprite.material.rotation = Math.random() * TAU;
+    p.sprite.position.set(gv.muzzle.x + 0.02 + i * 0.015, gv.muzzle.y, 0);
+    // Gun space: +X out of the muzzle, drifting up and spreading.
+    p.vel.set(0.35 + Math.random() * 0.5, 0.05 + Math.random() * 0.12, (Math.random() - 0.5) * 0.2);
+    p.max = 0.7 + Math.random() * 0.5;
+    p.life = p.max;
+    p.size = 0.04 + Math.random() * 0.03;
+  }
+
+  // A test shot from the turntable gun's muzzle along its barrel, shown in
+  // slow motion so the skin's effect can be seen in the Weapon tab.
+  testShot(fx) {
+    const gv = this.current;
+    if (!gv || !gv.muzzle || this.mode !== 'inspect') return;
+    this.fx.setStyle(fx.type, fx.color);
+    // Built in gun space and carried by the gun, so the shot stays on the
+    // barrel's line while the turntable moves and the gun recoils.
+    if (this.fx.group.parent !== gv.root) gv.root.add(this.fx.group);
+    const len = (gv.model.front - gv.model.rear) * 2.2;
+    const from = new THREE.Vector3(gv.muzzle.x, gv.muzzle.y, 0);
+    const to = new THREE.Vector3(gv.muzzle.x + len, gv.muzzle.y, 0);
+    this.fx.shot(from, to, false, { burst: false, maxTravel: Infinity });
   }
 
   // Held fire at `interval` seconds per round. Returns rounds fired now.
@@ -547,6 +612,17 @@ export class Viewmodel {
     this.swayX *= Math.exp(-dt * 7);
     this.swayY *= Math.exp(-dt * 7);
     this.flashT -= dt;
+    this.fx.update(mode === 'inspect' ? dt * 0.3 : dt);
+    for (const p of this.puffs) {
+      if (p.life <= 0) continue;
+      p.life -= dt;
+      const k = Math.max(0, p.life / p.max);
+      p.vel.multiplyScalar(Math.exp(-dt * 2.5));
+      p.sprite.position.addScaledVector(p.vel, dt);
+      p.sprite.scale.setScalar(p.size * (1 + (1 - k) * 4));
+      p.sprite.material.opacity = 0.32 * k;
+      if (p.life <= 0) p.sprite.visible = false;
+    }
     const gv = this.current;
     if (!gv) return;
     gv.setGlow(dt);
@@ -554,10 +630,10 @@ export class Viewmodel {
     const gun = gv.root;
     const { rear, front } = gv.model;
     gv.flash.visible = this.flashT > 0;
-    const big = gv.info.sniper ? 0.2 : 0.11;
+    const big = gv.info.sniper ? (this.heavyFlash ? 0.34 : 0.2) : 0.11;
     const s = gv.suppressed ? 0.035 : big;
     gv.flash.scale.set(s, s, s);
-    gv.flash.material.opacity = gv.suppressed ? 0.45 : 0.95;
+    gv.flash.material.opacity = gv.suppressed ? 0.45 : 1;
     if (mode === 'inspect') {
       this.camera.fov = 32;
       this.camera.updateProjectionMatrix();

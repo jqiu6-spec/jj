@@ -3,6 +3,7 @@
 let ctx = null;
 let master = null;
 let noiseBuf = null;
+let verb = null; // room echo for the sniper
 let volume = 0.6;
 
 export function initAudio() {
@@ -15,10 +16,31 @@ export function initAudio() {
   ctx = new AC();
   master = ctx.createGain();
   master.gain.value = volume;
-  master.connect(ctx.destination);
-  noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
+  // Soft clipper (out = tanh(in)): quiet sounds pass unchanged, and a loud
+  // sniper shot is rounded off instead of clipping harshly.
+  const pre = ctx.createGain();
+  pre.gain.value = 0.25;
+  const clip = ctx.createWaveShaper();
+  const curve = new Float32Array(2048);
+  for (let i = 0; i < curve.length; i++) curve[i] = Math.tanh(4 * ((i / (curve.length - 1)) * 2 - 1));
+  clip.curve = curve;
+  clip.oversample = '2x';
+  master.connect(pre).connect(clip).connect(ctx.destination);
+  noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  // Room echo: a decaying noise impulse, like a shot in a big hall.
+  const len = Math.floor(ctx.sampleRate * 1.6);
+  const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const ch = ir.getChannelData(c);
+    for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3.2;
+  }
+  verb = ctx.createConvolver();
+  verb.buffer = ir;
+  const wet = ctx.createGain();
+  wet.gain.value = 0.55;
+  verb.connect(wet).connect(master);
 }
 
 export function setVolume(v) {
@@ -26,7 +48,7 @@ export function setVolume(v) {
   if (master) master.gain.value = volume;
 }
 
-function tone(freq, dur, { type = 'sine', gain = 0.3, slide = 0, delay = 0 } = {}) {
+function tone(freq, dur, { type = 'sine', gain = 0.3, slide = 0, delay = 0, out = null } = {}) {
   if (!ctx || volume === 0) return;
   const t0 = ctx.currentTime + delay;
   const o = ctx.createOscillator();
@@ -37,25 +59,26 @@ function tone(freq, dur, { type = 'sine', gain = 0.3, slide = 0, delay = 0 } = {
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(gain, t0 + 0.004);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g).connect(master);
+  o.connect(g).connect(out || master);
   o.start(t0);
   o.stop(t0 + dur + 0.02);
 }
 
-function noise(dur, { freq = 2000, q = 1, gain = 0.2, delay = 0 } = {}) {
+function noise(dur, { freq = 2000, q = 1, gain = 0.2, delay = 0, filter = 'bandpass', out = null } = {}) {
   if (!ctx || volume === 0) return;
   const t0 = ctx.currentTime + delay;
   const src = ctx.createBufferSource();
   src.buffer = noiseBuf;
+  src.loop = true;
   const f = ctx.createBiquadFilter();
-  f.type = 'bandpass';
+  f.type = filter;
   f.frequency.value = freq;
   f.Q.value = q;
   const g = ctx.createGain();
   g.gain.setValueAtTime(gain, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  src.connect(f).connect(g).connect(master);
-  src.start(t0);
+  src.connect(f).connect(g).connect(out || master);
+  src.start(t0, Math.random() * 1.5);
   src.stop(t0 + dur + 0.02);
 }
 
@@ -92,13 +115,28 @@ const GUN_SOUNDS = {
     noise(0.07, { freq: 3000, q: 0.6, gain: 0.22 });
     tone(180, 0.05, { type: 'square', gain: 0.05, slide: -80 });
   },
+  // The AWP: a sharp crack, a heavy blast and a low boom that rolls round
+  // the room, far louder than the rifles, then the bolt worked by hand.
   sniper() {
-    noise(0.2, { freq: 900, q: 0.4, gain: 0.42 });
-    tone(60, 0.35, { type: 'triangle', gain: 0.32, slide: -25 });
-    noise(0.2, { freq: 400, q: 0.6, gain: 0.1, delay: 0.08 });
-    // Bolt cycling.
-    tone(1800, 0.025, { type: 'square', gain: 0.035, delay: 0.55 });
-    tone(1350, 0.03, { type: 'square', gain: 0.035, delay: 0.78 });
+    const bus = ctx && ctx.createGain();
+    if (bus) {
+      bus.gain.value = 0.75;
+      bus.connect(master);
+      bus.connect(verb);
+    }
+    noise(0.07, { filter: 'highpass', freq: 2500, q: 0.7, gain: 0.9, out: bus });
+    noise(0.3, { freq: 900, q: 0.5, gain: 0.85, out: bus });
+    noise(0.65, { filter: 'lowpass', freq: 190, q: 0.8, gain: 1.1, out: bus });
+    tone(58, 0.55, { type: 'sine', gain: 0.9, slide: -26, out: bus });
+    tone(140, 0.13, { type: 'triangle', gain: 0.35, slide: -70, out: bus });
+    noise(1.3, { filter: 'lowpass', freq: 650, q: 0.5, gain: 0.22, delay: 0.04, out: bus });
+    // Bolt: lift, pull back, push forward, lock down.
+    noise(0.03, { freq: 3500, q: 3, gain: 0.14, delay: 0.62 });
+    tone(1600, 0.02, { type: 'square', gain: 0.03, delay: 0.62 });
+    noise(0.09, { freq: 2200, q: 1.5, gain: 0.1, delay: 0.71 });
+    noise(0.06, { freq: 2700, q: 2, gain: 0.12, delay: 0.86 });
+    noise(0.03, { freq: 4000, q: 3, gain: 0.13, delay: 0.95 });
+    tone(1200, 0.025, { type: 'square', gain: 0.05, delay: 0.95 });
   },
   laser() { tone(1400, 0.12, { type: 'sawtooth', gain: 0.06, slide: -1100 }); },
   soft() {

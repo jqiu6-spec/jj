@@ -574,6 +574,9 @@ function renderWeapon() {
   $('w-fx-type').value = sk.fx.type;
   $('w-fx-color').value = sk.fx.color;
   $('w-fx-glow').checked = !!sk.fx.glow;
+  // The standard bullet has its own colour and no skin glow.
+  $('w-fx-color').disabled = sk.fx.type === 'none';
+  $('w-fx-glow').disabled = sk.fx.type === 'none';
   $('w-wear').value = sk.wear;
   $('w-scale').value = sk.scale;
   $('w-seed').value = sk.seed;
@@ -661,7 +664,7 @@ function renderPatternPreview() {
 function renderWeaponOutputs() {
   const sk = skinOf();
   $('w-fx-note').textContent = sk.fx.type === 'none'
-    ? 'No effect: a plain muzzle flash.'
+    ? 'A thin tracer from the muzzle, like CS2\'s, with sparks where it lands.'
     : `${FX_TYPES[sk.fx.type]} shots from the muzzle to the impact, with a burst where they land.`;
   $('w-preset-name').textContent = sk.preset === 'custom' ? 'Custom' : SKIN_PRESETS[sk.preset] ? SKIN_PRESETS[sk.preset].name : '';
   $('o-w-wear').textContent = `${sk.wear.toFixed(2)} · ${wearLabel(sk.wear)}`;
@@ -806,13 +809,19 @@ $('w-suppressor').addEventListener('change', (e) => {
   skinOf().suppressor = e.target.checked;
   skinChanged(false);
 });
-$('w-fx-type').addEventListener('input', (e) => { skinOf().fx.type = e.target.value; skinChanged(false); });
+$('w-fx-type').addEventListener('input', (e) => {
+  skinOf().fx.type = e.target.value;
+  skinChanged(false);
+  $('w-fx-color').disabled = e.target.value === 'none';
+  $('w-fx-glow').disabled = e.target.value === 'none';
+});
 $('w-fx-color').addEventListener('input', (e) => { skinOf().fx.color = e.target.value; skinChanged(false); });
 $('w-fx-glow').addEventListener('change', (e) => { skinOf().fx.glow = e.target.checked; skinChanged(false); });
 $('w-test-fire').addEventListener('click', () => {
   initAudio();
   game.vm.shot(GUNS[weaponGun].sniper);
   const sk = skinOf();
+  game.vm.testShot(sk.fx);
   if (settings.weapon.sounds) sfx.gun(sk.sound && sk.sound !== 'auto' ? sk.sound : GUNS[weaponGun].sound(sk));
 });
 $('w-random').addEventListener('click', () => {

@@ -4,7 +4,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 
 export const FX_TYPES = {
-  none: 'None',
+  none: 'Standard bullet',
   tracer: 'Tracer',
   plasma: 'Plasma bolt',
   flame: 'Flame',
@@ -15,6 +15,9 @@ export const FX_TYPES = {
 // Per-type tuning: bolt length and width in metres, speed in m/s, how many
 // trail ghosts a bolt leaves per second, impact burst size and lifetime.
 const TYPES = {
+  // Every gun fires a visible bullet: skins without an effect get a thin,
+  // warm tracer like CS2's, with a small puff of sparks where it lands.
+  none: { len: 1.6, width: 0.016, speed: 900, trail: 0, burst: 7, burstSpeed: 3.5, burstLife: 0.16, gravity: -5, standard: true },
   tracer: { len: 3, width: 0.045, speed: 140, trail: 0, burst: 8, burstSpeed: 4, burstLife: 0.18, gravity: 0 },
   plasma: { len: 1.2, width: 0.09, speed: 80, trail: 90, burst: 14, burstSpeed: 3, burstLife: 0.3, gravity: 0, ring: true },
   flame: { len: 0.9, width: 0.12, speed: 55, trail: 120, burst: 22, burstSpeed: 5, burstLife: 0.55, gravity: -6, embers: true },
@@ -38,6 +41,7 @@ const _b = new THREE.Vector3();
 const _c = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 const WHITE = new THREE.Color(1, 1, 1);
+const STANDARD_COLOR = '#ffdcaa';
 
 function glowTexture() {
   const c = document.createElement('canvas');
@@ -75,10 +79,11 @@ export class Effects {
   // Called when the equipped skin changes.
   setStyle(type, color) {
     this.type = TYPES[type] ? type : 'none';
-    this.color.set(color || '#ffffff');
+    this.color.set(this.type === 'none' ? STANDARD_COLOR : color || '#ffffff');
   }
 
-  get active() {
+  // A skin effect (not the standard bullet) is chosen.
+  get styled() {
     return this.type !== 'none';
   }
 
@@ -107,12 +112,13 @@ export class Effects {
   }
 
   // A shot from `from` to `to`. `hit` colours the impact as a hit or a miss.
-  shot(from, to, hit) {
-    if (!this.active) return;
+  // `burst: false` skips the impact (a preview shot into the air);
+  // `maxTravel` overrides how soon the shot must land.
+  shot(from, to, hit, { burst = true, maxTravel = MAX_TRAVEL } = {}) {
     const T = TYPES[this.type];
     if (T.bolt) {
       this.lightning(from, to);
-      this.burst(to, T, hit);
+      if (burst) this.burst(to, T, hit);
       this.flash(from, 0.07);
       return;
     }
@@ -129,7 +135,8 @@ export class Effects {
     b.total = b.dir.length();
     b.dir.normalize();
     b.dist = 0;
-    b.speed = Math.max(T.speed, b.total / MAX_TRAVEL);
+    b.speed = Math.max(T.speed, b.total / maxTravel);
+    b.burst = burst;
     b.len = Math.max(T.len, b.speed * STREAK_TIME);
     b.landed = false;
     b.life = 1;
@@ -225,7 +232,7 @@ export class Effects {
       const tail = Math.max(0, b.dist - b.len);
       if (!b.landed && b.dist >= b.total) {
         b.landed = true;
-        this.burst(b.to, T, b.hit);
+        if (b.burst) this.burst(b.to, T, b.hit);
       }
       if (T.trail) {
         // Trail particles along the stretch covered this frame, a set number

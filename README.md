@@ -176,9 +176,12 @@ come faster than that rate.
 
 ### Fire effects
 
-Each skin has a fire effect, the way Valorant skins do: **tracer**, **plasma
-bolt**, **flame**, **spectral** or **lightning**, in any colour, with an optional
-glow on the skin that brightens with every shot. The muzzle flash takes the
+Every shot shows a bullet in every mode (tracking, clicking and sniping, scoped
+or not). Skins without an effect fire the **standard bullet**, a thin warm
+tracer like CS2's with a puff of sparks where it lands. A skin can instead have
+a fire effect, the way Valorant skins do: **tracer**, **plasma bolt**,
+**flame**, **spectral** or **lightning**, in any colour, with an optional glow
+on the skin that brightens with every shot. The muzzle flash takes the
 effect's colour, shots fly from the muzzle to wherever they land (a target, a
 crate or the wall), a burst marks the impact, and kills pop in the effect's
 colour. Shots start exactly at the muzzle as drawn, whatever the gun, pose,
@@ -186,7 +189,8 @@ sway or recoil, and start barrel-thin before widening, so nothing spills off
 the gun. Hits are instant, so every shot lands within one frame (at 60 fps):
 the bolt and its impact show together with the hit, never after it. Guns are
 held level and aimed so the barrel points at the crosshair, and each shot
-continues the barrel's line. **Test fire** previews the flash, glow and sound in the Weapon tab.
+continues the barrel's line. **Test fire** in the Weapon tab fires one shot from the turntable gun in slow
+motion, with its flash, glow and sound.
 Presets come with effects (Fade is a plasma bolt, Ember Tiger flame, Cobalt Hex
 lightning, Neon Splatter spectral).
 
@@ -203,7 +207,10 @@ wrap around curved magazines and receivers.
 Choose a sound for each gun: suppressed, rifle crack, heavy rifle, SMG snap,
 sniper boom, laser, soft click or silent. **Match the gun** picks one
 automatically, and taking the M4A1-S suppressor off switches it to the rifle
-crack.
+crack. The AWP is the loudest by far, like in CS2: a sharp crack, a heavy blast
+and a low boom that echoes round the room, then the bolt worked by hand. Its
+shot also throws a bigger muzzle blast and smoke, and kicks the view up for a
+moment without moving your aim.
 
 ### Gun models
 

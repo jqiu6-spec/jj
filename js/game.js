@@ -162,6 +162,7 @@ export class Game {
     this.inspect = null; // gun id shown on the turntable, or null
     this.zoomLevel = 0; // 0 unscoped, 1 = 2.5x, 2 = 5x
     this.scopeT = 0; // 0..1 progress into the current zoom
+    this.punch = 0; // view kick from a sniper shot, decays to 0 (visual only)
     this.vm = new Viewmodel(this.renderer);
     this.applySettings(settings);
 
@@ -696,7 +697,6 @@ export class Game {
   // Fire-effect tracer from the gun's muzzle to where the shot lands: the
   // target hit, else the nearest crate or wall along `dir`.
   tracer(dir, hitDist) {
-    if (!this.fx.active) return;
     let dist = hitDist;
     if (!(dist > 0)) {
       _ray.set(this.eye, dir);
@@ -743,6 +743,7 @@ export class Game {
     const settled = this.zoomLevel ? this.scopeT : 0;
     if (settled < 1) r.unscoped++;
     this.vm.shot(true);
+    this.punch = 1;
     this.fireSound();
     this.updateForward();
     const dir = this.fwd.clone();
@@ -796,7 +797,7 @@ export class Game {
     }
     p.life = 0.22;
     p.base = t.shape === 'agent' ? 0.45 : t.radius;
-    p.mesh.material.color.copy(this.fx.active ? this.fx.color : this.hitColor);
+    p.mesh.material.color.copy(this.fx.styled ? this.fx.color : this.hitColor);
     this.center(t, p.mesh.position);
     p.mesh.visible = true;
   }
@@ -848,7 +849,9 @@ export class Game {
       this.applyZoom();
     }
     this.camera.position.copy(this.eye);
-    this.camera.rotation.set(this.pitch, this.yaw, 0);
+    // A sniper shot kicks the view up for a moment; aim itself doesn't move.
+    this.punch *= Math.exp(-dt * 11);
+    this.camera.rotation.set(this.pitch + this.punch * 0.014, this.yaw, 0);
     this.updateTargetVisuals(dt);
     this.updatePops(dt);
     this.fx.update(dt);

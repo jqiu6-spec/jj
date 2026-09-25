@@ -17,6 +17,16 @@ const ICONS = {
     s('circle', { cx: 32, cy: 24, r: 14, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5, opacity: 0.35 }),
     dot(42, 30, 4),
   ],
+  sphere: () => [
+    s('path', { ...common, d: 'M8 30 L18 12 L30 34 L42 8 L52 24 L58 16', opacity: 0.55 }),
+    s('circle', { cx: 42, cy: 8, r: 3, fill: 'currentColor', opacity: 0.5 }),
+    dot(30, 34, 6),
+  ],
+  cinematic: () => [s('path', { ...common, d: 'M4 30 C 18 6, 30 6, 40 26 S 56 30, 60 18', opacity: 0.55 }), dot(40, 26, 6)],
+  speedtrack: () => [
+    s('path', { ...common, d: 'M6 24 H50 M14 16 L6 24 L14 32 M42 16 L50 24 L42 32', opacity: 0.55 }),
+    dot(28, 24),
+  ],
   orbit: () => [
     s('circle', { cx: 32, cy: 24, r: 17, fill: 'none', stroke: 'currentColor', 'stroke-width': 3, 'stroke-dasharray': '4 6', opacity: 0.55 }),
     s('circle', { cx: 32, cy: 24, r: 3, fill: 'currentColor' }),

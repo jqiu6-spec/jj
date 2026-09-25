@@ -341,6 +341,98 @@ function orbit({ rng, speed, size }) {
   };
 }
 
+/** Spheretrack: one ball roams the whole volume with sudden speed and direction changes. */
+function sphere({ rng, speed, size }) {
+  const radius = 0.42 * size;
+  const bounds = liftBounds({ min: { x: -6.5, y: 0.9, z: -17 }, max: { x: 6.5, y: 4.4, z: -9 } }, radius);
+  const position = { x: randomBetween(rng, -1, 1), y: EYE_HEIGHT + 0.4, z: -13 };
+  const velocity = { x: 0, y: 0, z: 0 };
+  const desired = { x: 0, y: 0, z: 0 };
+  let timer = 0;
+  return {
+    target: { kind: 'sphere', position, radius },
+    bounds,
+    update(dt) {
+      timer -= dt;
+      if (timer <= 0) {
+        const theta = randomBetween(rng, 0, Math.PI * 2);
+        const phi = randomBetween(rng, -0.6, 0.6);
+        const magnitude = randomBetween(rng, 3, 7.5) * speed;
+        desired.x = Math.cos(theta) * Math.cos(phi) * magnitude;
+        desired.y = Math.sin(phi) * magnitude * 0.8;
+        desired.z = Math.sin(theta) * Math.cos(phi) * magnitude * 0.7;
+        timer = randomBetween(rng, 0.35, 1.2) / Math.sqrt(speed);
+      }
+      const k = 1 - Math.exp(-9 * dt);
+      velocity.x += (desired.x - velocity.x) * k;
+      velocity.y += (desired.y - velocity.y) * k;
+      velocity.z += (desired.z - velocity.z) * k;
+      position.x += velocity.x * dt;
+      position.y += velocity.y * dt;
+      position.z += velocity.z * dt;
+      bounce(position, velocity, bounds, desired);
+    },
+  };
+}
+
+/** Cinematic: slow, silky sweeps at long range, built from overlapping sine waves. */
+function cinematic({ rng, speed, size }) {
+  const radius = 0.5 * size;
+  const bounds = liftBounds({ min: { x: -9, y: 1, z: -24 }, max: { x: 9, y: 5, z: -14 } }, radius);
+  let t = randomBetween(rng, 0, 100);
+  const phases = [randomBetween(rng, 0, 6.28), randomBetween(rng, 0, 6.28), randomBetween(rng, 0, 6.28)];
+  const rates = [randomBetween(rng, 0.28, 0.42), randomBetween(rng, 0.45, 0.62), randomBetween(rng, 0.2, 0.33)];
+  const position = { x: 0, y: 3, z: -19 };
+  const place = () => {
+    position.x = clamp(7.5 * Math.sin(rates[0] * t + phases[0]) + 1.5 * Math.sin(rates[1] * 1.7 * t), bounds.min.x, bounds.max.x);
+    position.y = clamp(3 + 1.7 * Math.sin(rates[1] * t + phases[1]), bounds.min.y, bounds.max.y);
+    position.z = clamp(-19 + 4.5 * Math.sin(rates[2] * t + phases[2]), bounds.min.z, bounds.max.z);
+  };
+  place();
+  return {
+    target: { kind: 'sphere', position, radius },
+    bounds,
+    update(dt) {
+      t += dt * speed;
+      place();
+    },
+  };
+}
+
+/** Speedtrack: horizontal only, very fast, with abrupt reversals and short stops. */
+function speedtrack({ rng, speed, size }) {
+  const radius = 0.45 * size;
+  const y = EYE_HEIGHT + 0.1;
+  const bounds = liftBounds({ min: { x: -7.5, y, z: -11 }, max: { x: 7.5, y, z: -11 } }, radius);
+  const position = { x: randomBetween(rng, -1, 1), y, z: -11 };
+  const top = 8.5 * speed;
+  const accel = 55 * speed;
+  let vx = 0;
+  let dir = randomSign(rng);
+  let timer = randomBetween(rng, 0.3, 0.8);
+  return {
+    target: { kind: 'sphere', position, radius },
+    bounds,
+    update(dt) {
+      timer -= dt;
+      if (timer <= 0) {
+        const roll = rng();
+        if (dir !== 0 && roll < 0.15) {
+          dir = 0;
+          timer = randomBetween(rng, 0.1, 0.3);
+        } else {
+          dir = dir === 0 ? randomSign(rng) : roll < 0.75 ? -dir : dir;
+          timer = randomBetween(rng, 0.3, 1.0) / Math.sqrt(speed);
+        }
+      }
+      if (position.x <= bounds.min.x + 0.5 && dir < 0) dir = 1;
+      if (position.x >= bounds.max.x - 0.5 && dir > 0) dir = -1;
+      vx = approach(vx, dir * top, accel * dt);
+      position.x = clamp(position.x + vx * dt, bounds.min.x, bounds.max.x);
+    },
+  };
+}
+
 export const SCENARIOS = [
   {
     id: 'smooth',
@@ -383,6 +475,27 @@ export const SCENARIOS = [
     focus: 'Arm aiming',
     description: 'The target circles all the way around you. Tests low sensitivity and big swipes.',
     create: orbit,
+  },
+  {
+    id: 'sphere',
+    name: 'Spheretrack',
+    focus: 'Ball tracking',
+    description: 'One ball roams the whole range with sudden speed and direction changes, in all three axes.',
+    create: sphere,
+  },
+  {
+    id: 'cinematic',
+    name: 'Cinematic Track',
+    focus: 'Smoothness',
+    description: 'Slow, silky sweeps at long range. Match the motion exactly and never overshoot.',
+    create: cinematic,
+  },
+  {
+    id: 'speedtrack',
+    name: 'Speedtrack',
+    focus: 'Speed',
+    description: 'Pure horizontal speed: a ball sprints side to side with abrupt reversals and short stops.',
+    create: speedtrack,
   },
 ];
 

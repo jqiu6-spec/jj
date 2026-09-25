@@ -72,6 +72,17 @@
                 </div>
               </div>
               <div class="scenario-grid" id="scenario-grid" role="radiogroup" aria-label="Scenario"></div>
+
+              <div class="section-head playlists-head">
+                <div>
+                  <h2 id="playlists-title">Playlists</h2>
+                  <p class="lede">Drills played back to back with one combined score. Build your own or start from a preset.</p>
+                </div>
+                <div class="actions">
+                  <button class="btn btn-secondary" type="button" id="new-playlist">New playlist</button>
+                </div>
+              </div>
+              <div class="playlist-grid" id="playlist-grid" aria-labelledby="playlists-title"></div>
             </div>
 
             <aside class="panel launch" aria-labelledby="launch-name">
@@ -267,6 +278,8 @@
               <p>Pick a weapon in the launch panel. Fire rates and damage follow Valorant’s close-range numbers; the hitboxes on the bot are head, body (with arms) and legs.</p>
               <dl class="def-list" id="guide-weapons"></dl>
               <p>Hold the left mouse button in the sensitivity check room to test-fire without scoring.</p>
+              <h3>Playlists</h3>
+              <p>A playlist runs drills back to back with a 5-second break between them and adds the scores up. Five presets ship with the app (Tracking Warm-up, Ball Tracking, Valorant Duel Prep, Precision &amp; Smoothness, All Drills); “New playlist” lets you pick your own drills, difficulties and lengths, and each preset can be copied as a starting point. Playlist bests are kept per playlist.</p>
               <h3>Skins</h3>
               <p>Settings → Skins lets you paint each weapon: body, accent and grip colours, a matte, satin, gloss or chrome finish, a stripe, hex, carbon or camo pattern, and a glowing accent. Pick a preset or build your own and watch it turn in the preview; the skin shows on your gun in every run.</p>
             </article>
@@ -396,9 +409,56 @@
             </details>
           </div>
           <p class="lock-error" id="results-error" role="alert" hidden></p>
+          <div class="playlist-banner" id="playlist-banner" hidden>
+            <div>
+              <span class="eyebrow" id="playlist-banner-eyebrow"></span>
+              <strong id="playlist-banner-next"></strong>
+              <span class="muted" id="playlist-banner-count"></span>
+            </div>
+            <div class="playlist-banner-actions">
+              <button class="btn btn-primary" type="button" data-action="next">Next drill <kbd>Enter</kbd></button>
+              <button class="btn btn-ghost btn-sm" type="button" data-action="stop-playlist">Stop playlist</button>
+            </div>
+          </div>
           <div class="overlay-actions">
-            <button class="btn btn-primary btn-xl" type="button" data-action="restart">Play again <kbd>Enter</kbd></button>
+            <button class="btn btn-primary btn-xl" type="button" data-action="restart" id="results-restart">Play again <kbd>Enter</kbd></button>
             <button class="btn btn-secondary" type="button" data-action="settings">Settings</button>
+            <button class="btn btn-ghost" type="button" data-action="menu">Menu <kbd>M</kbd></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="overlay-playlist" hidden>
+        <div class="overlay-card results-card" role="dialog" aria-labelledby="playlist-summary-title">
+          <div class="results-head">
+            <div>
+              <span class="eyebrow">Playlist complete</span>
+              <h2 id="playlist-summary-title"></h2>
+              <p class="muted" id="playlist-summary-meta"></p>
+            </div>
+            <div class="results-score">
+              <span class="hero-label">Total score</span>
+              <span class="hero-value" id="playlist-summary-score">0</span>
+              <span class="pb-badge" id="playlist-summary-pb"></span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" id="playlist-summary-table">
+              <thead>
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">Drill</th>
+                  <th scope="col">Difficulty</th>
+                  <th scope="col" class="num">Length</th>
+                  <th scope="col" class="num">Score</th>
+                  <th scope="col" class="num">Accuracy</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="overlay-actions">
+            <button class="btn btn-primary btn-xl" type="button" data-action="replay-playlist">Play again <kbd>Enter</kbd></button>
             <button class="btn btn-ghost" type="button" data-action="menu">Menu <kbd>M</kbd></button>
           </div>
         </div>
@@ -419,6 +479,32 @@
           <button class="btn btn-primary" type="button" data-close>Done</button>
         </footer>
       </div>
+    </dialog>
+
+    <!-- PLAYLIST EDITOR -->
+    <dialog class="settings playlist-dialog" id="playlist-dialog" aria-labelledby="playlist-dialog-title">
+      <form class="settings-card" id="playlist-form" method="dialog">
+        <header class="settings-head">
+          <h2 id="playlist-dialog-title">New playlist</h2>
+          <button class="btn btn-icon" type="button" data-close aria-label="Close editor">✕</button>
+        </header>
+        <div class="settings-body">
+          <label class="field">
+            <span class="label">Name</span>
+            <input class="input" id="playlist-name" type="text" maxlength="40" required autocomplete="off" />
+          </label>
+          <div class="field">
+            <span class="label">Drills, in order</span>
+            <div class="playlist-rows" id="playlist-rows"></div>
+            <button class="btn btn-secondary btn-sm" type="button" id="playlist-add">Add drill</button>
+            <p class="hint" id="playlist-total"></p>
+          </div>
+        </div>
+        <footer class="settings-foot">
+          <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+          <button class="btn btn-primary" type="submit">Save playlist</button>
+        </footer>
+      </form>
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

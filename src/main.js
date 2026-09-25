@@ -13,12 +13,14 @@ import { createSettingsStore } from './core/store.js';
 import { DIFFICULTIES, getScenario, resolveDifficulty, SCENARIOS } from './game/scenarios.js';
 import { getWeapon, WEAPONS } from './core/weapons.js';
 import { $, $$, bindRovingRadios, h, markRadios, setText } from './ui/dom.js';
-import { formatCm, formatInt, formatPercent } from './ui/format.js';
+import { formatCm, formatDuration, formatInt, formatPercent } from './ui/format.js';
 import { scenarioIcon } from './ui/icons.js';
 import { renderResults } from './ui/resultsView.js';
 import { createSensitivityControl } from './ui/sensitivityControl.js';
 import { createSettingsPanel } from './ui/settingsPanel.js';
 import { createStatsView } from './ui/statsView.js';
+import { createPlaylistView } from './ui/playlistView.js';
+import { loadPlaylistBests, loadPlaylists, playlistDuration, recordPlaylistResult, savePlaylists, upsertPlaylist } from './core/playlists.js';
 
 // ---------------------------------------------------------------- state
 
@@ -27,6 +29,14 @@ const store = createSettingsStore(loadSettings(storage), storage);
 const audio = createAudio();
 let stats = { history: loadHistory(storage) };
 stats.bests = loadBests(storage, stats.history);
+let playlists = loadPlaylists(storage);
+let playlistBests = loadPlaylistBests(storage);
+/** The playlist being played: { playlist, index, results } */
+let activePlaylist = null;
+/** The item the last run was started from (null = the launch panel's choice), for "Play again". */
+let lastItem = null;
+let nextTimer = null;
+const NEXT_DRILL_DELAY = 5;
 
 // three.js is only needed once a run starts, so it loads in the background.
 const enginePromise = import('./game/engine.js');
@@ -41,6 +51,7 @@ const els = {
     waiting: $('#overlay-waiting'),
     paused: $('#overlay-paused'),
     results: $('#overlay-results'),
+    playlist: $('#overlay-playlist'),
   },
   hud: {
     run: $('#hud-run'),
@@ -257,7 +268,7 @@ function hideOverlays() {
 function showOverlay(name) {
   hideOverlays();
   els.overlays[name].hidden = false;
-  const focusTarget = els.overlays[name].querySelector('[data-action="resume"], [data-action="restart"], .clickable');
+  const focusTarget = els.overlays[name].querySelector('[data-action="resume"], [data-action="restart"], [data-action="replay-playlist"], .clickable');
   focusTarget?.focus({ preventScroll: true });
 }
 
@@ -279,8 +290,9 @@ function updateCorners() {
   const raw = engine?.locked ? (engine.rawActive ? 'raw input on' : 'raw input off') : '';
   setText(els.hud.sens, [sensSummary(state), raw].filter(Boolean).join(' · '));
   const weapon = getWeapon(state.weapon).name;
+  const progress = activePlaylist ? `${activePlaylist.playlist.name} ${activePlaylist.index + 1}/${activePlaylist.playlist.items.length} · ` : '';
   if (engine?.mode === 'sandbox') setText(els.hud.scenario, `Sensitivity check room · ${weapon} (hold LMB to test-fire)`);
-  else if (engine?.run) setText(els.hud.scenario, `${engine.run.scenario.name} · ${engine.run.difficulty.label} · ${weapon}`);
+  else if (engine?.run) setText(els.hud.scenario, `${progress}${engine.run.scenario.name} · ${engine.run.difficulty.label} · ${weapon}`);
   setText(els.hud.cm360, formatCm(cmPer360(state.sensitivity, state.dpi)));
 }
 
@@ -303,8 +315,14 @@ async function lockPointer() {
   return engine?.requestLock();
 }
 
-async function startRun() {
+/**
+ * Start a scored run. With no item the launch panel's scenario, difficulty
+ * and duration are used; a playlist passes its own item.
+ */
+async function startRun(item = null) {
   audio.unlock();
+  clearTimeout(nextTimer);
+  lastItem = item;
   const state = store.get();
   showGame();
   // Ask for fullscreen while the click's user activation is still fresh.
@@ -313,15 +331,17 @@ async function startRun() {
   await fullscreen;
   if (!eng) return;
   eng.resize();
-  const scenario = getScenario(state.scenario);
-  const difficulty = currentDifficulty(state);
-  setText($('#waiting-eyebrow'), `${difficulty.label} · ${state.duration} s`);
+  const scenario = getScenario(item ? item.scenario : state.scenario);
+  const difficulty = item ? resolveDifficulty(item.difficulty) : currentDifficulty(state);
+  const duration = item ? item.duration : state.duration;
+  const progress = activePlaylist ? `${activePlaylist.playlist.name} · ${activePlaylist.index + 1}/${activePlaylist.playlist.items.length} · ` : '';
+  setText($('#waiting-eyebrow'), `${progress}${difficulty.label} · ${duration} s`);
   setText($('#waiting-title'), scenario.name);
   setText(
     $('#waiting-desc'),
     `${state.fireMode === 'hold' ? 'Hold left mouse to fire.' : 'Firing is automatic, just track.'} ${sensSummary(state)}.`,
   );
-  eng.prepareRun({ scenarioId: scenario.id, difficulty, duration: state.duration });
+  eng.prepareRun({ scenarioId: scenario.id, difficulty, duration });
   els.hud.run.hidden = false;
   els.hud.sandbox.hidden = true;
   updateCorners();
@@ -347,10 +367,102 @@ async function startSandbox() {
 }
 
 function goToMenu() {
+  stopPlaylist();
   engine?.quit();
   exitFullscreen();
   hideGame();
   updatePlayView();
+  playlistView.render();
+}
+
+// ---------------------------------------------------------------- playlists
+
+function startPlaylist(playlist) {
+  clearTimeout(nextTimer);
+  activePlaylist = { playlist, index: 0, results: [] };
+  startRun(playlist.items[0]);
+}
+
+function stopPlaylist() {
+  clearTimeout(nextTimer);
+  activePlaylist = null;
+  $('#playlist-banner').hidden = true;
+  $('#results-restart').replaceChildren('Play again ', h('kbd', {}, 'Enter'));
+}
+
+/** Move on after a drill: the next item, or the summary when the playlist is done. */
+function advancePlaylist() {
+  clearTimeout(nextTimer);
+  if (!activePlaylist) return;
+  const { playlist, index } = activePlaylist;
+  if (index + 1 < playlist.items.length) {
+    activePlaylist.index = index + 1;
+    startRun(playlist.items[activePlaylist.index]);
+  } else {
+    finishPlaylist();
+  }
+}
+
+/** Results banner between drills, with a countdown to the next one. */
+function showPlaylistBanner() {
+  const { playlist, index } = activePlaylist;
+  const banner = $('#playlist-banner');
+  const next = playlist.items[index + 1];
+  const done = !next;
+  setText($('#playlist-banner-eyebrow'), `Playlist · ${playlist.name}`);
+  setText($('#playlist-banner-count'), `Drill ${index + 1} of ${playlist.items.length} done`);
+  const nextButton = banner.querySelector('[data-action="next"]');
+  nextButton.replaceChildren(done ? 'Show summary ' : 'Next drill ', h('kbd', {}, 'Enter'));
+  $('#results-restart').replaceChildren('Retry this drill');
+  banner.hidden = false;
+  let left = NEXT_DRILL_DELAY;
+  const tick = () => {
+    const label = done ? 'Summary' : `Next: ${getScenario(next.scenario).name} · ${resolveDifficulty(next.difficulty).label} · ${next.duration} s`;
+    setText($('#playlist-banner-next'), `${label} · in ${left} s`);
+    if (left <= 0) {
+      advancePlaylist();
+      return;
+    }
+    left -= 1;
+    nextTimer = setTimeout(tick, 1000);
+  };
+  tick();
+  nextButton.focus({ preventScroll: true });
+}
+
+function finishPlaylist() {
+  const { playlist, results } = activePlaylist;
+  const total = results.reduce((sum, r) => sum + r.run.score, 0);
+  const accuracy = results.reduce((sum, r) => sum + r.run.accuracy * r.item.duration, 0) / Math.max(1, playlistDuration(playlist));
+  const outcome = recordPlaylistResult(storage, playlistBests, playlist, total);
+  playlistBests = outcome.bests;
+  setText($('#playlist-summary-title'), playlist.name);
+  setText($('#playlist-summary-meta'), `${results.length} drills · ${formatDuration(playlistDuration(playlist))} · ${formatPercent(accuracy)} accuracy overall`);
+  setText($('#playlist-summary-score'), formatInt(total));
+  const badge = $('#playlist-summary-pb');
+  badge.classList.toggle('is-best', outcome.isBest);
+  badge.textContent = outcome.isBest
+    ? outcome.previousBest
+      ? `New playlist best · +${formatInt(total - outcome.previousBest.score)}`
+      : 'First run · new playlist best'
+    : `Best ${formatInt(outcome.previousBest.score)}`;
+  $('#playlist-summary-table tbody').replaceChildren(
+    ...results.map(({ item, run }, i) =>
+      h(
+        'tr',
+        {},
+        h('td', {}, String(i + 1)),
+        h('td', {}, getScenario(item.scenario).name),
+        h('td', {}, resolveDifficulty(item.difficulty).label),
+        h('td', { class: 'num' }, `${item.duration} s`),
+        h('td', { class: 'num strong' }, formatInt(run.score)),
+        h('td', { class: 'num' }, formatPercent(run.accuracy)),
+      ),
+    ),
+  );
+  if (store.get().uiSounds) (outcome.isBest && outcome.previousBest ? audio.personalBest : audio.finish)();
+  $('#playlist-banner').hidden = true;
+  showOverlay('playlist');
 }
 
 function handleState(state) {
@@ -423,6 +535,12 @@ function handleFinish(result) {
     if (outcome.isPersonalBest && outcome.previousBest) audio.personalBest();
     else audio.finish();
   }
+  if (activePlaylist && lastItem) {
+    activePlaylist.results.push({ item: lastItem, run });
+    showPlaylistBanner();
+  } else {
+    $('#playlist-banner').hidden = true;
+  }
   updatePlayView();
 }
 
@@ -430,17 +548,28 @@ function bindGameLayer() {
   els.game.addEventListener('click', (event) => {
     const action = event.target.closest('[data-action]')?.dataset.action;
     if (action === 'menu') return goToMenu();
-    if (action === 'settings') return settingsPanel.open();
+    if (action === 'settings') {
+      clearTimeout(nextTimer);
+      return settingsPanel.open();
+    }
     if (action === 'resume') return lockPointer();
+    if (action === 'next') return advancePlaylist();
+    if (action === 'stop-playlist') {
+      stopPlaylist();
+      return;
+    }
+    if (action === 'replay-playlist') return startPlaylist(activePlaylist.playlist);
     if (action === 'restart') {
       if (engine?.mode === 'sandbox') return startSandbox();
-      return startRun();
+      // Retrying a playlist drill replaces its result.
+      if (activePlaylist) activePlaylist.results.pop();
+      return startRun(lastItem);
     }
     if (event.target.closest('#waiting-card')) lockPointer();
   });
 
   document.addEventListener('keydown', (event) => {
-    if (settingsPanel.isOpen || event.repeat) return;
+    if (settingsPanel.isOpen || playlistView.isOpen || event.repeat) return;
     const target = event.target;
     const typing = target.matches?.('input, select, textarea');
 
@@ -450,9 +579,22 @@ function bindGameLayer() {
       // A focused button handles Enter/Space itself; don't trigger a second action.
       const onButton = target.matches?.('button, a');
       if (visible === 'results') {
-        if ((event.key === 'Enter' && !onButton) || event.code === 'KeyR') {
+        if (event.key === 'Enter' && !onButton) {
           event.preventDefault();
-          startRun();
+          if (activePlaylist) advancePlaylist();
+          else startRun(lastItem);
+        } else if (event.code === 'KeyR') {
+          event.preventDefault();
+          if (activePlaylist) activePlaylist.results.pop();
+          startRun(lastItem);
+        } else if (event.code === 'KeyM' || event.key === 'Escape') {
+          event.preventDefault();
+          goToMenu();
+        }
+      } else if (visible === 'playlist') {
+        if (event.key === 'Enter' && !onButton) {
+          event.preventDefault();
+          startPlaylist(activePlaylist.playlist);
         } else if (event.code === 'KeyM' || event.key === 'Escape') {
           event.preventDefault();
           goToMenu();
@@ -472,6 +614,27 @@ function bindGameLayer() {
     }
   });
 }
+
+// ---------------------------------------------------------------- playlist UI
+
+const playlistView = createPlaylistView({
+  host: $('#playlist-grid'),
+  dialog: $('#playlist-dialog'),
+  getPlaylists: () => playlists,
+  getBests: () => playlistBests,
+  onPlay: (playlist) => startPlaylist(playlist),
+  onSave: (playlist) => {
+    playlists = savePlaylists(storage, upsertPlaylist(playlists, playlist));
+    playlistView.render();
+    toast(`Saved “${playlist.name}”.`);
+  },
+  onDelete: (id) => {
+    playlists = savePlaylists(storage, playlists.filter((p) => p.id !== id));
+    playlistView.render();
+    toast('Playlist deleted.');
+  },
+});
+$('#new-playlist').addEventListener('click', () => playlistView.openEditor(null));
 
 // ---------------------------------------------------------------- settings
 
@@ -511,6 +674,7 @@ statsView = createStatsView({
 buildPlayView();
 bindGameLayer();
 updatePlayView();
+playlistView.render();
 route();
 window.addEventListener('hashchange', route);
 window.addEventListener('pagehide', () => store.flush());

@@ -17,8 +17,13 @@ A browser aim trainer for **tracking** that uses your exact **Valorant sensitivi
     don't affect aim. There is also an input multiplier to calibrate other browsers.
   - A **Sensitivity check room** with heading markers every 45° and readouts for heading, total turn and physical
     mouse distance, so you can check a full 360 with a ruler.
-- **Six tracking scenarios:** Smooth Tracking, Strafe Bot (a humanoid bot A-D strafing at Valorant running speed),
-  Reactive Tracking, Air Tracking, Close-Range Micro and 360 Orbit.
+- **Nine tracking scenarios:** Smooth Tracking, Strafe Bot (a humanoid bot A-D strafing at Valorant running
+  speed), Reactive Tracking, Air Tracking, Close-Range Micro, 360 Orbit, plus three Aim Lab-style ball tasks:
+  Spheretrack (one ball roaming all three axes with sudden changes), Cinematic Track (slow long-range sweeps)
+  and Speedtrack (fast horizontal reversals).
+- **Playlists:** drills played back to back with a 5-second break and one combined score. Five presets ship
+  (Tracking Warm-up, Ball Tracking, Valorant Duel Prep, Precision & Smoothness, All Drills); build your own from
+  any drills, difficulties and lengths, or copy a preset and edit it. Playlist bests are kept per playlist.
 - **A precise target model.** The bot is an articulated range mannequin generated from a skeleton (head, neck,
   torso, shoulders, elbows, wrists, hips, knees, ankles) with high segment counts, painted panel seams and a
   visor. Its hitboxes are the same spheres and capsules the mesh is built from, so what you see is exactly what

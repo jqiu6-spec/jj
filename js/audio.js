@@ -1,7 +1,9 @@
-// Small synthesized sound set, plus recorded shots for the Champions Vandal
-// and the M4A1-S.
+// Small synthesized sound set, plus recorded sounds for the Vandal, M4A1-S,
+// AK-47 and AWP (shots, draws, the AWP's bolt) and CS:GO's headshot.
 // The AudioContext starts on the first user gesture.
-import { VANDAL_FIRE, M4A1S_FIRE } from './gun-sounds.js';
+import {
+  VANDAL_FIRE, M4A1S_FIRE, AK47_FIRE, AK47_DRAW, AWP_FIRE, AWP_BOLT_BACK, AWP_BOLT_FORWARD, AWP_DRAW, KNIFE_DRAW, HEADSHOT,
+} from './gun-sounds.js';
 
 let ctx = null;
 let master = null;
@@ -53,9 +55,33 @@ export function initAudio() {
   }
 }
 
-// Recorded fire sounds that ship with Trackline.
-const SAMPLE_DATA = { champions: VANDAL_FIRE, m4a1s: M4A1S_FIRE };
-const SAMPLE_GAIN = { champions: 0.22, m4a1s: 0.2 };
+// Recorded sounds that ship with Trackline.
+const SAMPLE_DATA = {
+  champions: VANDAL_FIRE,
+  m4a1s: M4A1S_FIRE,
+  ak47: AK47_FIRE,
+  awp: AWP_FIRE,
+  awpBoltBack: AWP_BOLT_BACK,
+  awpBoltForward: AWP_BOLT_FORWARD,
+  awpDraw: AWP_DRAW,
+  rifleDraw: AK47_DRAW,
+  knifeDraw: KNIFE_DRAW,
+  knifeFlip: KNIFE_DRAW,
+  headshot: HEADSHOT,
+};
+const SAMPLE_GAIN = {
+  champions: 0.22,
+  m4a1s: 0.2,
+  ak47: 0.24,
+  awp: 0.65,
+  awpBoltBack: 0.2,
+  awpBoltForward: 0.2,
+  awpDraw: 0.3,
+  rifleDraw: 0.22,
+  knifeDraw: 0.2,
+  knifeFlip: 0.1,
+  headshot: 0.28,
+};
 const samples = {}; // kind -> decoded AudioBuffers
 
 function b64ToBuffer(b64) {
@@ -65,17 +91,18 @@ function b64ToBuffer(b64) {
   return bytes.buffer;
 }
 
-// One of `kind`'s recordings, slightly re-pitched. False until decoded.
-function playSample(kind) {
+// One of `kind`'s recordings, slightly re-pitched (up to +-`pitch`), after
+// `delay` seconds. False until decoded.
+function playSample(kind, { delay = 0, pitch = 0.03 } = {}) {
   const list = samples[kind];
   if (!ctx || volume === 0 || !list || !list.length) return false;
   const src = ctx.createBufferSource();
   src.buffer = list[Math.floor(Math.random() * list.length)];
-  src.playbackRate.value = 0.97 + Math.random() * 0.06;
+  src.playbackRate.value = 1 + (Math.random() * 2 - 1) * pitch;
   const g = ctx.createGain();
   g.gain.value = SAMPLE_GAIN[kind] || 0.3;
   src.connect(g).connect(master);
-  src.start();
+  src.start(ctx.currentTime + delay);
   return true;
 }
 
@@ -230,6 +257,8 @@ export const FIRE_SOUNDS = {
   auto: 'Match the gun',
   champions: 'Champions 2021 Vandal (recorded)',
   m4a1s: 'M4A1-S suppressed (recorded)',
+  ak47: 'AK-47 (recorded)',
+  awp: 'AWP (recorded)',
   suppressed: 'Suppressed thump',
   rifle: 'Rifle crack',
   heavy: 'Heavy rifle',
@@ -247,6 +276,10 @@ export const KILL_SOUNDS = {
   champions: 'Champions 2021 streak (made in code)',
   off: 'Silent',
 };
+
+// When the AWP's bolt goes back and forward after a shot (seconds); the
+// viewmodel works the bolt at the same moments.
+export const AWP_BOLT_AT = [0.5, 0.92];
 
 const GUN_SOUNDS = {
   // CS2's M4A1-S with its suppressor, recorded; the synthesised thump
@@ -278,6 +311,22 @@ const GUN_SOUNDS = {
     noise(0.16, { freq: 2200, q: 0.45, gain: 0.3 });
     tone(110, 0.1, { type: 'triangle', gain: 0.2, slide: -50 });
     noise(0.18, { freq: 650, q: 0.7, gain: 0.06, delay: 0.03 });
+  },
+  // CS2's AK-47, recorded; the heavy rifle stands in until it decodes.
+  ak47() {
+    if (playSample('ak47')) return;
+    GUN_SOUNDS.heavy();
+  },
+  // CS2's AWP, recorded: the shot and its echo, then the bolt worked by
+  // hand while the gun cycles. The made-in-code boom stands in until the
+  // recordings decode.
+  awp() {
+    if (!playSample('awp', { pitch: 0.015 })) {
+      GUN_SOUNDS.sniper();
+      return;
+    }
+    playSample('awpBoltBack', { delay: AWP_BOLT_AT[0], pitch: 0.01 });
+    playSample('awpBoltForward', { delay: AWP_BOLT_AT[1], pitch: 0.01 });
   },
   heavy() {
     noise(0.2, { freq: 1500, q: 0.5, gain: 0.32 });
@@ -342,25 +391,39 @@ export const sfx = {
     if (customSounds[kind]) { playCustom(kind); return; }
     (GUN_SOUNDS[kind] || GUN_SOUNDS.rifle)();
   },
-  // Knife: the blade drawn with a bright ring, slashes, a stab, inspect spins.
+  // Knife, timed to the animations in knife.js: CS2's recorded flip as it's
+  // drawn and in the inspect, and whooshes for the slashes and the heavy.
   knifeDraw() {
+    if (playSample('knifeDraw', { delay: 0.05, pitch: 0.02 })) return;
     sweep(0.24, 2600, 7800, { gain: 0.12, q: 2.2 });
     tone(2950, 0.4, { type: 'sine', gain: 0.035, delay: 0.06 });
     tone(4420, 0.28, { type: 'sine', gain: 0.018, delay: 0.06 });
   },
-  slash() { sweep(0.2, 520, 2600, { gain: 0.22, q: 1.2 }); },
+  slash() { sweep(0.22, 520, 2600, { gain: 0.22, q: 1.2, delay: 0.03 }); },
   stab() {
-    sweep(0.3, 380, 1700, { gain: 0.24, q: 1 });
-    noise(0.09, { filter: 'lowpass', freq: 240, q: 0.7, gain: 0.3, delay: 0.3 });
+    sweep(0.14, 900, 2400, { gain: 0.08, q: 1.2, delay: 0.1 });
+    sweep(0.3, 380, 1700, { gain: 0.24, q: 1, delay: 0.36 });
   },
   knifeInspect() {
-    for (const d of [0.45, 0.7, 0.92, 1.15]) sweep(0.18, 700, 2200, { gain: 0.07, q: 1.4, delay: d });
-    tone(3100, 0.05, { type: 'triangle', gain: 0.03, delay: 2.3 });
+    for (const d of [0.25, 3.35]) {
+      if (!playSample('knifeFlip', { delay: d, pitch: 0.03 })) sweep(0.18, 700, 2200, { gain: 0.07, q: 1.4, delay: d });
+    }
+    tone(3100, 0.05, { type: 'triangle', gain: 0.03, delay: 3.1 });
   },
-  gunDraw() {
+  // A gun picked up: CS2's recorded draws (the AWP's own, the AK-47's for
+  // the rifles), or clicks made in code until they decode.
+  gunDraw(gunId) {
+    if (playSample(gunId === 'awp' ? 'awpDraw' : 'rifleDraw', { pitch: 0.02 })) return;
     noise(0.04, { freq: 3200, q: 2, gain: 0.08, delay: 0.14 });
     tone(1250, 0.025, { type: 'square', gain: 0.04, delay: 0.16 });
     tone(880, 0.03, { type: 'square', gain: 0.05, delay: 0.26 });
+  },
+  // A hit to the head: CS:GO's headshot, or a bright tink until it decodes.
+  headshot() {
+    if (playSample('headshot', { pitch: 0.02 })) return;
+    tone(2480, 0.18, { type: 'sine', gain: 0.09 });
+    tone(2900, 0.12, { type: 'sine', gain: 0.05 });
+    noise(0.04, { freq: 5000, q: 1.5, gain: 0.1 });
   },
   dry() { tone(2600, 0.02, { type: 'square', gain: 0.04 }); },
   scope() { noise(0.05, { freq: 5200, q: 4, gain: 0.04 }); },

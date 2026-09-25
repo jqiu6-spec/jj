@@ -251,7 +251,7 @@ function renderDetail() {
     ['Speed', d.speed],
   ];
   if (d.moves) rows.push(['Moves', d.moves]);
-  rows.push(['Weapon', `${d.fire}`], ['Scoring', d.scoring]);
+  rows.push(['Weapon', `${d.fire}`], ['Scoring', d.scoring], ['Controls', 'WASD moves · wheel or 3 knife, 1 gun · R restarts']);
   $('d-specs').innerHTML = rows.map(([k, val]) => `<dt>${k}</dt><dd>${val}</dd>`).join('');
 
   const beam = s.weapon.type === 'beam';
@@ -625,6 +625,7 @@ function renderWeapon() {
   $('w-snd-delete').hidden = !customSoundList().some(([id]) => id === sk.sound || id === sk.killSound);
   $('w-show').checked = settings.weapon.show;
   $('w-sounds').checked = settings.weapon.sounds;
+  $('w-headshot').checked = settings.weapon.headshot !== false;
   $('w-hand-right').checked = settings.weapon.hand !== 'left';
   $('w-hand-left').checked = settings.weapon.hand === 'left';
   $('w-fov').value = settings.weapon.fov;
@@ -934,6 +935,10 @@ const killKind = () => {
   const sk = skinOf();
   return sk.killSound && sk.killSound !== 'auto' ? sk.killSound : GUNS[weaponGun].killSound || 'classic';
 };
+$('w-hs-test').addEventListener('click', () => {
+  initAudio();
+  sfx.headshot();
+});
 $('w-kill-test').addEventListener('click', () => {
   initAudio();
   const kind = killKind();
@@ -980,6 +985,7 @@ const viewInput = (id, apply) => {
 };
 viewInput('w-show', (el) => { settings.weapon.show = el.checked; });
 viewInput('w-sounds', (el) => { settings.weapon.sounds = el.checked; });
+viewInput('w-headshot', (el) => { settings.weapon.headshot = el.checked; });
 viewInput('w-hand-right', () => { settings.weapon.hand = 'right'; });
 viewInput('w-hand-left', () => { settings.weapon.hand = 'left'; });
 viewInput('w-fov', (el) => { settings.weapon.fov = parseInt(el.value, 10); });
@@ -1142,12 +1148,18 @@ $('btn-clear-runs').addEventListener('click', (e) => armButton(e.currentTarget, 
   $('danger-msg').textContent = 'Run history cleared.';
 }));
 
+const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
 document.addEventListener('keydown', (e) => {
   const tag = e.target && e.target.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
   // Leave browser shortcuts (Cmd+R, Ctrl+R) alone.
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.code; // physical key, so it works on any keyboard layout
+  if (MOVE_KEYS.has(k)) {
+    if (game.state === 'running' || game.state === 'countdown') e.preventDefault();
+    game.moveKey(k, true);
+    return;
+  }
   if ((k === 'ShiftLeft' || k === 'ShiftRight') && !e.repeat) {
     game.scopePress();
   } else if (k === 'KeyR' && (game.state === 'running' || game.state === 'countdown')) {
@@ -1176,8 +1188,12 @@ document.addEventListener('keydown', (e) => {
   }
 });
 document.addEventListener('keyup', (e) => {
+  if (MOVE_KEYS.has(e.code)) game.moveKey(e.code, false);
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') game.scopeRelease();
 });
+// Let go of every movement key when the window loses focus, so nothing
+// keeps running on its own.
+window.addEventListener('blur', () => { for (const k of MOVE_KEYS) game.moveKey(k, false); });
 
 // Fullscreen helps on laptops: no browser chrome, and pointer lock stays put.
 const fsBtn = $('btn-fullscreen');

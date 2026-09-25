@@ -30,10 +30,11 @@ const TYPES = {
 const ramp = (d) => 0.25 + 0.75 * Math.min(1, Math.max(0, d) / 4);
 
 // Hits are instant (hitscan), so in play a shot is drawn as one: on the first
-// frame it is shown, the streak runs all the way from the muzzle to where it
-// lands, and the impact bursts with it. Then the streak pulls back toward the
-// impact and fades over TRACER_LIFE. Everything is timed in seconds, never in
-// frames, so every shot looks the same at 30, 60 or 144 fps.
+// frame it is shown, the streak runs straight from the muzzle to where it
+// lands, and the impact bursts with it. It stays put, with its start on the
+// muzzle, and fades out over TRACER_LIFE: nothing travels, drops or sways.
+// Everything is timed in seconds, never in frames, so every shot looks the
+// same at 30, 60 or 144 fps.
 const TRACER_LIFE = 0.07; // seconds
 // Weapon-tab test shots instead fly at the style's own speed, slowed down.
 const STREAK_TIME = 0.03; // seconds of travel the streak spans
@@ -359,7 +360,12 @@ export class Effects {
     }
   }
 
-  update(dt) {
+  // True while a hitscan streak shows, so the caller can pass its muzzle.
+  anchored() {
+    return this.bolts.some((b) => b.life > 0 && !b.travel);
+  }
+
+  update(dt, muzzle = null) {
     const T = TYPES[this.type];
     for (const b of this.bolts) {
       if (b.life <= 0) continue;
@@ -378,15 +384,22 @@ export class Effects {
           if (b.burst) this.burst(b.to, T, b.hit);
         }
       } else {
-        // Hitscan: full length at once, then the muzzle end pulls back toward
-        // the impact (slowly at first, so it stays on the gun a moment).
+        // Hitscan: muzzle to impact at once, held, then faded out. The start
+        // follows the muzzle (`muzzle`, when given) so it never comes off the
+        // barrel as the gun recoils.
         if (b.fresh) b.fresh = false;
         else b.t += dt;
+        if (muzzle) {
+          b.from.copy(muzzle);
+          b.dir.subVectors(b.to, b.from);
+          b.total = b.dir.length();
+          b.dir.normalize();
+          b.obj.quaternion.setFromUnitVectors(_a.set(0, 0, 1), b.dir);
+        }
         const u = b.t / TRACER_LIFE;
         head = b.total;
-        tail = b.total * Math.min(1, u) ** 3;
-        fade = u < 0.55 ? 1 : Math.max(0, 1 - (u - 0.55) / 0.45);
-        if (u >= 1) tail = b.total;
+        tail = u >= 1 ? b.total : 0;
+        fade = u < 0.4 ? 1 : Math.max(0, 1 - (u - 0.4) / 0.6);
       }
       if (T.trail) {
         // Trail particles along the stretch now drawn, a set number per metre.
@@ -402,7 +415,9 @@ export class Effects {
         while (n-- > 0) {
           const along = from + Math.random() * (head - from);
           _c.copy(b.from).addScaledVector(b.dir, along);
-          if (T.wave) _c.addScaledVector(_b, Math.sin(along * 1.6 + b.phase) * 0.08 * Math.min(1, along / 3));
+          // The spectral wave only on slow-motion test shots: in play the
+          // shot is a straight line.
+          if (T.wave && b.travel) _c.addScaledVector(_b, Math.sin(along * 1.6 + b.phase) * 0.08 * Math.min(1, along / 3));
           this.ghost(_c, T.width * (T.embers ? 2.5 : 1.6) * ramp(along), T.embers ? 0.25 : 0.18);
         }
       }
@@ -425,7 +440,6 @@ export class Effects {
       if (g.life <= 0) continue;
       g.life -= dt;
       g.a = Math.max(0, g.life / g.max) * 0.8;
-      if (T && T.embers) g.pos.y += dt * 0.6;
     }
     for (const s of this.sparks) {
       if (s.life <= 0) continue;

@@ -39,6 +39,7 @@ export const DEFAULTS = {
     hand: 'right',
     fov: 60, // viewmodel field of view
     sounds: true,
+    headshot: true, // CS:GO's headshot sound on hits to the head
     models: 'detailed', // 'detailed' real meshes, or 'simple' built-in models
   },
   sniper: {

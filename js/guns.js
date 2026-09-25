@@ -25,6 +25,7 @@ export const ZONE_LABELS = {
 export const GUNS = {
   m4a1s: {
     name: 'M4A1-S',
+    run: 5.72, // m/s running: CS2 225 units/s
     kind: 'Rifle',
     fireInterval: 0.1, // 600 rounds per minute
     blurb: 'Suppressed 5.56 carbine with a ribbed handguard. 600 rounds per minute; the suppressor comes off.',
@@ -33,14 +34,16 @@ export const GUNS = {
   },
   ak47: {
     name: 'AK-47',
+    run: 5.46, // m/s running: CS2 215 units/s
     kind: 'Rifle',
     fireInterval: 0.1,
     blurb: '7.62 rifle with a curved magazine and wood furniture. 600 rounds per minute.',
     zones: ['handguard', 'stock', 'grip', 'mag'],
-    sound: () => 'heavy',
+    sound: () => 'ak47',
   },
   xm7: {
     name: 'XM7',
+    run: 5.33, // m/s running: CS2 210 units/s (estimate)
     kind: 'Rifle',
     fireInterval: 0.075, // 800 rounds per minute
     blurb: 'The US Army\'s 6.8 mm rifle: long slotted handguard, flip-up sights, straight box magazine, folding stock. Fires at 800 rounds per minute here.',
@@ -49,6 +52,7 @@ export const GUNS = {
   },
   phantom: {
     name: 'Phantom',
+    run: 5.4, // m/s running: Valorant's run speed
     kind: 'Rifle',
     fireInterval: 1 / 11, // Valorant Phantom: 11 rounds per second
     blurb: 'Valorant\'s suppressed rifle. Fires at Valorant\'s 11 rounds per second.',
@@ -57,6 +61,7 @@ export const GUNS = {
   },
   vandal: {
     name: 'Vandal 2021',
+    run: 5.4, // m/s running: Valorant's run speed
     kind: 'Rifle',
     fireInterval: 1 / 9.75, // Valorant Vandal: 9.75 rounds per second
     blurb: 'Valorant\'s Vandal in the Champions 2021 finish. 9.75 rounds per second, a gold tracer, and a kill sound that climbs with each kill in a streak.',
@@ -68,14 +73,16 @@ export const GUNS = {
   },
   awp: {
     name: 'AWP',
+    run: 5.08, // m/s running: CS2 200 units/s, 100 scoped
     kind: 'Sniper',
     sniper: true,
-    blurb: 'Bolt-action sniper with a thumbhole stock. Used in sniping scenarios, where it handles like the Valorant Operator.',
+    blurb: 'Bolt-action sniper with a thumbhole stock. Used in sniping scenarios, with CS2 or Valorant Operator handling (Settings).',
     zones: ['scope', 'mag', 'butt'],
-    sound: () => 'sniper',
+    sound: () => 'awp',
   },
   karambit: {
     name: 'Karambit',
+    run: 6.35, // m/s running: CS2 250 units/s with a knife
     kind: 'Knife',
     melee: true,
     blurb: 'A curved claw knife with a finger ring. In a run, scroll the mouse wheel or press 3 to draw it and 1 to go back to your gun. Left click slashes, right click stabs, F inspects.',

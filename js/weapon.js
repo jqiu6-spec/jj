@@ -6,6 +6,7 @@ import { GUNS, buildGun } from './guns.js';
 import { MODEL_INFO, loadDetailedGun, decals } from './models.js';
 import { Effects } from './effects.js';
 import { sampleKnife, knifeLength } from './knife.js';
+import { AWP_BOLT_AT } from './audio.js';
 import {
   SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, woodCanvas, stickerCanvas, STICKERS, stickerRevision, championsWordmark,
 } from './skins.js';
@@ -551,9 +552,73 @@ const _kq = new THREE.Quaternion();
 const _up = new THREE.Vector3(0, 1, 0);
 const _right = new THREE.Vector3(1, 0, 0);
 const HOLSTER = 0.14; // seconds to lower the held weapon when switching
-const RAISE = 0.32; // seconds to bring a gun up
 const easeOut = (u) => 1 - (1 - u) ** 3;
 const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
+
+// Gun animations, as offsets from the resting pose: `p` moves the gun
+// (metres: x right, y up, z toward the viewer) and `r` turns it (radians:
+// roll about the barrel, where negative turns its right side up to the
+// view, then yaw, where positive swings the muzzle left, then pitch, where
+// positive lifts it). `ease` is how a segment arrives at its keyframe.
+const [BOLT_BACK, BOLT_HOME] = AWP_BOLT_AT;
+const REST = { p: [0, 0, 0], r: [0, 0, 0] };
+const GUN_ANIMS = {
+  // Picking a rifle up, as in CS2: it swings up from low on the right,
+  // turned to show its right side, and the charging handle is pulled back
+  // and let go (with the clicks of the recorded draw) before it settles.
+  draw: [
+    { t: 0, p: [0.06, -0.22, 0.07], r: [-0.25, 0.3, -0.95] },
+    { t: 0.25, p: [0.004, -0.016, 0.014], r: [-0.42, 0.06, 0.05], ease: 'out' },
+    { t: 0.4, p: [0.01, -0.03, 0.05], r: [-0.55, 0.1, 0.01] },
+    { t: 0.46, p: [0.002, -0.01, -0.006], r: [-0.38, 0.05, 0.08], ease: 'out' },
+    { t: 0.85, ...REST },
+  ],
+  // The AWP: up the same way, then rolled over to check the bolt.
+  drawSniper: [
+    { t: 0, p: [0.06, -0.24, 0.07], r: [-0.15, 0.3, -0.95] },
+    { t: 0.3, p: [0.004, -0.012, 0.012], r: [-0.05, 0.05, 0.05], ease: 'out' },
+    { t: 0.44, p: [0.002, -0.02, 0.018], r: [0.26, 0.04, 0.02] },
+    { t: 0.6, p: [0.002, -0.012, 0.01], r: [0.2, 0.03, 0.04] },
+    { t: 0.68, p: [0, -0.006, 0.002], r: [0.06, 0.02, 0.06], ease: 'out' },
+    { t: 1.0, ...REST },
+  ],
+  // The AWP's bolt worked after each shot, on the recorded bolt sounds:
+  // rolled over and rocked back as the bolt goes up and back, level again
+  // as it's pushed home.
+  bolt: [
+    { t: 0, ...REST },
+    { t: BOLT_BACK - 0.14, ...REST },
+    { t: BOLT_BACK, p: [0, -0.014, 0.022], r: [0.3, 0.02, 0.02], ease: 'out' },
+    { t: BOLT_HOME - 0.06, p: [0, -0.012, 0.03], r: [0.32, 0.02, 0.015] },
+    { t: BOLT_HOME, p: [0, -0.006, 0.004], r: [0.1, 0.01, 0.05], ease: 'out' },
+    { t: BOLT_HOME + 0.3, ...REST },
+  ],
+};
+const gunAnimLength = (name) => {
+  const keys = GUN_ANIMS[name];
+  return keys ? keys[keys.length - 1].t : 0;
+};
+const _ga = { p: [0, 0, 0], r: [0, 0, 0] };
+// Offsets of animation `name` at `t` seconds; all zero when none is playing.
+function sampleGunAnim(name, t) {
+  const keys = GUN_ANIMS[name];
+  if (!keys || t >= keys[keys.length - 1].t) {
+    _ga.p.fill(0);
+    _ga.r.fill(0);
+    return _ga;
+  }
+  let i = 0;
+  while (i < keys.length - 2 && t >= keys[i + 1].t) i++;
+  const a = keys[i];
+  const b = keys[i + 1];
+  const v = Math.min(1, Math.max(0, (t - a.t) / (b.t - a.t)));
+  const u = b.ease === 'out' ? easeOut(v) : easeInOut(v);
+  for (let k = 0; k < 3; k++) {
+    _ga.p[k] = a.p[k] + (b.p[k] - a.p[k]) * u;
+    _ga.r[k] = a.r[k] + (b.r[k] - a.r[k]) * u;
+  }
+  return _ga;
+}
 
 export class Viewmodel {
   constructor(renderer) {
@@ -594,7 +659,12 @@ export class Viewmodel {
     this.mode = 'play';
     this.detailed = true;
     this.onModel = null; // called with the gun id when a detailed model arrives
-    this.draw = 1; // 0..1 while a gun is raised into view
+    this.gunAnim = null; // playing gun animation (a draw, the AWP's bolt), or null
+    this.gunAnimT = 0;
+    this.onDraw = null; // called with the weapon id as it is drawn
+    this.drawnAt = -1; // this.t when the last draw started
+    this.moving = 0; // 0..1, how fast the player is running (set by the game)
+    this.stepPhase = 0;
     this.switching = null; // { id, skin, t } while the held weapon is lowered
     this.knifeAnim = null; // playing knife animation, or null for idle
     this.knifeT = 0;
@@ -621,11 +691,22 @@ export class Viewmodel {
     this.switching = { id, skin, t: 0 };
   }
 
+  // Draw the held weapon: a gun is picked up, a knife flipped out.
   startDraw() {
-    const melee = this.current && this.current.info.melee;
-    this.draw = melee ? 1 : 0;
+    const gv = this.current;
+    const melee = !!gv && !!gv.info.melee;
     this.knifeAnim = melee ? 'draw' : null;
     this.knifeT = 0;
+    this.gunAnim = melee ? null : gv && gv.info.sniper ? 'drawSniper' : 'draw';
+    this.gunAnimT = 0;
+    this.drawnAt = this.t;
+    if (gv && this.onDraw) this.onDraw(gv.id);
+  }
+
+  // Pick up the held weapon at the start of a run, unless a switch is under
+  // way or a draw started this frame.
+  pickUp() {
+    if (!this.switching && this.drawnAt !== this.t) this.startDraw();
   }
 
   get knifeOut() {
@@ -749,6 +830,10 @@ export class Viewmodel {
     gv.glowPulse = Math.min(1, gv.glowPulse + 0.5);
     if (heavy && gv.muzzle) {
       for (let i = 0; i < 5; i++) this.puff(gv, i);
+    }
+    if (heavy && gv.info.sniper) {
+      this.gunAnim = 'bolt';
+      this.gunAnimT = 0;
     }
   }
 
@@ -905,13 +990,17 @@ export class Viewmodel {
       }
     }
     const bob = Math.sin(this.t * 1.7) * 0.0018;
+    // Running: the weapon sways side to side and dips with each step.
+    this.stepPhase += dt * 9.5 * this.moving;
+    const runX = Math.sin(this.stepPhase) * 0.007 * this.moving;
+    const runY = -Math.abs(Math.cos(this.stepPhase)) * 0.008 * this.moving;
     if (gv.info.melee) {
       this.knifeT += dt;
       if (this.knifeAnim && this.knifeT >= knifeLength(this.knifeAnim)) this.knifeAnim = null;
       sampleKnife(this.knifeAnim, this.knifeT, _kp, _kq);
       rig.position.set(
-        _kp.x - this.swayX * 0.25,
-        _kp.y + bob + this.swayY * 0.2 - lower * 0.4,
+        _kp.x + runX - this.swayX * 0.25,
+        _kp.y + bob + runY + this.swayY * 0.2 - lower * 0.4,
         _kp.z + lower * 0.05,
       );
       rig.quaternion.copy(_kq);
@@ -919,21 +1008,22 @@ export class Viewmodel {
       rig.rotateOnWorldAxis(_right, -this.swayY * 0.8 - lower * 0.6);
       return;
     }
-    this.draw = Math.min(1, this.draw + dt / RAISE);
-    lower = Math.max(lower, 1 - easeOut(this.draw));
+    this.gunAnimT += dt;
+    if (this.gunAnim && this.gunAnimT >= gunAnimLength(this.gunAnim)) this.gunAnim = null;
+    const { p: ap, r: ar } = sampleGunAnim(this.gunAnim, this.gunAnimT);
     const P = (gv.model.detailed && DETAILED_POSE[gv.id]) || PLAY_POSE[gv.id];
     // Aim from the resting pose; sway, bob and recoil move it off briefly.
     _m.set(P.x, P.y, P.z);
     const aim = aimAt(_m, gv.muzzle ? gv.muzzle.y : 0, P.aim || CONVERGE);
     rig.position.set(
-      P.x - this.swayX * 0.25,
-      P.y + bob + this.swayY * 0.2 - this.kick * 0.004 - lower * 0.24,
-      P.z + this.kick * 0.022 + lower * 0.06,
+      P.x + ap[0] + runX - this.swayX * 0.25,
+      P.y + ap[1] + bob + runY + this.swayY * 0.2 - this.kick * 0.004 - lower * 0.24,
+      P.z + ap[2] + this.kick * 0.022 + lower * 0.06,
     );
     rig.rotation.set(
-      this.swayX * 0.4,
-      aim.yaw + this.swayX,
-      aim.pitch - this.swayY + this.kick * 0.03 - lower * 0.7,
+      ar[0] + this.swayX * 0.4,
+      aim.yaw + ar[1] + this.swayX,
+      aim.pitch + ar[2] - this.swayY + this.kick * 0.03 - lower * 0.7,
     );
   }
 

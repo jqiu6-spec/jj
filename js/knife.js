@@ -1,17 +1,15 @@
-// Karambit animations, keyframed in code and played in the first-person
-// view: draw, idle, alternating slashes, a heavy stab and an inspect. The
-// knife pivots on its ring (the model's origin), so spins turn it around the
-// finger the way a karambit is flipped.
+// Karambit animations, keyframed in code after CS2's and played in the
+// first-person view: draw, idle, alternating slashes, a heavy attack and an
+// inspect. The knife pivots on its ring (the model's origin), so spins turn
+// it around the finger the way a karambit is flipped.
 //
 // Knife space: the ring at the origin, the blade running toward -Y, the
 // cutting edge (the inside of the curve) toward +X, the flats facing ±Z.
 //
 // The grip is CS2's: the index finger through the ring at the left of the
 // fist, the blade coming out to the right and curling up at the tip, one
-// flat toward the view. Every keyframe is that grip moved and turned: `p` is
-// where the ring sits in the viewmodel camera's space (x right, y up,
-// -z ahead), `turn` rotates the hand about the camera's axes ([pitch, yaw,
-// roll] in radians), and `spin` turns the knife around the ring.
+// flat toward the view. In a keyframe, `p` is where the ring sits in the
+// viewmodel camera's space (x right, y up, -z ahead).
 import * as THREE from '../vendor/three.module.min.js';
 
 const TAU = Math.PI * 2;
@@ -28,59 +26,78 @@ export const KNIFE_IDLE = { p: [0.045, -0.032, -0.21], blade: [1, 0.12, -0.25], 
 
 const I = KNIFE_IDLE;
 const at = (dx, dy, dz) => [I.p[0] + dx, I.p[1] + dy, I.p[2] + dz];
-const idle = (t) => ({ t, p: I.p, turn: [0, 0, 0] });
+const idle = (t, spin = 0) => ({ t, p: I.p, spin });
 
-// ease: how a segment arrives at its keyframe.
+// Grips other than the resting one, as { blade, face } like KNIFE_IDLE.
+// Hanging: the knife dangles from the finger, blade down, mid-flip.
+const HANG = { blade: [0.15, -1, 0.1], face: [0, 0, 1] };
+// Upright: the fist held up with its back to you, the blade curving down
+// and round to the left, its flat toward you (CS2's inspect).
+const UPRIGHT = { blade: [-0.5, -1, 0.15], face: [0, 0, 1] };
+const UPRIGHT_TURNED = { blade: [-0.4, -1, 0.3], face: [0.4, 0, 0.9] };
+// Hammer grip up high: the blade pointing left from the top of the fist.
+const RAISED = { blade: [-1, -0.25, 0.15], face: [0, 0, 1] };
+const DRIVEN = { blade: [-0.5, -0.85, -0.3], face: [0.2, 0.3, 0.9] };
+
+// Modelled on CS2's karambit. A key gives the hand's place `p`, and either a
+// `grip` or a `turn` of the resting grip about the camera's axes ([pitch,
+// yaw, roll], radians); `spin` turns the knife around the ring (whole
+// turns, so a flip that ends back in the grip ends on a multiple of TAU).
+// `ease` is how a segment arrives at its key.
 export const KNIFE_ANIMS = {
-  // Flipped up around the finger into the grip.
+  // Drawn: the hand comes up on the right with the knife flipping round the
+  // finger, then drops into the grip.
   draw: [
-    { t: 0, p: at(0.08, -0.2, 0.05), turn: [0.3, 0, -0.6], spin: -2.5 * TAU },
-    { t: 0.5, p: at(-0.005, 0.01, 0), turn: [0, 0, 0.05], spin: -0.1 * TAU, ease: 'out' },
-    { t: 0.85, p: I.p, turn: [0, 0, 0], spin: 0 },
+    { t: 0, p: at(0.08, -0.2, 0.05), turn: [0.3, 0, -0.6], spin: -1.5 * TAU },
+    { t: 0.22, p: at(0.03, 0.035, 0), grip: HANG, spin: -0.5 * TAU, ease: 'out' },
+    { t: 0.4, p: at(0.02, 0.03, 0), grip: HANG, spin: 0 },
+    idle(0.8),
   ],
-  // Forehand: cock the wrist right, then sweep the fist left and forward
-  // so the blade swings round in front.
+  // Backhand: dip to the lower left, whip across the screen to the right.
   slash: [
     idle(0),
-    { t: 0.07, p: at(0.05, 0.03, 0.02), turn: [0, -0.35, 0.1], ease: 'out' },
-    { t: 0.2, p: at(-0.12, -0.04, -0.03), turn: [-0.15, 0.85, -0.2], ease: 'in' },
-    idle(0.48),
+    { t: 0.07, p: at(-0.12, -0.09, 0.03), turn: [0.3, 0.7, 0.4], ease: 'out' },
+    { t: 0.15, p: at(0, 0.02, -0.05), turn: [-0.1, 0, -0.2], ease: 'in' },
+    { t: 0.22, p: at(0.15, 0, -0.02), turn: [-0.2, -0.8, -0.5] },
+    { t: 0.32, p: at(0.07, -0.12, 0.02), turn: [0.2, -0.3, -0.2] },
+    { ...idle(0.5), ease: 'out' },
   ],
-  // Backhand: start across to the left, sweep back out to the right.
+  // Forehand: the other way, right to left.
   slash2: [
     idle(0),
-    { t: 0.08, p: at(-0.09, 0.04, 0), turn: [0, 0.9, 0.15], ease: 'out' },
-    { t: 0.21, p: at(0.07, -0.04, -0.05), turn: [0.1, -0.45, -0.25], ease: 'in' },
-    idle(0.5),
+    { t: 0.07, p: at(0.1, -0.08, 0.03), turn: [0.3, -0.6, -0.3], ease: 'out' },
+    { t: 0.15, p: at(-0.01, 0.02, -0.05), turn: [-0.1, 0.2, 0.2], ease: 'in' },
+    { t: 0.22, p: at(-0.14, 0, -0.02), turn: [-0.2, 0.9, 0.4] },
+    { t: 0.32, p: at(-0.06, -0.12, 0.02), turn: [0.2, 0.4, 0.2] },
+    { ...idle(0.5), ease: 'out' },
   ],
-  // Heavy stab: raise it with the tip back, then drive it forward and down.
+  // Heavy: raise the fist high on the right, blade out to the left, then
+  // drive it down through the middle and flip it back into the grip.
   stab: [
     idle(0),
-    { t: 0.22, p: at(0.02, 0.07, 0.08), turn: [0.2, -0.2, 0.7], ease: 'out' },
-    { t: 0.34, p: at(-0.03, -0.03, -0.08), turn: [-0.35, 0.75, -0.3], ease: 'in' },
-    { t: 0.55, p: at(-0.03, -0.035, -0.075), turn: [-0.35, 0.75, -0.3] },
-    idle(0.9),
+    { t: 0.1, p: at(0.02, -0.12, 0.03), turn: [0.3, 0, -0.2], ease: 'out' },
+    { t: 0.28, p: at(0.1, 0.1, 0.03), grip: RAISED, ease: 'out' },
+    { t: 0.45, p: at(0.1, 0.11, 0.035), grip: RAISED },
+    { t: 0.58, p: at(-0.02, -0.02, -0.1), grip: DRIVEN, ease: 'in' },
+    { t: 0.72, p: at(0.02, -0.06, -0.04), grip: DRIVEN },
+    { t: 0.85, p: at(0.02, -0.03, -0.01), turn: [0, 0, 0.2], spin: 0.6 * TAU },
+    { ...idle(1.0, TAU), ease: 'out' },
   ],
-  // Inspect: bring it to the middle, spin it twice around the finger, angle
-  // it to look down the blade, roll the wrist to show the other side, back.
+  // Inspect: a flip up into the upright hold in the middle of the screen,
+  // a long look at the blade, a turn of the wrist, then a flip back down.
   inspect: [
     idle(0),
-    { t: 0.4, p: [0.0, -0.01, -0.21], turn: [0, 0, 0.25], spin: 0, ease: 'out' },
-    { t: 1.45, p: [0.0, -0.01, -0.21], turn: [0, 0, 0.25], spin: 2 * TAU },
-    { t: 2.0, p: [-0.01, 0, -0.2], turn: [0, 0.35, 0.1], spin: 2 * TAU, ease: 'out' },
-    { t: 2.25, p: [-0.01, 0, -0.2], turn: [0, 0.35, 0.1], spin: 2 * TAU },
-    { t: 2.75, p: [-0.01, 0, -0.2], turn: [Math.PI, 0.35, 0.1], spin: 2 * TAU },
-    { t: 3.05, p: [-0.01, 0, -0.2], turn: [Math.PI, 0.35, 0.1], spin: 2 * TAU },
-    { t: 3.55, p: I.p, turn: [0, 0, 0], spin: 2 * TAU },
+    { t: 0.2, p: at(0, -0.02, 0.01), turn: [0.25, 0, -0.3] },
+    { t: 0.45, p: at(0.03, 0.03, 0), grip: HANG, spin: -0.6 * TAU, ease: 'out' },
+    { t: 0.75, p: at(-0.01, 0.045, 0.02), grip: UPRIGHT, spin: 0, ease: 'out' },
+    { t: 1.8, p: at(-0.013, 0.043, 0.02), grip: UPRIGHT },
+    { t: 2.9, p: at(-0.015, 0.04, 0.02), grip: UPRIGHT },
+    { t: 3.2, p: at(-0.01, 0.035, 0.02), grip: UPRIGHT_TURNED },
+    { t: 3.45, p: at(0.03, 0, 0), grip: HANG, spin: 0 },
+    { t: 3.75, p: at(0.01, -0.01, 0), turn: [0, 0, 0], spin: TAU, ease: 'out' },
+    idle(4.0, TAU),
   ],
 };
-
-for (const keys of Object.values(KNIFE_ANIMS)) {
-  for (const k of keys) {
-    k.spin = k.spin || 0;
-    k.turn = k.turn || [0, 0, 0];
-  }
-}
 
 // The grip's orientation: the blade (local -Y) along `blade`, the knife's
 // -Z flat toward `face`, the edge (local +X) following from those.
@@ -92,6 +109,19 @@ function orient(blade, face) {
   return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
 }
 const IDLE_Q = orient(I.blade, I.face);
+
+// Each key's hand orientation (before the spin), worked out once.
+const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
+for (const keys of Object.values(KNIFE_ANIMS)) {
+  for (const k of keys) {
+    k.spin = k.spin || 0;
+    if (k.grip) k.q = orient(k.grip.blade, k.grip.face);
+    else {
+      const turn = k.turn || [0, 0, 0];
+      k.q = new THREE.Quaternion().setFromEuler(_euler.set(turn[0], turn[1], turn[2], 'YXZ')).multiply(IDLE_Q);
+    }
+  }
+}
 
 export const knifeLength = (name) => {
   const keys = KNIFE_ANIMS[name];
@@ -105,7 +135,6 @@ function ease(u, kind) {
   return u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2;
 }
 
-const _turn = new THREE.Euler(0, 0, 0, 'YXZ');
 const _spin = new THREE.Quaternion();
 const Z = new THREE.Vector3(0, 0, 1);
 
@@ -125,9 +154,8 @@ export function sampleKnife(name, t, pos, quat) {
   const u = ease(Math.min(1, Math.max(0, (t - a.t) / (b.t - a.t))), b.ease);
   const mix = (m, n) => m + (n - m) * u;
   pos.set(mix(a.p[0], b.p[0]), mix(a.p[1], b.p[1]), mix(a.p[2], b.p[2])).multiplyScalar(HOLD);
-  // Hand turn in camera space, then the grip, then the spin on the ring.
-  _turn.set(mix(a.turn[0], b.turn[0]), mix(a.turn[1], b.turn[1]), mix(a.turn[2], b.turn[2]), 'YXZ');
-  quat.setFromEuler(_turn).multiply(IDLE_Q);
+  // The hand's orientation, then the spin on the ring.
+  quat.slerpQuaternions(a.q, b.q, u);
   const spin = mix(a.spin, b.spin);
   if (spin) quat.multiply(_spin.setFromAxisAngle(Z, spin));
 }

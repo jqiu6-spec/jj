@@ -152,6 +152,21 @@ Pick one of the first four with **Use for tracking and clicking**. While you
 track, the gun cycles at its own fire rate; in clicking scenarios, clicks can't
 come faster than that rate.
 
+**Picking up.** Each run starts with the gun being picked up, and so does every
+swap back from the knife: as in CS2, it swings up from low on the right, turned
+to show its side, the charging handle is pulled back and let go, and it settles
+into the resting pose, with the recorded draw sound in time (the AWP rolls
+over to check its bolt instead). After each AWP shot the bolt is worked, the
+gun rolling over and back in time with the recorded bolt sounds. The keyframes
+are `GUN_ANIMS` in `js/weapon.js`.
+
+**Moving.** Hold **W A S D** to run around the arena during a run. Speeds are
+CS2's (250 units/s with the knife, 225 with the M4A1-S, 215 with the AK-47, 200
+with the AWP and half that scoped; Valorant's 5.4 m/s for the Phantom and
+Vandal), with quick starts and stops so counter-strafing works. Walls and
+crates stop you, the gun bobs as you run, and every run starts from the
+scenario's spot. Moving doesn't cost accuracy.
+
 ### Skins
 
 - **Champions 2021**: the finish of the Champions Vandal, for every gun and the
@@ -206,9 +221,13 @@ crate or the wall), a burst marks the impact, and kills pop in the effect's
 colour. Shots start exactly at the muzzle as drawn, whatever the gun, pose,
 sway or recoil, and start barrel-thin before widening, so nothing spills off
 the gun. Hits are instant, so each shot is drawn as one: on the frame it is
-fired, the streak runs from the muzzle to where it lands and the impact bursts
-with it; then it pulls back toward the impact and fades over 70 ms. It is timed
-in seconds, not frames, so every shot looks the same at 30, 60 or 144 fps.
+fired, the streak runs in a straight line from the muzzle to where it lands and
+the impact bursts with it. It doesn't travel, drop or sway: it stays put, its
+start held on the muzzle while the gun recoils, and fades out over 70 ms. The
+view never kicks, so the shot lands exactly where the crosshair was. It is
+timed in seconds, not frames, so every shot looks the same at 30, 60 or 144
+fps. (The spectral wave and the bolts' flight show only on the Weapon tab's
+slow-motion test shot.)
 Held fire is timed on the game clock too: the first round leaves as you press,
 the rest exactly one fire interval apart. Guns are
 held level and aimed so the barrel points at the crosshair, and each shot
@@ -240,21 +259,37 @@ Valve's and the teams' artwork, so none are bundled; add any you own with
 
 ### Gun sounds
 
-Choose a fire sound for each gun: Champions 2021 Vandal, M4A1-S, suppressed, rifle
-crack, heavy rifle, SMG snap, sniper boom, laser, soft click or silent. **Match
-the gun** picks one automatically, and taking the M4A1-S suppressor off switches
-it to the rifle crack. The AWP is the loudest by far, like in CS2: a sharp
-crack, a heavy blast and a low boom that echoes round the room, then the bolt
-worked by hand. Its shot also throws a bigger muzzle blast and smoke, and kicks
-the view up for a moment without moving your aim.
+Choose a fire sound for each gun: Champions 2021 Vandal, M4A1-S, AK-47 and AWP
+(all recorded), or suppressed, rifle crack, heavy rifle, SMG snap, sniper boom,
+laser, soft click or silent (made in code). **Match the gun** picks one
+automatically, and taking the M4A1-S suppressor off switches it to the rifle
+crack. The AWP is the loudest by far, like in CS2, about 12 dB over the
+rifles, with its long echo and then the bolt worked by hand. Its shot also
+throws a bigger muzzle blast and smoke.
 
 Each gun also has a **kill sound**: the classic ping, or the Champions 2021
 streak, where kills less than 2.5 s apart climb a step each, up to a five-kill
 fanfare. The Vandal uses it by default.
 
-- **The Vandal's fire sound** is two single shots cut from a recording the
-  project owner supplied (Riot Games audio from VALORANT), stored in
-  `js/gun-sounds.js` and played with a slight random pitch change.
+**Headshots** play CS:GO's headshot sound on top of the kill sound (and on an
+AWP hit to the head that doesn't kill). Turn it off, or play it, under Sound in
+the Weapon tab.
+
+The recordings are cut from clips the project owner supplied, stored in
+`js/gun-sounds.js` as base64 WAV (32 kHz: the clips carry nothing above
+16 kHz) and played with a slight random pitch change so sprays don't repeat.
+Each gun's variants are levelled to the same loudness. They are Riot Games and
+Valve audio, used here in a free, non-commercial fan project.
+
+- **The Vandal's fire sound** is three single shots from VALORANT.
+- **The AK-47** is three single taps from CS2, and its draw (charging handle
+  and all) doubles as the draw sound for the other rifles.
+- **The AWP** is CS2's shot with its full echo (2.8 s), its bolt going back and
+  forward (0.5 s and 0.92 s after the shot) and its draw.
+- **The headshot** is two of CS:GO's headshot sounds.
+- **The karambit's draw** is CS2's flip, two takes, also used for the flips in
+  its inspect. The clip had music under the slashes, so the slash and heavy
+  whooshes are made in code.
 - **The M4A1-S's suppressed shot** is recorded too (Valve audio from CS2). The
   clip was a full-auto burst, so no shot stood alone: the sound is the burst's
   first shot, up to where the next one starts, crossfaded into the burst's
@@ -314,15 +349,17 @@ texture set, and `--help` for the rest. Then add an entry to `MODEL_INFO` in
 
 Every scenario has a knife as well as the gun. In a run, **scroll the mouse
 wheel** to swap between them (or press **3** for the knife, **1** for the gun,
-**Q** to swap). The karambit flips out around its ring as you draw it; **left
-click** slashes, alternating forehand and backhand (hold it to keep slashing),
-**right click** stabs, and **F** inspects: two spins around the finger, then
-each side of the blade. Knives don't shoot, so nothing scores while it's out,
-and every run starts with the gun.
+**Q** to swap). The animations follow CS2's karambit: drawn, it comes up on
+the right, flipping round the finger, and drops into the grip; **left click**
+whips it across the screen, backhand then forehand (hold it to keep slashing);
+**right click** is the heavy, the fist raised high on the right and driven
+down; **F** inspects: a flip up into an upright hold in front of you, the
+blade curving down and round, a turn of the wrist, and a flip back down.
+Knives don't shoot, so nothing scores while it's out, and every run starts
+with the gun.
 
 The animations are keyframed in `js/knife.js`: each key sets where the ring
-sits, which way the blade points, which way the flat faces, and extra spins
-around the ring. The knife is held the CS2 way: finger through the ring at the left of the
+sits, the hand's grip or turn, and extra spins around the ring. The knife is held the CS2 way: finger through the ring at the left of the
 fist, blade out to the right and curling up. Blade and handle are separate
 parts, each with its own finish; a skin paints the blade and leaves the
 knife's own handle unless you pick otherwise, and Fade runs along the blade
@@ -368,6 +405,7 @@ before the scope settled.
 
 - **Mouse 1**: fire (hold it in tracking scenarios, or turn on auto-fire in Settings); slash with the knife
 - **Mouse 2**, **Shift**, or **Ctrl+click** on a Mac: scope with the AWP in sniping scenarios (CS2 or Operator handling); stab with the knife
+- **W A S D**: move
 - **Mouse wheel**, **1**, **3**, **Q**: swap between the gun and the knife
 - **F**: inspect the knife
 - **Esc**: pause. Press Esc again to go back to the scenario list

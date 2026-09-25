@@ -130,6 +130,8 @@ export class Game {
     this.yaw = 0;
     this.pitch = 0;
     this.eye = new THREE.Vector3(0, 1.7, 0);
+    this.vel = new THREE.Vector3(); // on the ground, m/s (WASD)
+    this.keys = new Set(); // movement keys held
     this.fwd = new THREE.Vector3(0, 0, -1);
 
     // Ground colour lights downward faces, so the ceiling doesn't go black.
@@ -164,10 +166,15 @@ export class Game {
     this.scopeT = 0; // 0..1 progress into the current zoom
     this.scopeAge = 0; // seconds since scoping in from unscoped
     this.resumeLevel = 0; // zoom to return to when the bolt is back (CS2)
-    this.punch = 0; // view kick from a sniper shot, decays to 0 (visual only)
     this.slot = 'gun'; // 'gun' or 'knife': what the player holds in a run
     this.lastWheel = 0;
     this.vm = new Viewmodel(this.renderer);
+    // Draw sounds play as the weapon comes up, in time with its animation.
+    this.vm.onDraw = (id) => {
+      if (this.state !== 'running' && this.state !== 'countdown') return;
+      if (GUNS[id].melee) sfx.knifeDraw();
+      else sfx.gunDraw(id);
+    };
     // Largest point sprite the GPU draws, for the effect particles.
     const gl = this.renderer.getContext();
     this.maxPointSize = (gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE) || [1, 64])[1];
@@ -320,6 +327,11 @@ export class Game {
     const skin = this.skins[this.gunId];
     const choice = skin && skin.killSound && skin.killSound !== 'auto' ? skin.killSound : null;
     return choice || GUNS[this.gunId].killSound || 'classic';
+  }
+
+  // CS:GO's headshot sound, unless it's turned off in the Weapon tab.
+  headshotSound() {
+    if (this.settings.weapon.headshot !== false) sfx.headshot();
   }
 
   fireSound() {
@@ -600,8 +612,6 @@ export class Game {
     if (next === 'knife') this.setZoom(0);
     this.resumeLevel = 0;
     this.refreshGun();
-    if (next === 'knife') sfx.knifeDraw();
-    else sfx.gunDraw();
   }
 
   onWheel(e) {
@@ -653,12 +663,18 @@ export class Game {
     this.resumeLevel = 0;
     this.wasFiring = false;
     this.pressAt = null;
+    // Every run starts from the scenario's spot, standing still.
+    const [ex, ey, ez] = eyeOf(this.scn);
+    this.eye.set(ex, ey, ez);
+    this.vel.set(0, 0, 0);
+    this.vm.moving = 0;
     this.resetTargets();
     this.lookAtTargets(true);
     this.pitch = Math.max(-0.35, Math.min(0.35, this.pitch));
     this.countdown = COUNTDOWN;
     this.lastCount = COUNTDOWN + 1;
     this.setState('countdown');
+    this.vm.pickUp(); // the gun is picked up as the countdown starts
   }
 
   setState(s) {
@@ -671,6 +687,7 @@ export class Game {
     if (this.state === 'running' || this.state === 'countdown') {
       this.pausedFrom = this.state;
       this.firing = false;
+      this.keys.clear();
       if (this.settings.sniper.scopeMode === 'hold') this.setZoom(0);
       this.setState('paused');
     }
@@ -849,6 +866,7 @@ export class Game {
     r.streak = r.elapsed - (r.lastStreakKill ?? -99) < 2.5 ? Math.min(5, (r.streak || 0) + 1) : 1;
     r.lastStreakKill = r.elapsed;
     sfx.kill(this.killSound(), r.streak);
+    if (this.pickPart === 'head' && t.shape === 'agent') this.headshotSound();
     this.hooks.onHit(true);
     // Keep respawns away from where the player is currently aiming.
     this.updateForward();
@@ -890,10 +908,15 @@ export class Game {
       dist = Math.min(this.coverHit(this.eye, dir), _ray.intersectBox(this.arenaBox, _hit) ? _hit.distanceTo(this.eye) : 60);
     }
     _to.copy(this.eye).addScaledVector(dir, dist);
-    // Start where the muzzle is drawn. The gun renders with its own camera, so
-    // take the muzzle's screen position and put the start on the world ray
-    // through that pixel, at the depth that gives the same apparent size.
-    // The shot then leaves the barrel exactly, in any pose, sway or recoil.
+    this.fx.shot(this.muzzleStart(_from), _to, hitDist > 0);
+  }
+
+  // Where shots start in the world: where the muzzle is drawn. The gun renders
+  // with its own camera, so take the muzzle's screen position and put the
+  // start on the world ray through that pixel, at the depth that gives the
+  // same apparent size. Shots then leave the barrel exactly, in any pose,
+  // sway or recoil. Also sets the world camera to the current view.
+  muzzleStart(out) {
     let nx;
     let ny;
     let depth;
@@ -912,9 +935,9 @@ export class Game {
     this.camera.position.copy(this.eye);
     this.camera.rotation.set(this.pitch, this.yaw, 0);
     this.camera.updateMatrixWorld();
-    _from.set(nx, ny, 0.5).unproject(this.camera).sub(this.eye).normalize();
-    _from.multiplyScalar(depth / Math.max(0.2, _from.dot(this.fwd))).add(this.eye);
-    this.fx.shot(_from, _to, hitDist > 0);
+    this.updateForward();
+    out.set(nx, ny, 0.5).unproject(this.camera).sub(this.eye).normalize();
+    return out.multiplyScalar(depth / Math.max(0.2, out.dot(this.fwd))).add(this.eye);
   }
 
   // Sniper shot, with the chosen handling (CS2 AWP or Valorant Operator):
@@ -929,7 +952,6 @@ export class Game {
     const settled = this.scopeSettled;
     if (settled < 1) r.unscoped++;
     this.vm.shot(true);
-    this.punch = 1;
     this.fireSound();
     this.updateForward();
     const dir = this.fwd.clone();
@@ -957,6 +979,7 @@ export class Game {
         if (part === 'head') r.headshots++;
         this.kill(t);
       } else {
+        if (part === 'head') this.headshotSound();
         this.hooks.onHit(false);
       }
     } else {
@@ -1053,13 +1076,14 @@ export class Game {
       this.scopeT = Math.min(1, this.scopeT + dt / Math.max(0.01, zoomTime));
       this.applyZoom();
     }
+    // Tracers stay on the muzzle while they show, however the gun recoils or
+    // sways. The view itself never kicks, so a shot lands where it's aimed.
+    const muzzle = this.fx.anchored() ? this.muzzleStart(_from) : null;
     this.camera.position.copy(this.eye);
-    // A sniper shot kicks the view up for a moment; aim itself doesn't move.
-    this.punch *= Math.exp(-dt * 11);
-    this.camera.rotation.set(this.pitch + this.punch * 0.014, this.yaw, 0);
+    this.camera.rotation.set(this.pitch, this.yaw, 0);
     this.updateTargetVisuals(dt);
     this.updatePops(dt);
-    this.fx.update(dt);
+    this.fx.update(dt, muzzle);
     this.fx.setView(this.renderer.domElement.height, this.camera.fov, this.maxPointSize);
     this.renderer.render(this.scene, this.camera);
 
@@ -1126,6 +1150,7 @@ export class Game {
     const r = this.run;
     const w = this.scn.weapon;
     r.elapsed += dt;
+    this.move(dt);
     for (const t of this.targets) {
       if (t.alive) motion.update(t, dt, ctx);
       else if (t.respawnAt !== null && r.elapsed >= t.respawnAt) this.spawn(t);
@@ -1177,6 +1202,57 @@ export class Game {
       r.timeline.push(Math.round(r.score));
     }
     if (r.elapsed >= this.scn.duration) this.finish();
+  }
+
+  // WASD held (KeyW, KeyA, KeyS, KeyD) or let go.
+  moveKey(code, down) {
+    if (down) this.keys.add(code);
+    else this.keys.delete(code);
+  }
+
+  // WASD: run around the arena at the held weapon's speed (CS2's, or
+  // Valorant's for the Riot guns; half with the AWP scoped). Speeding up
+  // and stopping are quick, so counter-strafing works. Walls and crates
+  // stop you.
+  move(dt) {
+    const k = this.keys;
+    const f = (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0);
+    const s = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
+    const sin = Math.sin(this.yaw);
+    const cos = Math.cos(this.yaw);
+    _v.set(-sin * f + cos * s, 0, -cos * f - sin * s);
+    const wish = _v.length();
+    const gun = GUNS[this.heldId] || {};
+    let speed = gun.run || 5.4;
+    if (this.zoomLevel) speed *= 0.5;
+    if (wish > 0) _v.multiplyScalar(speed / wish);
+    this.vel.lerp(_v, 1 - Math.exp(-dt * (wish > 0 ? 12 : 16)));
+    if (wish === 0 && this.vel.lengthSq() < 1e-4) this.vel.set(0, 0, 0);
+    this.vm.moving = Math.min(1, this.vel.length() / 5.4);
+    if (!this.vel.x && !this.vel.z) return;
+    const e = this.eye;
+    e.x += this.vel.x * dt;
+    e.z += this.vel.z * dt;
+    // Crates: step back out along the shallower side.
+    const R = 0.3;
+    for (const b of this.covers) {
+      if (e.y > b.max.y + 0.5) continue;
+      const ox = Math.min(e.x - (b.min.x - R), b.max.x + R - e.x);
+      const oz = Math.min(e.z - (b.min.z - R), b.max.z + R - e.z);
+      if (ox <= 0 || oz <= 0) continue;
+      if (ox < oz) {
+        e.x = e.x < (b.min.x + b.max.x) / 2 ? b.min.x - R : b.max.x + R;
+        this.vel.x = 0;
+      } else {
+        e.z = e.z < (b.min.z + b.max.z) / 2 ? b.min.z - R : b.max.z + R;
+        this.vel.z = 0;
+      }
+    }
+    const a = this.arenaBox;
+    const cx = Math.max(a.min.x + R, Math.min(a.max.x - R, e.x));
+    const cz = Math.max(a.min.z + R, Math.min(a.max.z - R, e.z));
+    if (cx !== e.x) { e.x = cx; this.vel.x = 0; }
+    if (cz !== e.z) { e.z = cz; this.vel.z = 0; }
   }
 
   // How long each target has been in view (line of sight to head or chest),

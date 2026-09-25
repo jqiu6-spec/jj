@@ -350,7 +350,7 @@ metres, +X toward the muzzle, +Y up, +Z the gun's right side.
 |---|---|---|
 | `ak47.glb` | AK-47 `.usdz` supplied by the project owner | Wood and steel textures |
 | `m4a1s.glb` | M4A1 `.usdz` supplied by the project owner | The model has a bare flash hider; Trackline adds the M4A1-S suppressor in code |
-| `awp.glb` | AWP `.usdz` supplied by the project owner | Spec/gloss textures converted to metal/rough |
+| `awp.glb` | AWP `.usdz` supplied by the project owner (the second, in parts) | Eleven parts with their own textures: butt pad, cheek rest, chassis (split into stock, grip, forend and body), receiver, bolt handle, magazine, barrel, muzzle brake, scope (and rings) and bipod |
 | `xm7.glb` | SIG XM7 `.obj` supplied by the project owner | Plain materials, no textures |
 | `phantom.glb` | "VALORANT Weapon Phantom Rifle" `.fbx` supplied by the project owner | A Riot Games asset from Valorant |
 | `karambit.glb` | "Karambit Standoff 2 Eye of God" `.fbx` and texture supplied by the project owner | An Axlebolt asset from Standoff 2; origin on the ring |
@@ -376,7 +376,7 @@ To add or replace a model, convert it with `tools/convert_model.py`:
 ```sh
 pip install usd-core numpy pillow pygltflib   # plus `npm install fbx2gltf` for .fbx
 python3 tools/convert_model.py AK-47.usdz models/ak47.glb --max-texture 1024 --scale 0.459
-python3 tools/convert_model.py awp.usdz models/awp.glb --max-texture 1024 --rotate y90 --scale 0.0798
+python3 tools/convert_model.py AWP_1.usdz models/awp.glb --max-texture 1024 --rotate y90 --scale 0.07537
 ```
 
 It reads `.usdz`/`.usdc`/`.usda`, `.obj` + `.mtl`, `.glb`/`.gltf` and `.fbx`,

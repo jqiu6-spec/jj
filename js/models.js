@@ -156,33 +156,35 @@ export const MODEL_INFO = {
   awp: {
     file: 'awp.glb',
     rear: -0.545, bore: 0.03,
-    zones: ['stock', 'grip', 'handguard', 'receiver', 'barrel', 'scope', 'mounts', 'bipod', 'mag', 'butt'],
+    // The model comes in parts: butt pad, cheek rest, chassis, receiver, bolt
+    // handle, magazine, barrel, muzzle brake, scope and bipod. The chassis
+    // is one piece, split here into stock, grip, forend and the middle.
+    zones: ['stock', 'cheek', 'grip', 'handguard', 'receiver', 'bolt', 'barrel', 'muzzle', 'scope', 'mounts', 'bipod', 'mag', 'butt'],
     rules: [
-      { zone: 'bipod', part: /scope/, box: [-9, 9, -9, 0.285] }, // folded under the forend
-      { zone: 'mounts', part: /scope/, box: [0.325, 0.355, 0.28, 0.37] }, // scope rings
-      { zone: 'mounts', part: /scope/, box: [0.405, 0.435, 0.28, 0.37] },
-      { zone: 'scope', part: /scope/ },
-      { zone: 'butt', box: [-9, 0.0, -9, 9] },
-      { zone: 'mag', box: [0.31, 0.4, 0.15, 0.215] },
-      // One texture covers the whole rifle: the olive chassis is the paint,
-      // and anything grey is metal: the barrel and muzzle brake, the action
-      // with its bolt and rail, and small parts (screws, trigger guard).
-      { zone: 'barrel', neutral: 0.06, box: [0.47, 9, 0.265, 9] },
-      { zone: 'receiver', neutral: 0.06, box: [0.2, 0.5, 0.265, 9] },
-      { zone: 'stock', neutral: 0.06, box: [0.0, 0.19, 0.265, 9] }, // cheek riser
-      { zone: 'fixed', neutral: 0.06 },
-      { zone: 'stock', box: [0.0, 0.19, -9, 9] }, // thumbhole stock
-      { zone: 'grip', box: [0.19, 0.27, -9, 0.245] },
-      { zone: 'handguard', box: [0.4, 9, -9, 9] }, // forend
+      { zone: 'butt', part: /^Object_[14]$/ },
+      { zone: 'cheek', part: /^Object_5$/ },
+      { zone: 'muzzle', part: /^Object_0$/ },
+      { zone: 'barrel', part: /^Object_2$/ },
+      { zone: 'bipod', part: /^Object_3$/ },
+      { zone: 'receiver', part: /^Object_7$/ },
+      { zone: 'bolt', part: /^Object_8$/ },
+      { zone: 'mag', part: /^Object_10$/ },
+      { zone: 'mounts', part: /^Object_9$/, box: [-0.145, -0.115, 0.095, 0.16] }, // scope rings
+      { zone: 'mounts', part: /^Object_9$/, box: [-0.07, -0.043, 0.095, 0.16] },
+      { zone: 'scope', part: /^Object_9$/ },
+      { zone: 'fixed', part: /^Object_6$/, neutral: 0.06 }, // trigger, guard, screws
+      { zone: 'grip', part: /^Object_6$/, box: [-0.27, -0.2, -9, 0.045] },
+      { zone: 'stock', part: /^Object_6$/, box: [-9, -0.26, -9, 9] }, // thumbhole stock
+      { zone: 'handguard', part: /^Object_6$/, box: [-0.02, 9, -9, 9] }, // forend
       { zone: 'body' }, // the chassis round the action and magazine well
     ],
-    fade: [-0.05, 0.62],
+    fade: [-0.45, 0.6],
     slots: [
-      { name: 'Stock', x: 0.12, y: 0.235, size: 0.05 },
-      { name: 'Butt', x: 0.06, y: 0.2, size: 0.036 },
-      { name: 'Grip', x: 0.2, y: 0.2, size: 0.03 },
-      { name: 'Forend', x: 0.52, y: 0.245, size: 0.042 },
-      { name: 'Scope', x: 0.3, y: 0.335, size: 0.022 },
+      { name: 'Stock', x: -0.39, y: 0.035, size: 0.05 },
+      { name: 'Butt', x: -0.43, y: -0.012, size: 0.036 },
+      { name: 'Grip', x: -0.235, y: 0.015, size: 0.03 },
+      { name: 'Forend', x: 0.1, y: 0.07, size: 0.042 },
+      { name: 'Scope', x: -0.01, y: 0.14, size: 0.022 },
     ],
   },
 };

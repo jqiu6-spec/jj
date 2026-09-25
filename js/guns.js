@@ -26,6 +26,9 @@ export const ZONE_LABELS = {
   rail: 'Top rail',
   mounts: 'Scope mounts',
   bipod: 'Bipod',
+  cheek: 'Cheek rest',
+  bolt: 'Bolt handle',
+  muzzle: 'Muzzle brake',
 };
 
 // Spray patterns: how far each shot kicks the view (degrees up, and right),
@@ -111,8 +114,8 @@ export const GUNS = {
     sound: () => 'awp',
     // The detailed AWP's metal parts keep their factory look unless painted;
     // a skin that paints 'metal' (the whole-gun presets) paints these too.
-    defaultZones: { receiver: 'factory', barrel: 'factory', bipod: 'factory' },
-    metalZones: ['receiver', 'barrel', 'bipod'],
+    defaultZones: { receiver: 'factory', barrel: 'factory', bipod: 'factory', bolt: 'factory', muzzle: 'factory' },
+    metalZones: ['receiver', 'barrel', 'bipod', 'bolt', 'muzzle'],
   },
   karambit: {
     name: 'Karambit',

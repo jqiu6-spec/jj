@@ -40,7 +40,8 @@ A browser aim trainer for **tracking** that uses your exact **Valorant sensitivi
 - **Valorant-style crosshair editor:** color, outlines, center dot, inner and outer lines. Sizes are in real
   screen pixels, with a live preview and a 4× zoom. **Import your Valorant crosshair code** or copy a code for
   your Tracklock crosshair back into Valorant.
-- **Gameplay options:** always-firing or hold-to-fire, countdown, target color presets, a glow while on target,
+- **Gameplay options:** hold-to-fire (default; the gun fires only while the left mouse button is held) or always
+  firing, countdown, target color presets, a glow while on target,
   hit sounds, render scale, fullscreen while playing and an FPS counter.
 - **Controls:** Esc pauses (resuming gives a 1-second count to re-find the target), R restarts, Enter plays again,
   M returns to the menu. Hold the left mouse button in the check room to test-fire.

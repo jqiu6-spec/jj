@@ -40,12 +40,19 @@ describe('settings', () => {
     expect(s.sensitivity).toBe(100);
     expect(s.dpi).toBe(1);
     expect(s.fov).toBe(DEFAULT_SETTINGS.fov);
-    expect(s.fireMode).toBe('auto');
+    expect(s.fireMode).toBe('hold');
     expect(s.duration).toBe(60);
     expect(s.targetColor).toBe(DEFAULT_SETTINGS.targetColor);
     expect(s.crosshair.innerLength).toBe(30);
     expect(s.crosshair.color).toBe('#abcdef');
     expect(s.crosshair.outline).toBe(DEFAULT_SETTINGS.crosshair.outline);
+  });
+
+  it('migrates pre-version-2 settings to hold-to-fire but keeps a deliberate choice', () => {
+    expect(sanitizeSettings({ fireMode: 'auto' }).fireMode).toBe('hold'); // saved before the change
+    expect(sanitizeSettings({ fireMode: 'auto', version: 2 }).fireMode).toBe('auto');
+    expect(sanitizeSettings({ fireMode: 'hold', version: 2 }).fireMode).toBe('hold');
+    expect(sanitizeSettings({}).version).toBe(2);
   });
 
   it('keeps tiny and huge sensitivities within 0.0001–100', () => {

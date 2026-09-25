@@ -2,6 +2,8 @@ import { clampDpi, clampSensitivity, VALORANT_FOV } from './sensitivity.js';
 import { DEFAULT_WEAPON, WEAPONS } from './weapons.js';
 
 export const SETTINGS_KEY = 'tracklock.settings.v1';
+/** Bumped when a stored value needs migrating (2: hold-to-fire became the default). */
+export const SETTINGS_VERSION = 2;
 
 export const CROSSHAIR_COLORS = [
   { name: 'White', value: '#ffffff' },
@@ -51,7 +53,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   inputMultiplier: 1,
   fov: VALORANT_FOV,
   // Gameplay
-  fireMode: 'auto',
+  fireMode: 'hold',
   weapon: DEFAULT_WEAPON,
   countdown: true,
   targetColor: TARGET_COLORS[0].value,
@@ -79,7 +81,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   crosshair: DEFAULT_CROSSHAIR,
 });
 
-export const FIRE_MODES = ['auto', 'hold'];
+export const FIRE_MODES = ['hold', 'auto'];
 export const DIFFICULTY_IDS = ['easy', 'normal', 'hard', 'insane', 'custom'];
 export const DURATIONS = [30, 60, 90, 120];
 
@@ -136,14 +138,18 @@ export function sanitizeSettings(raw) {
   const sensitivity = typeof s.sensitivity === 'number' ? clampSensitivity(s.sensitivity) : d.sensitivity;
   const dpi = typeof s.dpi === 'number' ? clampDpi(s.dpi) : d.dpi;
   const duration = Number(s.duration);
+  // Settings saved before version 2 defaulted to always firing; the gun now fires only on a press.
+  const version = Number.isFinite(Number(s.version)) ? Number(s.version) : 1;
+  const fireMode = version < 2 ? d.fireMode : oneOf(s.fireMode, d.fireMode, FIRE_MODES);
   return {
+    version: SETTINGS_VERSION,
     sensitivity,
     dpi,
     invertY: bool(s.invertY, d.invertY),
     rawInput: bool(s.rawInput, d.rawInput),
     inputMultiplier: num(s.inputMultiplier, d.inputMultiplier, 0.01, 10, 4),
     fov: num(s.fov, d.fov, 60, 130, 0),
-    fireMode: oneOf(s.fireMode, d.fireMode, FIRE_MODES),
+    fireMode,
     weapon: oneOf(s.weapon, d.weapon, WEAPONS.map((w) => w.id)),
     countdown: bool(s.countdown, d.countdown),
     targetColor: color(s.targetColor, d.targetColor),

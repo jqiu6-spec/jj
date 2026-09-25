@@ -440,10 +440,10 @@ function buildTabs(store) {
         segmentedField(store, {
           path: 'fireMode',
           label: 'Fire mode',
-          help: 'Always firing measures pure tracking. Hold mode only counts time while the left mouse button is held.',
+          help: 'The gun fires only while you hold the left mouse button, and only that time counts. “Always firing” removes the trigger and measures pure tracking.',
           options: [
-            { value: 'auto', label: 'Always firing' },
             { value: 'hold', label: 'Hold left mouse' },
+            { value: 'auto', label: 'Always firing' },
           ],
         }),
         segmentedField(store, {

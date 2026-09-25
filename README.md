@@ -41,8 +41,8 @@ To rebuild the single file after changing the source: `npm install && npm run bu
   Firefox apply the OS pointer acceleration, so the cm/360 figure is approximate
   there. On Windows, set pointer speed to 6/11 and turn off "Enhance pointer
   precision". The Settings tab tells you which mode you got.
-- **Scoping on a Mac trackpad**: right-click is a two-finger click. Ctrl+click and
-  the Shift key also scope, and Ctrl+click never fires the gun.
+- **Scoping on a Mac trackpad**: right-click is a two-finger click. Ctrl+click
+  also scopes, and never fires the gun. (Shift crouches.)
 - **Retina and slow laptops**: the render scale defaults to **Auto**: if a run
   drops under 50 fps, the resolution steps down (at most once every 2 s, since
   each change resizes the drawing buffer), and it steps back up between runs
@@ -163,9 +163,20 @@ are `GUN_ANIMS` in `js/weapon.js`.
 **Moving.** Hold **W A S D** to run around the arena during a run. Speeds are
 CS2's (250 units/s with the knife, 225 with the M4A1-S, 215 with the AK-47, 200
 with the AWP and half that scoped; Valorant's 5.4 m/s for the Phantom and
-Vandal), with quick starts and stops so counter-strafing works. Walls and
-crates stop you, the gun bobs as you run, and every run starts from the
-scenario's spot. Moving doesn't cost accuracy.
+Vandal), with quick starts and stops so counter-strafing works. **Space**
+jumps, CS2's jump: 1.42 m up and 0.74 s in the air, keeping your momentum
+with only a little steering. Hold **Shift** to crouch: the eye drops 0.46 m
+and you move at a third of your speed. Walls and crates stop you (the crates
+are too tall to jump onto), the gun bobs as you run, and every run starts
+from the scenario's spot. Moving doesn't cost accuracy.
+
+**Recoil.** The AK-47 kicks like CS2's: each round of a spray climbs the view,
+about 3.5° over the first second of full auto, and wanders left and right
+after the first ten rounds; the M4A1-S and Phantom climb about a third as much
+and barely wander. The first shot goes where you aim, the view itself moves
+(so shots land on the crosshair and you pull down against it), and it settles
+back within half a second of letting go. The other guns have none. Turn it off
+under First-person view in the Weapon tab.
 
 ### Skins
 
@@ -393,10 +404,21 @@ from bolster to tip.
 
 ## Sniping
 
-The sniping scenarios use the AWP. Settings picks how it handles: **CS2 AWP**
-(the default) or the **Valorant Operator**. Ammo is infinite with both: no
-magazine and no reload, so the whole run is aiming. A body shot kills; a leg
-shot doesn't. Crates block both shots and line of sight.
+The sniping scenarios start you on the AWP, but every gun is on hand: **2**
+swaps to a rifle (your equipped one first; press 2 again for the next:
+M4A1-S, AK-47, XM7, Phantom, Vandal), **1** goes back to the AWP, **3** draws
+the knife, and the mouse wheel goes round all three. Settings picks how the
+AWP handles: **CS2 AWP** (the default) or the **Valorant Operator**. Ammo is
+infinite: no magazine and no reload, so the whole run is aiming. Crates block
+both shots and line of sight.
+
+**What kills a bot:** the AWP, one hit anywhere (head, body or legs). Every
+rifle kills with one headshot; otherwise it takes body or leg hits: **5**
+with the M4A1-S, **3** with the XM7, **4** with the AK-47, Phantom and
+Vandal. Rifles fire automatically at their own rate while you hold the
+button, with their recoil, and a missed round costs the AWP's miss penalty
+scaled to the fire rate (so spraying costs no more per second than missing
+with the AWP).
 
 **CS2 AWP**, built for CS2-style flicks:
 
@@ -410,17 +432,15 @@ shot doesn't. Crates block both shots and line of sight.
   0.1 s. Earlier shots, and no-scopes, carry up to 8° of spread.
 - **1.455 s** between shots. After a shot it unscopes and zooms back in to the
   same level when the bolt is back, as in CS2.
-- **Damage** per 100 HP: head 459, chest 115, legs 86, scaled to the target's
-  health.
 - The zoom-in time (0.06 s) and the settle time are estimates.
 
 **Valorant Operator**: 0.6 shots a second (1.67 s apart), 2.5x and 5x zoom,
-255 head / 150 body / 120 leg damage against 150 HP agents, scoped sensitivity
-divided by the zoom, and a scope-in time you set (0.25 s by default, an
-estimate).
+scoped sensitivity divided by the zoom, and a scope-in time you set (0.25 s by
+default, an estimate).
 
-- **Right click** scopes, a second click goes to the second zoom and a third
-  unscopes. Settings also has a hold-to-scope option.
+- **Right click** scopes (Ctrl+click on a Mac trackpad), a second click goes
+  to the second zoom and a third unscopes. Settings also has a hold-to-scope
+  option. Only the AWP scopes.
 - A shot fires the moment you click, with your aim at that instant.
 
 The results screen shows accuracy, kills, headshots, your average reaction time
@@ -430,9 +450,9 @@ before the scope settled.
 ## Controls
 
 - **Mouse 1**: fire (hold it in tracking scenarios, or turn on auto-fire in Settings); slash with the knife
-- **Mouse 2**, **Shift**, or **Ctrl+click** on a Mac: scope with the AWP in sniping scenarios (CS2 or Operator handling); stab with the knife
-- **W A S D**: move
-- **Mouse wheel**, **1**, **3**, **Q**: swap between the gun and the knife
+- **Mouse 2**, or **Ctrl+click** on a Mac: scope with the AWP in sniping scenarios (CS2 or Operator handling); stab with the knife
+- **W A S D**: move; **Space**: jump; **Shift** (held): crouch
+- **Mouse wheel**, **1**, **3**, **Q**: swap between the gun and the knife; in sniping scenarios **1** is the AWP, **2** a rifle (again for the next) and **3** the knife
 - **F**: inspect the knife
 - **Esc**: pause. Press Esc again to go back to the scenario list
 - **R**: restart the current run

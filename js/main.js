@@ -154,8 +154,8 @@ function onGameState(s) {
     if (game.sniper) {
       const [z1, z2] = [game.zoomMag(1), game.zoomMag(2)].map((z) => `${z.toFixed(1)}x`);
       hint = settings.sniper.scopeMode === 'hold'
-        ? `Hold right click to scope (${z1}). Left click fires.`
-        : `Right click scopes to ${z1}, again for ${z2}. Left click fires.`;
+        ? `Hold right click to scope (${z1}). Left click fires. 2 for a rifle (again for the next), 1 the AWP.`
+        : `Right click scopes to ${z1}, again for ${z2}. Left click fires. 2 for a rifle (again for the next), 1 the AWP.`;
     }
     $('countdown-hint').textContent = hint;
   }
@@ -171,7 +171,8 @@ function renderHud(h) {
   if (h.countdown) $('countdown-num').textContent = h.countdown;
   if (h.ammo !== null) {
     $('hud-ammo-n').textContent = '∞';
-    $('hud-ammo-info').textContent = `${h.zoom ? `${h.zoom.toFixed(1)}X SCOPE` : 'UNSCOPED'} · INFINITE ROUNDS`;
+    const held = h.awp ? (h.zoom ? `${h.zoom.toFixed(1)}X SCOPE` : 'UNSCOPED') : h.gunName.toUpperCase();
+    $('hud-ammo-info').textContent = `${held} · INFINITE ROUNDS`;
   }
 
   if (settings.showFps && performance.now() - hudFpsTimer > 250) {
@@ -252,7 +253,7 @@ function renderDetail() {
     ['Speed', d.speed],
   ];
   if (d.moves) rows.push(['Moves', d.moves]);
-  rows.push(['Weapon', `${d.fire}`], ['Scoring', d.scoring], ['Controls', 'WASD moves · wheel or 3 knife, 1 gun · R restarts']);
+  rows.push(['Weapon', `${d.fire}`], ['Scoring', d.scoring], ['Controls', `WASD moves · Space jumps · Shift crouches · ${s.weapon.type === 'sniper' ? '1 AWP, 2 rifle (again for the next), 3 knife' : 'wheel or 3 knife, 1 gun'} · R restarts`]);
   $('d-specs').innerHTML = rows.map(([k, val]) => `<dt>${k}</dt><dd>${val}</dd>`).join('');
 
   const beam = s.weapon.type === 'beam';
@@ -350,7 +351,7 @@ function coaching(r, s, v) {
       text += ` <b>${r.unscoped}</b> of ${r.shots} shots left before the scope settled, so they carried hip-fire spread. Give the scope its ${(spec.settleTime || settings.sniper.scopeTime).toFixed(2)} s.`;
     }
     if (r.accuracy < 0.6) text += ` Accuracy was ${pct(r.accuracy)}; every miss locks you out for ${spec.fireInterval.toFixed(2)} s.`;
-    else if (r.kills && r.headshots / r.kills < 0.3) text += ` Body shots kill with the ${spec.name}, but legs don't: keep the crosshair at chest height or above.`;
+    else if (r.kills && r.headshots / r.kills < 0.3) text += ' The AWP kills with a hit anywhere, but a rifle needs a headshot to kill in one: aim at head height when you swap to one (2).';
     return text;
   }
   if (s.weapon.type === 'beam') {
@@ -418,18 +419,17 @@ function renderSniperSettings() {
   const cs2 = s.sniper.handling !== 'operator';
   const spec = SNIPERS[cs2 ? 'cs2' : 'operator'];
   const [z1, z2] = [1, 2].map((l) => game.zoomMag(l).toFixed(1));
-  const dmg = spec.damage;
   $('s-sniper-readout').textContent = cs2
-    ? `CS2 AWP: ${spec.fireInterval.toFixed(3)} s between shots · zoom to 40° (${z1}x at your FOV) and 10° (${z2}x) · accurate ${spec.settleTime.toFixed(2)} s after scoping · head ${dmg.head}, chest ${dmg.body}, legs ${dmg.legs} per 100 HP · infinite rounds`
-    : `Valorant Operator: 0.6 shots/s (${spec.fireInterval.toFixed(2)} s apart) · 2.5x and 5x zoom · head ${dmg.head}, body ${dmg.body}, legs ${dmg.legs} · infinite rounds`;
+    ? `CS2 AWP: ${spec.fireInterval.toFixed(3)} s between shots · zoom to 40° (${z1}x at your FOV) and 10° (${z2}x) · accurate ${spec.settleTime.toFixed(2)} s after scoping · one hit anywhere kills · infinite rounds`
+    : `Valorant Operator: 0.6 shots/s (${spec.fireInterval.toFixed(2)} s apart) · 2.5x and 5x zoom · one hit anywhere kills · infinite rounds`;
   $('s-scopedSens-lbl').textContent = cs2 ? 'Zoom sensitivity ratio (CS2 zoom_sensitivity_ratio)' : 'Scoped sensitivity multiplier';
   $('s-scopeTime-wrap').hidden = cs2;
   $('s-unscope-lbl').textContent = cs2 ? 'Unscope after each shot, and zoom back in when the bolt is back' : 'Drop out of scope after each shot';
   $('s-scope-toggle-lbl').textContent = `Right click cycles ${z1}x, ${z2}x, off`;
   $('s-scope-hold-lbl').textContent = `Hold right click for ${z1}x`;
   $('s-sniper-hint').textContent = cs2
-    ? `Scope with the right mouse button, Shift, or Ctrl+click on a Mac trackpad. At 1.00, scoped sensitivity is your sensitivity times the zoom FOV over 90, exactly as CS2 does it, so your CS2 flicks carry over: set the ratio to your zoom_sensitivity_ratio. A shot is accurate once the scope has been up ${spec.settleTime.toFixed(2)} s, so quick-scopes work; the zoom and settle times are estimates.`
-    : 'Scope with the right mouse button, Shift, or Ctrl+click on a Mac trackpad. At 1.0, scoped sensitivity scales with the zoom, so 2.5x turns 2.5 times slower. Riot doesn\'t publish the Operator\'s scope-in time; 0.25 s is an estimate you can tune to match how it feels in game.';
+    ? `Scope with the right mouse button, or Ctrl+click on a Mac trackpad. At 1.00, scoped sensitivity is your sensitivity times the zoom FOV over 90, exactly as CS2 does it, so your CS2 flicks carry over: set the ratio to your zoom_sensitivity_ratio. A shot is accurate once the scope has been up ${spec.settleTime.toFixed(2)} s, so quick-scopes work; the zoom and settle times are estimates.`
+    : 'Scope with the right mouse button, or Ctrl+click on a Mac trackpad. At 1.0, scoped sensitivity scales with the zoom, so 2.5x turns 2.5 times slower. Riot doesn\'t publish the Operator\'s scope-in time; 0.25 s is an estimate you can tune to match how it feels in game.';
 }
 
 function syncOutputs() {
@@ -630,6 +630,7 @@ function renderWeapon() {
   $('w-show').checked = settings.weapon.show;
   $('w-sounds').checked = settings.weapon.sounds;
   $('w-headshot').checked = settings.weapon.headshot !== false;
+  $('w-recoil').checked = settings.weapon.recoil !== false;
   $('w-hand-right').checked = settings.weapon.hand !== 'left';
   $('w-hand-left').checked = settings.weapon.hand === 'left';
   $('w-fov').value = settings.weapon.fov;
@@ -1049,6 +1050,7 @@ const viewInput = (id, apply) => {
 viewInput('w-show', (el) => { settings.weapon.show = el.checked; });
 viewInput('w-sounds', (el) => { settings.weapon.sounds = el.checked; });
 viewInput('w-headshot', (el) => { settings.weapon.headshot = el.checked; });
+viewInput('w-recoil', (el) => { settings.weapon.recoil = el.checked; });
 viewInput('w-hand-right', () => { settings.weapon.hand = 'right'; });
 viewInput('w-hand-left', () => { settings.weapon.hand = 'left'; });
 viewInput('w-fov', (el) => { settings.weapon.fov = parseInt(el.value, 10); });
@@ -1218,13 +1220,24 @@ document.addEventListener('keydown', (e) => {
   // Leave browser shortcuts (Cmd+R, Ctrl+R) alone.
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.code; // physical key, so it works on any keyboard layout
+  const live = game.state === 'running' || game.state === 'countdown';
   if (MOVE_KEYS.has(k)) {
-    if (game.state === 'running' || game.state === 'countdown') e.preventDefault();
+    if (live) e.preventDefault();
     game.moveKey(k, true);
     return;
   }
-  if ((k === 'ShiftLeft' || k === 'ShiftRight') && !e.repeat) {
-    game.scopePress();
+  if (k === 'Space' && live) {
+    e.preventDefault();
+    if (!e.repeat) game.jump();
+    return;
+  }
+  if (k === 'ShiftLeft' || k === 'ShiftRight') {
+    if (live) e.preventDefault();
+    game.crouch(true);
+    return;
+  }
+  if (k === 'Digit2' || k === 'Numpad2') {
+    game.switchWeapon('rifle');
   } else if (k === 'KeyR' && (game.state === 'running' || game.state === 'countdown')) {
     e.preventDefault();
     game.start();
@@ -1252,11 +1265,14 @@ document.addEventListener('keydown', (e) => {
 });
 document.addEventListener('keyup', (e) => {
   if (MOVE_KEYS.has(e.code)) game.moveKey(e.code, false);
-  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') game.scopeRelease();
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') game.crouch(false);
 });
 // Let go of every movement key when the window loses focus, so nothing
 // keeps running on its own.
-window.addEventListener('blur', () => { for (const k of MOVE_KEYS) game.moveKey(k, false); });
+window.addEventListener('blur', () => {
+  for (const k of MOVE_KEYS) game.moveKey(k, false);
+  game.crouch(false);
+});
 
 // Fullscreen helps on laptops: no browser chrome, and pointer lock stays put.
 const fsBtn = $('btn-fullscreen');

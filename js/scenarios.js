@@ -17,14 +17,16 @@ export const CATEGORIES = [
 // FOV); scoped sensitivity = sensitivity x zoom_sensitivity_ratio x zoom FOV
 // / 90, as in CS2; accurate about 0.1 s after scoping in, so quick-scopes
 // work; after a shot it unscopes and zooms back in when the bolt is back.
-// Damage per 100 HP: head 459, chest 115, legs 86, so a chest shot kills and
-// a leg shot doesn't. The zoom time and settle time are estimates.
+// The zoom time and settle time are estimates.
 //
-// Valorant Operator: 0.6 rounds/s, 2.5x and 5x zoom, 255 head / 150 body /
-// 120 legs per 150 HP, scoped sensitivity divided by the zoom. The scope-in
-// time is not published; the player sets it in Settings.
+// Valorant Operator: 0.6 rounds/s, 2.5x and 5x zoom, scoped sensitivity
+// divided by the zoom. The scope-in time is not published; the player sets
+// it in Settings.
 //
-// Ammo is infinite with both: no magazine, no reload.
+// In the sniping playlist the AWP kills a bot with one hit anywhere, with
+// either handling; the rifles (slot 2) kill with one headshot or their
+// guns.js `bodyShots`. `damage` is kept for reference. Ammo is infinite: no
+// magazine, no reload.
 export const SNIPERS = {
   cs2: {
     name: 'CS2 AWP',
@@ -504,7 +506,7 @@ export function describe(scn, v = defaultSetup(scn)) {
   let fire;
   let scoring;
   if (scn.weapon.type === 'sniper') {
-    fire = 'AWP, one shot per bolt, infinite rounds; CS2 or Operator handling in Settings';
+    fire = 'AWP (CS2 or Operator handling in Settings), or any rifle on 2; infinite rounds';
     scoring = `+${scn.weapon.points} per kill, +${scn.weapon.headBonus} headshot, −${scn.weapon.missPenalty} per miss`;
   } else if (scn.weapon.type === 'beam') {
     fire = 'Beam, hold mouse 1';
@@ -525,7 +527,7 @@ export function describe(scn, v = defaultSetup(scn)) {
     fire,
     scoring,
     health: scn.weapon.type === 'sniper'
-      ? `${scn.target.hp} HP: head 255, body 150, legs 120`
+      ? 'AWP: one hit anywhere. Rifles: one headshot, or 5 body hits (M4A1-S), 3 (XM7), 4 (AK-47, Phantom, Vandal)'
       : scn.weapon.type === 'beam'
         ? (v.hp ? `${v.hp} HP each${scn.respawn ? `, respawn after ${scn.respawn} s` : ''}` : 'Unlimited, never dies')
         : 'One shot',

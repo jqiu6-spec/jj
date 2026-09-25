@@ -5,7 +5,7 @@ import { eyeOf, defaultSetup, setupKey, effectiveScenario, SNIPERS } from './sce
 import { degPerCount, verticalFov } from './settings.js';
 import { sfx } from './audio.js';
 import { Viewmodel } from './weapon.js';
-import { GUNS } from './guns.js';
+import { GUNS, PRIMARY_GUNS, RECOIL } from './guns.js';
 import { Effects } from './effects.js';
 
 // macOS reports Ctrl+click as a left button; treat it as the right button.
@@ -13,6 +13,12 @@ const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || '') || /Macintosh/.t
 
 const DEG = Math.PI / 180;
 const MAX_PITCH = 89 * DEG;
+// CS2's jump and crouch, in metres (1 unit = 1 inch): jump impulse 301.993
+// units/s against 800 units/s² of gravity, and the eye 18 units lower
+// crouched.
+const JUMP_SPEED = 301.993 * 0.0254;
+const GRAVITY = 800 * 0.0254;
+const CROUCH_DROP = 18 * 0.0254;
 const COUNTDOWN = 3;
 
 // ------------------------------------------------------------------ textures
@@ -132,6 +138,14 @@ export class Game {
     this.eye = new THREE.Vector3(0, 1.7, 0);
     this.vel = new THREE.Vector3(); // on the ground, m/s (WASD)
     this.keys = new Set(); // movement keys held
+    this.baseEye = 1.7; // eye height standing on the floor
+    this.jumpY = 0; // feet above the floor while jumping, m
+    this.vy = 0;
+    this.crouching = false; // Shift held
+    this.crouchT = 0; // 0 standing .. 1 crouched
+    this.rifleId = null; // the rifle in slot 2 of a sniping run
+    this.lastSlot = 'knife'; // where Q goes back to
+    this.recoil = { p: 0, y: 0, index: 0, last: -9 }; // view kick (radians) and place in the spray
     this.fwd = new THREE.Vector3(0, 0, -1);
 
     // Ground colour lights downward faces, so the ceiling doesn't go black.
@@ -232,8 +246,13 @@ export class Game {
 
   // The gun for this scenario: the AWP in sniping, the primary otherwise.
   get gunId() {
-    if (this.scn && this.scn.weapon.type === 'sniper') return 'awp';
+    if (this.scn && this.scn.weapon.type === 'sniper') return this.slot === 'rifle' && this.rifleId ? this.rifleId : 'awp';
     return this.settings.weapon.primary;
+  }
+
+  // The AWP is in hand: sniping runs start with it; 2 swaps to a rifle.
+  get awpHeld() {
+    return this.sniper && this.slot === 'gun';
   }
 
   // What the player holds: the scenario's gun, or the knife.
@@ -601,15 +620,28 @@ export class Game {
   }
 
   // ------------------------------------------------------------ run flow
-  // Swap between the gun and the knife: 'gun', 'knife' or 'toggle'.
+  // Change what the player holds: 'gun' (1: the scenario's gun, the AWP
+  // when sniping), 'rifle' (2, sniping runs: a rifle, and pressed again the
+  // next one, so every gun is on hand), 'knife' (3), 'toggle' (Q: back to
+  // the last one), or 'next' / 'prev' (the mouse wheel, round the slots).
   switchWeapon(slot) {
     const live = this.state === 'running' || this.state === 'countdown';
     if (!live) return;
-    const next = slot === 'toggle' ? (this.slot === 'knife' ? 'gun' : 'knife') : slot;
-    if (next === this.slot) return;
-    this.slot = next;
+    const slots = this.sniper ? ['gun', 'rifle', 'knife'] : ['gun', 'knife'];
+    let next = slot;
+    if (slot === 'toggle') next = slots.includes(this.lastSlot) && this.lastSlot !== this.slot ? this.lastSlot : (this.slot === 'knife' ? 'gun' : 'knife');
+    else if (slot === 'next' || slot === 'prev') next = slots[(slots.indexOf(this.slot) + (slot === 'next' ? 1 : slots.length - 1)) % slots.length];
+    if (!slots.includes(next)) return;
+    if (next === this.slot) {
+      if (next !== 'rifle') return;
+      this.rifleId = PRIMARY_GUNS[(PRIMARY_GUNS.indexOf(this.rifleId) + 1) % PRIMARY_GUNS.length];
+    } else {
+      this.lastSlot = this.slot;
+      this.slot = next;
+    }
     this.firing = false;
-    if (next === 'knife') this.setZoom(0);
+    this.wasFiring = false;
+    if (next !== 'gun' || !this.sniper) this.setZoom(0); // only the AWP scopes
     this.resumeLevel = 0;
     this.refreshGun();
   }
@@ -621,7 +653,7 @@ export class Game {
     const now = performance.now();
     if (Math.abs(e.deltaY) < 1 || now - this.lastWheel < 250) return;
     this.lastWheel = now;
-    this.switchWeapon('toggle');
+    this.switchWeapon(e.deltaY > 0 ? 'next' : 'prev');
   }
 
   // F: spin the knife around the finger.
@@ -633,6 +665,9 @@ export class Game {
   start() {
     this.recoverResolution();
     this.slot = 'gun';
+    this.lastSlot = 'knife';
+    if (!PRIMARY_GUNS.includes(this.rifleId)) this.rifleId = this.settings.weapon.primary;
+    Object.assign(this.recoil, { p: 0, y: 0, index: 0, last: -9 });
     this.run = {
       scenario: this.scn.id,
       elapsed: 0,
@@ -666,6 +701,10 @@ export class Game {
     // Every run starts from the scenario's spot, standing still.
     const [ex, ey, ez] = eyeOf(this.scn);
     this.eye.set(ex, ey, ez);
+    this.baseEye = ey;
+    this.jumpY = 0;
+    this.vy = 0;
+    this.crouchT = 0;
     this.vel.set(0, 0, 0);
     this.vm.moving = 0;
     this.resetTargets();
@@ -688,6 +727,7 @@ export class Game {
       this.pausedFrom = this.state;
       this.firing = false;
       this.keys.clear();
+      this.crouching = false;
       if (this.settings.sniper.scopeMode === 'hold') this.setZoom(0);
       this.setState('paused');
     }
@@ -778,7 +818,8 @@ export class Game {
     // held fire can start exactly then rather than on a frame boundary.
     if (this.run) this.pressAt = this.run.elapsed + Math.min(0.05, Math.max(0, (performance.now() - this.last) / 1000));
     if (this.scn.weapon.type === 'click') this.shoot();
-    else if (this.sniper) this.sniperShoot();
+    else if (this.awpHeld) this.sniperShoot();
+    // A rifle in a sniping run fires from step(), at its own rate while held.
   }
 
   onMouseUp(e) {
@@ -786,19 +827,19 @@ export class Game {
     if (e.button === 2 || (e.button === 0 && e.ctrlKey && IS_MAC)) this.scopeRelease();
   }
 
-  // Right mouse button, Ctrl+click on a Mac, or the Shift key. Only the
-  // sniper scopes. Toggle cycles first zoom, second zoom, off; hold keeps
-  // the first zoom while held.
+  // Right mouse button, or Ctrl+click on a Mac. Only the AWP scopes.
+  // Toggle cycles first zoom, second zoom, off; hold keeps the first zoom
+  // while held.
   scopePress() {
     const live = this.state === 'running' || this.state === 'countdown';
-    if (!this.sniper || !live || this.knifeOut) return;
+    if (!this.awpHeld || !live) return;
     this.resumeLevel = 0; // the player has taken over the scope
     if (this.settings.sniper.scopeMode === 'hold') this.setZoom(1);
     else this.setZoom((this.zoomLevel + 1) % 3);
   }
 
   scopeRelease() {
-    if (this.sniper && this.settings.sniper.scopeMode === 'hold') this.setZoom(0);
+    if (this.awpHeld && this.settings.sniper.scopeMode === 'hold') this.setZoom(0);
   }
 
   updateForward() {
@@ -890,6 +931,7 @@ export class Game {
     else sfx.shot();
     const t = this.pick();
     this.tracer(this.fwd, t ? this.pickDist : 0);
+    this.kickRecoil();
     if (t) {
       r.hits++;
       r.score += w.points;
@@ -969,9 +1011,8 @@ export class Game {
     if (t) {
       r.hits++;
       const part = this.pickPart;
-      // Damage scaled to the target's health, so the kill rules hold.
-      const dmg = (spec.damage[part] * (t.maxHp === Infinity ? spec.hp : t.maxHp)) / spec.hp;
-      t.hp -= dmg;
+      // The AWP kills with one hit anywhere.
+      t.hp = 0;
       t.flash = 1;
       t.flashPart = part === 'head' ? 'head' : 'body';
       if (t.hp <= 0) {
@@ -990,6 +1031,77 @@ export class Game {
       if (spec.resumeZoom && this.zoomLevel && this.settings.sniper.scopeMode === 'toggle') this.resumeLevel = this.zoomLevel;
       this.setZoom(0);
     }
+  }
+
+  // One round from a rifle in a sniping run. A headshot kills; body and leg
+  // hits take the gun's `bodyShots` (M4A1-S 5, XM7 3, the others 4). Misses
+  // cost the AWP's penalty scaled by fire rate, so a spray costs no more a
+  // second than missing with the AWP.
+  rifleShot() {
+    const r = this.run;
+    const w = this.scn.weapon;
+    const gun = GUNS[this.gunId];
+    r.shots++;
+    this.vm.shot();
+    if (this.settings.weapon.sounds) this.fireSound();
+    else sfx.shot();
+    const t = this.pick();
+    this.tracer(this.fwd, t ? this.pickDist : 0);
+    this.kickRecoil();
+    if (!t) {
+      r.score = Math.max(0, r.score - w.missPenalty * Math.min(1, (gun.fireInterval || 0.1) / this.sniperSpec.fireInterval));
+      return;
+    }
+    r.hits++;
+    const head = this.pickPart === 'head';
+    t.hp = head ? 0 : t.hp - t.maxHp / (gun.bodyShots || 4);
+    t.flash = 1;
+    t.flashPart = head ? 'head' : 'body';
+    if (t.hp <= t.maxHp * 1e-6) {
+      r.score += w.points + (head ? w.headBonus : 0);
+      if (head) r.headshots++;
+      this.kill(t);
+    } else {
+      this.hooks.onHit(false);
+    }
+  }
+
+  // Recoil: each round of a spray kicks the view by the gun's pattern
+  // (RECOIL in guns.js), and the kick settles back once you stop firing,
+  // as in CS2. The view itself moves, so shots land on the crosshair and
+  // you pull down against the climb.
+  kickRecoil() {
+    const kind = GUNS[this.gunId] && GUNS[this.gunId].recoil;
+    if (!kind || this.knifeOut || this.settings.weapon.recoil === false || !this.run) return;
+    const R = this.recoil;
+    const pat = RECOIL[kind];
+    const r = this.run;
+    if (r.elapsed - R.last > 0.35) R.index = 0;
+    const n = pat.up.length;
+    const i = R.index < n ? R.index : n - 4 + ((R.index - n) % 4);
+    const dp = pat.up[i] * DEG;
+    const dy = -pat.right[i] * DEG; // yaw grows to the left
+    R.p += dp;
+    R.y += dy;
+    this.pitch = Math.min(MAX_PITCH, this.pitch + dp);
+    this.yaw += dy;
+    R.index++;
+    R.last = r.elapsed;
+  }
+
+  settleRecoil(dt) {
+    const R = this.recoil;
+    if (!R.p && !R.y) return;
+    // Slowly while the spray goes on, quickly once it stops.
+    const rate = this.run.elapsed - R.last > 0.12 ? 7 : 1.2;
+    const k = 1 - Math.exp(-dt * rate);
+    const dp = R.p * k;
+    const dy = R.y * k;
+    R.p -= dp;
+    R.y -= dy;
+    this.pitch -= dp;
+    this.yaw -= dy;
+    if (Math.abs(R.p) < 1e-5 && Math.abs(R.y) < 1e-5) { R.p = 0; R.y = 0; }
   }
 
   // ------------------------------------------------------------- effects
@@ -1066,7 +1178,7 @@ export class Game {
     }
 
     if (this.zoomLevel) this.scopeAge += dt;
-    if (this.resumeLevel && this.run && this.state === 'running' && this.sniper && !this.knifeOut
+    if (this.resumeLevel && this.run && this.state === 'running' && this.awpHeld
       && this.run.elapsed - this.run.lastShot >= this.sniperSpec.fireInterval) {
       this.setZoom(this.resumeLevel);
       this.resumeLevel = 0;
@@ -1178,6 +1290,7 @@ export class Game {
         this.vm.shot();
         this.fireSound();
         this.tracer(this.fwd, t ? this.pickDist : 0);
+        this.kickRecoil();
       }
       if (t) {
         r.onTime += dt;
@@ -1195,7 +1308,20 @@ export class Game {
       }
     }
     if (w.type === 'beam' && firing) this.measureLead(dt);
-    this.wasFiring = w.type === 'beam' && firing;
+    // A rifle in a sniping run: automatic, at its own rate, timed like the
+    // tracking guns above.
+    const spraying = this.sniper && this.slot === 'rifle' && this.firing;
+    if (spraying) {
+      const interval = GUNS[this.gunId].fireInterval || 0.1;
+      if (!this.wasFiring) r.nextShot = Math.max(r.nextShot, this.pressAt ?? r.elapsed);
+      r.nextShot = Math.max(r.nextShot, r.elapsed - interval * 2);
+      while (r.nextShot <= r.elapsed) {
+        r.nextShot += interval;
+        this.rifleShot();
+      }
+    }
+    this.settleRecoil(dt);
+    this.wasFiring = (w.type === 'beam' && firing) || spraying;
     if (!firing) this.pressAt = null;
 
     while (r.timeline.length < Math.floor(r.elapsed) && r.timeline.length < this.scn.duration) {
@@ -1210,11 +1336,37 @@ export class Game {
     else this.keys.delete(code);
   }
 
+  // Space: jump, if standing on the floor (CS2's jump: 1.45 m up, 0.75 s in
+  // the air).
+  jump() {
+    if (this.state !== 'running' || this.jumpY > 0 || this.vy !== 0) return;
+    this.vy = JUMP_SPEED;
+  }
+
+  // Shift held: crouch.
+  crouch(on) {
+    this.crouching = !!on;
+  }
+
   // WASD: run around the arena at the held weapon's speed (CS2's, or
   // Valorant's for the Riot guns; half with the AWP scoped). Speeding up
   // and stopping are quick, so counter-strafing works. Walls and crates
   // stop you.
   move(dt) {
+    // Crouching lowers the eye 0.46 m (CS2's 64 to 46 units) in 0.12 s;
+    // a jump rises and falls under CS2's gravity.
+    this.crouchT = Math.max(0, Math.min(1, this.crouchT + (this.crouching ? dt : -dt) / 0.12));
+    if (this.jumpY > 0 || this.vy > 0) {
+      this.vy -= GRAVITY * dt;
+      this.jumpY += this.vy * dt;
+      if (this.jumpY <= 0 && this.vy <= 0) { // landed (not the frame it left)
+        this.jumpY = 0;
+        this.vy = 0;
+      }
+    }
+    const grounded = this.jumpY === 0 && this.vy === 0;
+    const c = this.crouchT;
+    this.eye.y = this.baseEye + this.jumpY - CROUCH_DROP * c * c * (3 - 2 * c);
     const k = this.keys;
     const f = (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0);
     const s = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
@@ -1225,8 +1377,11 @@ export class Game {
     const gun = GUNS[this.heldId] || {};
     let speed = gun.run || 5.4;
     if (this.zoomLevel) speed *= 0.5;
+    if (this.crouching) speed *= 0.34; // CS2 crouch-walks at a third of a run
     if (wish > 0) _v.multiplyScalar(speed / wish);
-    this.vel.lerp(_v, 1 - Math.exp(-dt * (wish > 0 ? 12 : 16)));
+    // In the air you keep your momentum and steer only a little.
+    const rate = !grounded ? 1.5 : wish > 0 ? 12 : 16;
+    this.vel.lerp(_v, 1 - Math.exp(-dt * rate));
     if (wish === 0 && this.vel.lengthSq() < 1e-4) this.vel.set(0, 0, 0);
     this.vm.moving = Math.min(1, this.vel.length() / 5.4);
     if (!this.vel.x && !this.vel.z) return;
@@ -1236,7 +1391,7 @@ export class Game {
     // Crates: step back out along the shallower side.
     const R = 0.3;
     for (const b of this.covers) {
-      if (e.y > b.max.y + 0.5) continue;
+      if (this.jumpY >= b.max.y) continue; // over the top (none are that low)
       const ox = Math.min(e.x - (b.min.x - R), b.max.x + R - e.x);
       const oz = Math.min(e.z - (b.min.z - R), b.max.z + R - e.z);
       if (ox <= 0 || oz <= 0) continue;
@@ -1315,7 +1470,9 @@ export class Game {
       acc,
       kills: r.kills,
       fps: this.fps,
-      ammo: this.sniper ? Infinity : null, // the AWP never runs dry
+      ammo: this.sniper ? Infinity : null, // guns in sniping runs never run dry
+      awp: this.awpHeld,
+      gunName: (GUNS[this.heldId] || {}).name || '',
       zoom: this.zoomLevel ? this.zoomMag(this.zoomLevel) : 0,
       onTarget: beam && this.targets.some((t) => t.flash > 0.9),
     };

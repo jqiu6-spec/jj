@@ -23,10 +23,28 @@ export const ZONE_LABELS = {
   metal: 'Barrel & metal parts',
 };
 
+// Spray patterns: how far each shot kicks the view (degrees up, and right),
+// by its place in the spray, like CS2's. The first shot goes where you aim;
+// past the end the last few repeat. 'ak' climbs hard for ten rounds and then
+// wanders left and right; 'light' (M4A1-S, Phantom) climbs about a third as
+// much and barely wanders.
+export const RECOIL = {
+  ak: {
+    up: [0.9, 1.0, 1.05, 1.0, 0.9, 0.8, 0.6, 0.45, 0.3, 0.2, 0.15, 0.1, 0.05, 0.05, 0, 0, 0, 0, 0, 0],
+    right: [0, 0.08, -0.05, 0.1, -0.08, 0.12, 0.2, 0.3, 0.35, 0.4, 0.35, -0.3, -0.45, -0.5, -0.45, -0.35, 0.3, 0.4, 0.45, 0.35],
+  },
+  light: {
+    up: [0.35, 0.4, 0.4, 0.38, 0.33, 0.28, 0.22, 0.16, 0.12, 0.08, 0.05, 0.03, 0, 0, 0, 0],
+    right: [0, 0.04, -0.04, 0.05, -0.05, 0.06, 0.08, -0.08, -0.1, 0.1, 0.12, -0.12, -0.1, 0.1, 0.08, -0.08],
+  },
+};
+
 export const GUNS = {
   m4a1s: {
     name: 'M4A1-S',
     run: 5.72, // m/s running: CS2 225 units/s
+    bodyShots: 5, // body or leg hits to kill a bot in the AWP playlist (a headshot always kills)
+    recoil: 'light',
     kind: 'Rifle',
     fireInterval: 0.1, // 600 rounds per minute
     blurb: 'Suppressed 5.56 carbine with a ribbed handguard. 600 rounds per minute; the suppressor comes off.',
@@ -36,6 +54,8 @@ export const GUNS = {
   ak47: {
     name: 'AK-47',
     run: 5.46, // m/s running: CS2 215 units/s
+    bodyShots: 4,
+    recoil: 'ak',
     kind: 'Rifle',
     fireInterval: 0.1,
     blurb: '7.62 rifle with a curved magazine and wood furniture. 600 rounds per minute.',
@@ -45,6 +65,7 @@ export const GUNS = {
   xm7: {
     name: 'XM7',
     run: 5.33, // m/s running: CS2 210 units/s (estimate)
+    bodyShots: 3,
     kind: 'Rifle',
     fireInterval: 0.075, // 800 rounds per minute
     blurb: 'The US Army\'s 6.8 mm rifle: long slotted handguard, flip-up sights, straight box magazine, folding stock. Fires at 800 rounds per minute here.',
@@ -54,6 +75,8 @@ export const GUNS = {
   phantom: {
     name: 'Phantom',
     run: 5.4, // m/s running: Valorant's run speed
+    bodyShots: 4,
+    recoil: 'light',
     kind: 'Rifle',
     fireInterval: 1 / 11, // Valorant Phantom: 11 rounds per second
     blurb: 'Valorant\'s suppressed rifle. Fires at Valorant\'s 11 rounds per second.',
@@ -63,6 +86,7 @@ export const GUNS = {
   vandal: {
     name: 'Vandal 2021',
     run: 5.4, // m/s running: Valorant's run speed
+    bodyShots: 4,
     kind: 'Rifle',
     fireInterval: 1 / 9.75, // Valorant Vandal: 9.75 rounds per second
     blurb: 'Valorant\'s Vandal in the Champions 2021 finish. 9.75 rounds per second, a gold tracer, and a kill sound that climbs with each kill in a streak.',

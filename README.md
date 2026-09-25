@@ -183,7 +183,10 @@ effect's colour, shots fly from the muzzle to wherever they land (a target, a
 crate or the wall), a burst marks the impact, and kills pop in the effect's
 colour. Shots start exactly at the muzzle as drawn, whatever the gun, pose,
 sway or recoil, and start barrel-thin before widening, so nothing spills off
-the gun. **Test fire** previews the flash, glow and sound in the Weapon tab.
+the gun. Hits are instant, so every shot lands within one frame (at 60 fps):
+the bolt and its impact show together with the hit, never after it. Guns are
+held level and aimed so the barrel points at the crosshair, and each shot
+continues the barrel's line. **Test fire** previews the flash, glow and sound in the Weapon tab.
 Presets come with effects (Fade is a plasma bolt, Ember Tiger flame, Cobalt Hex
 lightning, Neon Splatter spectral).
 

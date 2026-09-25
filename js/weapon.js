@@ -29,15 +29,37 @@ const PLAY_POSE = {
 };
 
 // The detailed models are real-size and shaped differently from the built-in
-// ones, so each has its own pose. yaw turns the muzzle in toward the
-// crosshair, pitch raises it, roll cants the gun about the bore.
+// ones, so each has its own pose.
 export const DETAILED_POSE = {
-  m4a1s: { x: 0.2, y: -0.18, z: -0.5, yaw: 0.2, pitch: 0.03, roll: 0.3 },
-  ak47: { x: 0.19, y: -0.17, z: -0.5, yaw: 0.2, pitch: 0.03, roll: 0.3 },
-  xm7: { x: 0.2, y: -0.18, z: -0.5, yaw: 0.2, pitch: 0.03, roll: 0.3 },
-  phantom: { x: 0.2, y: -0.18, z: -0.5, yaw: 0.2, pitch: 0.03, roll: 0.3 },
-  awp: { x: 0.2, y: -0.21, z: -0.6, yaw: 0.15, pitch: 0.03, roll: 0.25 },
+  m4a1s: { x: 0.2, y: -0.18, z: -0.5 },
+  ak47: { x: 0.18, y: -0.16, z: -0.48 },
+  xm7: { x: 0.2, y: -0.18, z: -0.5 },
+  phantom: { x: 0.2, y: -0.18, z: -0.5 },
+  awp: { x: 0.2, y: -0.21, z: -0.6 },
 };
+
+// Every gun is held level and aimed so its bore crosses the line of sight
+// this far ahead (metres): on screen the barrel points straight at the
+// crosshair, and shots continue the barrel's line. A pose may set `aim`.
+const CONVERGE = 4;
+
+const _aimE = new THREE.Euler(0, 0, 0, 'YZX');
+const _aimO = new THREE.Vector3();
+const _aimD = new THREE.Vector3();
+// Yaw and pitch that send the bore line (gun-local y = boreY, z = 0) from a
+// gun placed at `pos` through the point `dist` ahead of the camera.
+function aimAt(pos, boreY, dist) {
+  let yaw = Math.PI / 2;
+  let pitch = 0;
+  for (let i = 0; i < 4; i++) {
+    _aimE.set(0, yaw, pitch, 'YZX');
+    _aimO.set(0, boreY, 0).applyEuler(_aimE).add(pos);
+    _aimD.set(0, 0, -dist).sub(_aimO).normalize();
+    pitch = Math.asin(_aimD.y);
+    yaw = Math.atan2(-_aimD.z, _aimD.x);
+  }
+  return { yaw, pitch };
+}
 
 let woodTexture = null;
 function wood() {
@@ -552,15 +574,18 @@ export class Viewmodel {
     const P = (gv.model.detailed && DETAILED_POSE[gv.id]) || PLAY_POSE[gv.id];
     const bob = Math.sin(this.t * 1.7) * 0.0018;
     gun.position.set(0, 0, 0);
+    // Aim from the resting pose; sway, bob and recoil move it off briefly.
+    _m.set(P.x, P.y, P.z);
+    const aim = aimAt(_m, gv.muzzle ? gv.muzzle.y : 0, P.aim || CONVERGE);
     rig.position.set(
       P.x - this.swayX * 0.25,
       P.y + bob + this.swayY * 0.2 - this.kick * 0.004,
       P.z + this.kick * 0.022,
     );
     rig.rotation.set(
-      -0.03 + (P.roll || 0) + this.swayX * 0.4,
-      Math.PI / 2 + 0.035 + (P.yaw || 0) + this.swayX,
-      0.012 + (P.pitch || 0) - this.swayY + this.kick * 0.03,
+      this.swayX * 0.4,
+      aim.yaw + this.swayX,
+      aim.pitch - this.swayY + this.kick * 0.03,
     );
   }
 

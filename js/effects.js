@@ -26,6 +26,13 @@ const TYPES = {
 // the first few metres, so nothing spills past the gun where the shot leaves.
 const ramp = (d) => 0.25 + 0.75 * Math.min(1, Math.max(0, d) / 4);
 
+// Hits are instant (hitscan), so every shot lands within one 60 fps frame:
+// the bolt and its impact burst show on the same frame as the hit marker,
+// never after it. The streak then races into the target over two frames.
+const MAX_TRAVEL = 0.016; // seconds
+// The streak is as long as the bolt travels in this time.
+const STREAK_TIME = 0.03; // seconds
+
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _c = new THREE.Vector3();
@@ -58,7 +65,9 @@ export class Effects {
     this.lines = [];
     this.group = new THREE.Group();
     scene.add(this.group);
-    this.boltGeo = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true).rotateX(Math.PI / 2); // along +Z
+    // A streak along +Z, full width at the head (+Z) and thin at the tail, so
+    // the end at the muzzle never covers more than the barrel.
+    this.boltGeo = new THREE.CylinderGeometry(1, 0.18, 1, 8, 1, true).rotateX(Math.PI / 2);
     this.color = new THREE.Color('#ffffff');
     this.type = 'none';
   }
@@ -120,6 +129,9 @@ export class Effects {
     b.total = b.dir.length();
     b.dir.normalize();
     b.dist = 0;
+    b.speed = Math.max(T.speed, b.total / MAX_TRAVEL);
+    b.len = Math.max(T.len, b.speed * STREAK_TIME);
+    b.landed = false;
     b.life = 1;
     b.hit = hit;
     b.phase = Math.random() * Math.PI * 2;
@@ -207,39 +219,43 @@ export class Effects {
       if (b.life <= 0) continue;
       // The effect was switched off mid-flight: drop the bolt quietly.
       if (!T) { b.life = 0; b.obj.visible = false; continue; }
-      b.dist += T.speed * dt;
-      if (b.dist >= b.total) {
+      const prev = Math.min(b.dist, b.total);
+      b.dist += b.speed * dt;
+      const head = Math.min(b.dist, b.total);
+      const tail = Math.max(0, b.dist - b.len);
+      if (!b.landed && b.dist >= b.total) {
+        b.landed = true;
+        this.burst(b.to, T, b.hit);
+      }
+      if (T.trail) {
+        // Trail particles along the stretch covered this frame, a set number
+        // per metre so fast shots still leave a full trail. Never behind the
+        // muzzle; the spectral trail weaves, starting flat at the gun.
+        const perMetre = T.trail / T.speed;
+        b.trailAcc += (head - prev) * perMetre;
+        let n = Math.min(Math.floor(b.trailAcc), 30);
+        b.trailAcc -= Math.floor(b.trailAcc);
+        if (T.wave) _b.crossVectors(b.dir, UP).normalize();
+        while (n-- > 0) {
+          const along = prev + Math.random() * (head - prev);
+          _c.copy(b.from).addScaledVector(b.dir, along);
+          if (T.wave) _c.addScaledVector(_b, Math.sin(along * 1.6 + b.phase) * 0.08 * Math.min(1, along / 3));
+          this.ghost(_c, T.width * (T.embers ? 2.5 : 1.6) * ramp(along), T.embers ? 0.25 : 0.18);
+        }
+      }
+      if (tail >= b.total) {
         b.life = 0;
         b.obj.visible = false;
-        this.burst(b.to, T, b.hit);
         continue;
       }
-      const head = Math.min(b.dist, b.total);
-      const tail = Math.max(0, b.dist - T.len);
       const k = ramp(head);
       _a.copy(b.from).addScaledVector(b.dir, (head + tail) / 2);
-      const wave = T.wave ? Math.sin(b.dist * 6 + b.phase) * 0.08 * Math.min(1, head / 3) : 0;
-      if (T.wave) {
-        _b.crossVectors(b.dir, UP).normalize();
-        _a.addScaledVector(_b, wave);
-      }
       b.obj.position.copy(_a);
       const len = Math.max(0.02, head - tail);
       b.mesh.scale.set(T.width * k, T.width * k, len);
       b.mesh.material.opacity = 0.85;
       b.head.position.set(0, 0, len / 2);
       b.head.scale.setScalar(T.width * 4 * k);
-      if (T.trail) {
-        b.trailAcc += dt * T.trail;
-        while (b.trailAcc >= 1) {
-          b.trailAcc -= 1;
-          // Only along the path already travelled, never behind the muzzle.
-          const along = head - Math.random() * Math.min(T.len, head);
-          _c.copy(b.from).addScaledVector(b.dir, along);
-          if (T.wave) _c.addScaledVector(_b, wave);
-          this.ghost(_c, T.width * (T.embers ? 2.5 : 1.6) * ramp(along), T.embers ? 0.25 : 0.18);
-        }
-      }
     }
     for (const g of this.ghosts) {
       if (g.life <= 0) continue;

@@ -60,6 +60,88 @@ function glowTexture() {
   return t;
 }
 
+// Trail embers and impact sparks, all drawn as one batch of point sprites:
+// one draw call however many there are, instead of one each.
+const MAX_PARTICLES = 600;
+const PARTICLE_VS = `
+attribute float size;
+attribute float alpha;
+attribute vec3 tint;
+uniform float scale;
+uniform float maxSize;
+varying vec3 vTint;
+varying float vAlpha;
+void main() {
+  vTint = tint;
+  vAlpha = alpha;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  gl_PointSize = min(maxSize, size * scale / max(0.05, -mv.z));
+  gl_Position = projectionMatrix * mv;
+}`;
+const PARTICLE_FS = `
+uniform sampler2D map;
+varying vec3 vTint;
+varying float vAlpha;
+void main() {
+  float a = texture2D(map, gl_PointCoord).a * vAlpha;
+  if (a < 0.004) discard;
+  gl_FragColor = vec4(vTint, a);
+  #include <colorspace_fragment>
+}`;
+
+class Particles {
+  constructor(map) {
+    this.geo = new THREE.BufferGeometry();
+    this.pos = new Float32Array(MAX_PARTICLES * 3);
+    this.tint = new Float32Array(MAX_PARTICLES * 3);
+    this.size = new Float32Array(MAX_PARTICLES);
+    this.alpha = new Float32Array(MAX_PARTICLES);
+    const attr = (a, n) => new THREE.BufferAttribute(a, n).setUsage(THREE.DynamicDrawUsage);
+    this.geo.setAttribute('position', attr(this.pos, 3));
+    this.geo.setAttribute('tint', attr(this.tint, 3));
+    this.geo.setAttribute('size', attr(this.size, 1));
+    this.geo.setAttribute('alpha', attr(this.alpha, 1));
+    this.geo.setDrawRange(0, 0);
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: { map: { value: map }, scale: { value: 600 }, maxSize: { value: 256 } },
+      vertexShader: PARTICLE_VS,
+      fragmentShader: PARTICLE_FS,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    this.points = new THREE.Points(this.geo, this.mat);
+    this.points.frustumCulled = false;
+  }
+
+  // Pixels per metre at 1 m for a view `heightPx` tall with vertical `fov`.
+  setView(heightPx, fov, maxSize) {
+    this.mat.uniforms.scale.value = heightPx / (2 * Math.tan((fov * Math.PI) / 360));
+    if (maxSize) this.mat.uniforms.maxSize.value = maxSize;
+  }
+
+  // Write the live particles of `lists` (records with pos, color, size, a).
+  write(lists) {
+    let n = 0;
+    for (const list of lists) {
+      for (const p of list) {
+        if (p.life <= 0 || n >= MAX_PARTICLES) continue;
+        this.pos[n * 3] = p.pos.x;
+        this.pos[n * 3 + 1] = p.pos.y;
+        this.pos[n * 3 + 2] = p.pos.z;
+        this.tint[n * 3] = p.color.r;
+        this.tint[n * 3 + 1] = p.color.g;
+        this.tint[n * 3 + 2] = p.color.b;
+        this.size[n] = p.drawSize;
+        this.alpha[n] = p.a;
+        n++;
+      }
+    }
+    for (const k of ['position', 'tint', 'size', 'alpha']) this.geo.attributes[k].needsUpdate = true;
+    this.geo.setDrawRange(0, n);
+  }
+}
+
 export class Effects {
   constructor(scene) {
     this.scene = scene;
@@ -71,11 +153,18 @@ export class Effects {
     this.lines = [];
     this.group = new THREE.Group();
     scene.add(this.group);
+    this.particles = new Particles(this.glow);
+    this.group.add(this.particles.points);
     // A streak along +Z, full width at the head (+Z) and thin at the tail, so
     // the end at the muzzle never covers more than the barrel.
     this.boltGeo = new THREE.CylinderGeometry(1, 0.45, 1, 8, 1, true).rotateX(Math.PI / 2);
     this.color = new THREE.Color('#ffffff');
     this.type = 'none';
+  }
+
+  // The camera the effects are seen through, so particles size correctly.
+  setView(heightPx, fov, maxSize) {
+    this.particles.setView(heightPx, fov, maxSize);
   }
 
   // Called when the equipped skin changes.
@@ -162,6 +251,27 @@ export class Effects {
     this.flash(from, Math.min(0.08, T.width * 1.5));
   }
 
+  // Make one of every effect object and show it, so the renderer can compile
+  // their shaders before the first shot rather than during it. Returns a
+  // function that hides them again.
+  prime() {
+    const saved = this.type;
+    this.type = 'plasma';
+    const a = new THREE.Vector3(0, -50, 0);
+    const b = new THREE.Vector3(0, -50, -1);
+    this.shot(a, b, false, { burst: false });
+    this.lightning(a, b);
+    this.type = saved;
+    const objs = [...this.bolts, ...this.flashes, ...this.lines].filter((o) => o.life > 0 || o.obj.visible);
+    for (const o of objs) o.obj.visible = true;
+    return () => {
+      for (const o of objs) {
+        o.life = 0;
+        o.obj.visible = false;
+      }
+    };
+  }
+
   flash(at, size) {
     const f = this.take(this.flashes, () => ({ obj: new THREE.Sprite(this.spriteMat()) }));
     f.obj.material.color.copy(this.color);
@@ -200,11 +310,25 @@ export class Effects {
     l.max = 0.07;
   }
 
+  // A particle record from `pool` (ghosts or sparks), reused when spent.
+  particle(pool) {
+    let p = pool.find((x) => x.life <= 0);
+    if (!p) {
+      if (pool.length >= MAX_PARTICLES / 2) return null;
+      p = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), color: new THREE.Color(), life: 0 };
+      pool.push(p);
+    }
+    return p;
+  }
+
   ghost(at, size, life) {
-    const g = this.take(this.ghosts, () => ({ obj: new THREE.Sprite(this.spriteMat()) }));
-    g.obj.material.color.copy(this.color);
-    g.obj.position.copy(at);
-    g.obj.scale.setScalar(size);
+    const g = this.particle(this.ghosts);
+    if (!g) return;
+    g.color.copy(this.color);
+    g.pos.copy(at);
+    g.size = size;
+    g.drawSize = size;
+    g.a = 0.8;
     g.life = life;
     g.max = life;
   }
@@ -212,12 +336,15 @@ export class Effects {
   burst(at, T, hit) {
     const n = hit ? T.burst : Math.ceil(T.burst / 2);
     for (let i = 0; i < n; i++) {
-      const s = this.take(this.sparks, () => ({ obj: new THREE.Sprite(this.spriteMat()), vel: new THREE.Vector3() }));
-      s.obj.material.color.copy(this.color);
-      if (hit) s.obj.material.color.lerp(WHITE, 0.35);
-      s.obj.position.copy(at);
+      const s = this.particle(this.sparks);
+      if (!s) break;
+      s.color.copy(this.color);
+      if (hit) s.color.lerp(WHITE, 0.35);
+      s.pos.copy(at);
+      s.a = 1;
       s.vel.set(Math.random() - 0.5, Math.random() - 0.3, Math.random() - 0.5).normalize().multiplyScalar(T.burstSpeed * (0.4 + Math.random()));
       s.size = T.width * (T.embers ? 1.2 : 2) * (0.5 + Math.random());
+      s.drawSize = s.size;
       s.life = T.burstLife * (0.6 + Math.random() * 0.6);
       s.max = s.life;
       s.gravity = T.gravity;
@@ -297,21 +424,19 @@ export class Effects {
     for (const g of this.ghosts) {
       if (g.life <= 0) continue;
       g.life -= dt;
-      const k = Math.max(0, g.life / g.max);
-      g.obj.material.opacity = k * 0.8;
-      if (T && T.embers) g.obj.position.y += dt * 0.6;
-      if (g.life <= 0) g.obj.visible = false;
+      g.a = Math.max(0, g.life / g.max) * 0.8;
+      if (T && T.embers) g.pos.y += dt * 0.6;
     }
     for (const s of this.sparks) {
       if (s.life <= 0) continue;
       s.life -= dt;
       s.vel.y += s.gravity * dt;
-      s.obj.position.addScaledVector(s.vel, dt);
+      s.pos.addScaledVector(s.vel, dt);
       const k = Math.max(0, s.life / s.max);
-      s.obj.scale.setScalar(s.size * (0.4 + k * 0.6));
-      s.obj.material.opacity = k;
-      if (s.life <= 0) s.obj.visible = false;
+      s.drawSize = s.size * (0.4 + k * 0.6);
+      s.a = k;
     }
+    this.particles.write([this.ghosts, this.sparks]);
     for (const f of this.flashes) {
       if (f.life <= 0) continue;
       f.life -= dt;

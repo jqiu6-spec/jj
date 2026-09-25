@@ -387,7 +387,7 @@ function syncForm() {
   $('s-cm360').value = s.cm360;
   $('s-dpi').value = s.dpi;
   $('s-fov').value = s.fov;
-  $('s-renderScale').value = String(s.render.scale);
+  $('s-renderScale').value = s.render.auto !== false ? 'auto' : String(s.render.scale);
   $('s-invertY').checked = s.invertY;
   $('s-x-style').value = s.crosshair.style;
   $('s-x-color').value = s.crosshair.color;
@@ -474,7 +474,8 @@ function readForm() {
   s.cm360 = num('s-cm360', s.cm360);
   s.dpi = num('s-dpi', s.dpi);
   s.fov = parseInt($('s-fov').value, 10);
-  s.render.scale = parseFloat($('s-renderScale').value) || 1;
+  s.render.auto = $('s-renderScale').value === 'auto';
+  if (!s.render.auto) s.render.scale = parseFloat($('s-renderScale').value) || 1;
   s.invertY = $('s-invertY').checked;
   s.crosshair.style = $('s-x-style').value;
   s.crosshair.color = $('s-x-color').value;

@@ -168,7 +168,19 @@ export class Game {
     this.slot = 'gun'; // 'gun' or 'knife': what the player holds in a run
     this.lastWheel = 0;
     this.vm = new Viewmodel(this.renderer);
+    // Largest point sprite the GPU draws, for the effect particles.
+    const gl = this.renderer.getContext();
+    this.maxPointSize = (gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE) || [1, 64])[1];
+    this.vm.maxPointSize = this.maxPointSize;
+    // Automatic resolution: the share of the device pixel ratio drawn now,
+    // lowered when frames run slow and raised again when there's headroom.
+    this.dynScale = 1;
+    this.perf = { frames: 0, time: 0, good: 0 };
     this.applySettings(settings);
+    // Compile the effects' shaders now, not on the first shot.
+    const unprime = this.fx.prime();
+    try { this.renderer.compile(this.scene, this.camera); } catch (e) { /* only an optimisation */ }
+    unprime();
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -198,12 +210,17 @@ export class Game {
     this.vm.applyView(s.weapon);
     this.refreshGun();
     this.resize();
+    if (this.preloaded) this.preloadWeapons(); // the equipped gun may have changed
   }
 
   // Per-gun skins, stickers and sounds from the Weapon tab.
   setSkins(skins) {
     this.skins = skins;
     this.refreshGun();
+    if (!this.preloaded) {
+      this.preloaded = true;
+      setTimeout(() => this.preloadWeapons(), 300);
+    }
   }
 
   // The gun for this scenario: the AWP in sniping, the primary otherwise.
@@ -219,6 +236,55 @@ export class Game {
 
   get knifeOut() {
     return this.slot === 'knife';
+  }
+
+  // Get the equipped gun, the AWP and the knife loaded and ready while the
+  // menu is idle, so nothing loads or compiles in the middle of a run.
+  preloadWeapons() {
+    for (const id of [this.settings.weapon.primary, 'awp', 'karambit']) {
+      if (this.skins[id]) this.vm.preload(id, this.skins[id]);
+    }
+  }
+
+  // Automatic resolution. Changing it resizes the drawing buffer, which can
+  // hitch a frame, so it changes rarely: during a run it only steps down
+  // (once per 2 s at most, while the frame rate stays under 50), and it steps
+  // back up between runs when the last run held 58 fps or better.
+  adaptResolution(rawDt) {
+    const render = this.settings.render || {};
+    if (render.auto === false) return;
+    const p = this.perf;
+    if (rawDt > 0.25) { p.frames = 0; p.time = 0; return; } // a stall or a hidden tab, not load
+    p.frames++;
+    p.time += rawDt;
+    p.runFrames = (p.runFrames || 0) + 1;
+    p.runTime = (p.runTime || 0) + rawDt;
+    if (p.time < 2) return;
+    const fps = p.frames / p.time;
+    p.frames = 0;
+    p.time = 0;
+    if (fps < 50 && this.dynScale > 0.5) {
+      this.dynScale = Math.max(0.5, this.dynScale - (fps < 35 ? 0.2 : 0.1));
+      this.applyResolution();
+    }
+  }
+
+  // Between runs: give resolution back if the last run ran smoothly.
+  recoverResolution() {
+    const p = this.perf;
+    const fps = p.runTime > 3 ? p.runFrames / p.runTime : 0;
+    p.runFrames = 0;
+    p.runTime = 0;
+    p.frames = 0;
+    p.time = 0;
+    if (fps >= 58 && this.dynScale < 1) {
+      this.dynScale = Math.min(1, this.dynScale + 0.1);
+      this.applyResolution();
+    }
+  }
+
+  applyResolution() {
+    if (Math.abs(this.renderer.getPixelRatio() - this.pixelRatio) > 1e-3) this.resize();
   }
 
   refreshGun() {
@@ -263,11 +329,18 @@ export class Game {
     sfx.gun(choice);
   }
 
+  // Pixel ratio to draw at: a fixed share of the device's, or the automatic one.
+  get pixelRatio() {
+    const render = (this.settings && this.settings.render) || {};
+    const base = Math.min(window.devicePixelRatio || 1, 2);
+    if (render.auto !== false) return Math.max(Math.min(base, 0.75), base * this.dynScale);
+    return base * (render.scale || 1);
+  }
+
   resize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const scale = (this.settings && this.settings.render && this.settings.render.scale) || 1;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2) * scale);
+    this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.hipFov = verticalFov(this.settings ? this.settings.fov : 103, w / h);
@@ -548,6 +621,7 @@ export class Game {
   }
 
   start() {
+    this.recoverResolution();
     this.slot = 'gun';
     this.run = {
       scenario: this.scn.id,
@@ -928,8 +1002,10 @@ export class Game {
   // ---------------------------------------------------------------- loop
   frame(now) {
     // A frame timestamp can predate this.last on the first frame; never step backwards.
-    const dt = Math.min(Math.max((now - this.last) / 1000, 0), 0.05);
+    const rawDt = Math.max((now - this.last) / 1000, 0);
+    const dt = Math.min(rawDt, 0.05);
     this.last = now;
+    if (this.state === 'running' || this.state === 'countdown') this.adaptResolution(rawDt);
 
     this.fpsFrames++;
     this.fpsTime += dt;
@@ -984,6 +1060,7 @@ export class Game {
     this.updateTargetVisuals(dt);
     this.updatePops(dt);
     this.fx.update(dt);
+    this.fx.setView(this.renderer.domElement.height, this.camera.fov, this.maxPointSize);
     this.renderer.render(this.scene, this.camera);
 
     // The gun renders on top with its own camera, so it never clips walls.

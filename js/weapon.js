@@ -215,6 +215,7 @@ class GunView {
   }
 
   setModel(model) {
+    this.modelVersion = (this.modelVersion || 0) + 1; // stickers reshape onto it
     if (this.model) this.root.remove(this.model.group);
     this.model = model;
     this.root.add(model.group);
@@ -406,55 +407,91 @@ class GunView {
     }
   }
 
+  // Stickers are cached per slot: moving one only reshapes that one against
+  // the nearby surface, and its artwork is redrawn only when it changes.
   applyStickers(list) {
-    for (const m of [...this.stickers.children]) {
-      this.stickers.remove(m);
-      m.geometry.dispose();
-      if (!m.userData.shared) {
-        m.material.map.dispose();
-        m.material.dispose();
-      }
-    }
+    const cache = this.stickerCache || (this.stickerCache = {});
+    const supp = this.model.suppressor ? String(this.model.suppressor.visible) : '';
+    const rev = stickerRevision();
+    const entries = [];
     this.model.slots.forEach((slot, i) => {
       const st = list[i];
       if (!st || !STICKERS[st.id]) return;
-      const tex = new THREE.CanvasTexture(stickerCanvas(st));
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 8;
-      const mat = stickerMaterial(st.finish, tex);
       const size = slot.size * STICKER_SIZE * (st.scale || 1);
       // Where it sits: dragged onto the gun (`at`: x, y, side) or the slot.
       const [ax, ay, side] = st.at || [slot.x, slot.y, -1];
       const x = ax + (st.dx || 0) * size * 0.5;
       const y = ay + (st.dy || 0) * size * 0.5;
-      // Wrapped onto the surface around that point.
-      this.model.decal(x, y, size, (st.rot || 0) * DEG, side).forEach((geo, k) => {
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.userData.decal = true;
-        mesh.userData.slot = i;
-        mesh.userData.shared = k > 0;
-        this.stickers.add(mesh);
+      const rot = (st.rot || 0) * DEG;
+      entries.push({
+        key: String(i),
+        slot: i,
+        look: JSON.stringify([st.id, st.color, st.text, st.finish, st.scrape, st.seed, rev]),
+        makeMat: () => {
+          const tex = new THREE.CanvasTexture(stickerCanvas(st));
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = 8;
+          return stickerMaterial(st.finish, tex);
+        },
+        place: `${this.modelVersion}|${supp}|${x}|${y}|${size}|${rot}|${side}`,
+        build: () => this.model.decal(x, y, size, rot, side),
       });
     });
     // The Champions 2021 skin's wordmark, on the receiver's side that faces
     // the player, under any sticker placed there.
     const logo = this.model.slots.find((sl) => /receiver/i.test(sl.name)) || this.model.slots[0];
     if (this.skin && this.skin.pattern === 'champions' && logo) {
-      const tex = new THREE.CanvasTexture(championsWordmark(this.skin));
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 8;
-      const mat = new THREE.MeshStandardMaterial({
-        map: tex, transparent: true, alphaTest: 0.35, roughness: 0.35, metalness: 0.6,
-        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+      const skin = this.skin;
+      entries.push({
+        key: 'logo',
+        slot: -1,
+        look: `${skin.c1}${skin.c2}${skin.c3}`,
+        makeMat: () => {
+          const tex = new THREE.CanvasTexture(championsWordmark(skin));
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = 8;
+          return new THREE.MeshStandardMaterial({
+            map: tex, transparent: true, alphaTest: 0.35, roughness: 0.35, metalness: 0.6,
+            polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+          });
+        },
+        place: `${this.modelVersion}|${supp}`,
+        build: () => this.model.decal(logo.x, logo.y, logo.size * 1.3, 0, -1, 3),
       });
-      const h = logo.size * 1.3;
-      this.model.decal(logo.x, logo.y, h, 0, -1, 3).forEach((geo, k) => {
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.userData.decal = true;
-        mesh.userData.slot = -1;
-        mesh.userData.shared = k > 0;
-        this.stickers.add(mesh);
-      });
+    }
+    const clearMeshes = (c) => {
+      for (const m of c.meshes) {
+        this.stickers.remove(m);
+        m.geometry.dispose();
+      }
+      c.meshes = [];
+    };
+    const keep = new Set(entries.map((e) => e.key));
+    for (const [k, c] of Object.entries(cache)) {
+      if (keep.has(k)) continue;
+      clearMeshes(c);
+      if (c.mat) { c.mat.map.dispose(); c.mat.dispose(); }
+      delete cache[k];
+    }
+    for (const e of entries) {
+      const c = cache[e.key] || (cache[e.key] = { meshes: [] });
+      if (c.look !== e.look) {
+        if (c.mat) { c.mat.map.dispose(); c.mat.dispose(); }
+        c.mat = e.makeMat();
+        c.look = e.look;
+        c.place = null;
+      }
+      if (c.place !== e.place) {
+        clearMeshes(c);
+        for (const geo of e.build()) {
+          const mesh = new THREE.Mesh(geo, c.mat);
+          mesh.userData.decal = true;
+          mesh.userData.slot = e.slot;
+          this.stickers.add(mesh);
+          c.meshes.push(mesh);
+        }
+        c.place = e.place;
+      }
     }
   }
 
@@ -520,6 +557,7 @@ const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
 
 export class Viewmodel {
   constructor(renderer) {
+    this.renderer = renderer;
     this.scene = new THREE.Scene();
     this.scene.environment = studioEnvironment(renderer);
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.01, 10);
@@ -616,14 +654,45 @@ export class Viewmodel {
     return true;
   }
 
-  // Equip gun `id` wearing `skin` (pattern, zones, stickers, fx, suppressor).
-  setGun(id, skin) {
+  view(id) {
     if (!this.guns[id]) {
       const gv = new GunView(id, this.flashMap);
-      gv.onModel = () => { if (this.onModel) this.onModel(id); };
+      gv.onModel = () => {
+        this.warm(gv);
+        if (this.onModel) this.onModel(id);
+      };
       this.guns[id] = gv;
     }
-    const gv = this.guns[id];
+    return this.guns[id];
+  }
+
+  // Load gun `id` ahead of time and get it ready to draw (shaders compiled,
+  // textures on the GPU), so switching to it never stalls a run.
+  preload(id, skin) {
+    const gv = this.view(id);
+    if (!gv.skin) gv.apply(skin);
+    gv.useDetailed(this.detailed);
+    this.warm(gv);
+  }
+
+  warm(gv) {
+    const r = this.renderer;
+    if (!r || !gv.skin) return;
+    try {
+      r.compile(gv.root, this.camera, this.scene);
+      gv.root.traverse((o) => {
+        if (!o.isMesh) return;
+        for (const m of [].concat(o.material)) {
+          if (!m) continue;
+          for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap']) if (m[k]) r.initTexture(m[k]);
+        }
+      });
+    } catch (e) { /* warming is only an optimisation */ }
+  }
+
+  // Equip gun `id` wearing `skin` (pattern, zones, stickers, fx, suppressor).
+  setGun(id, skin) {
+    const gv = this.view(id);
     gv.useDetailed(this.detailed);
     if (this.current !== gv) {
       if (this.current) this.rig.remove(this.current.root);
@@ -869,6 +938,7 @@ export class Viewmodel {
   }
 
   render(renderer) {
+    this.fx.setView(renderer.domElement.height, this.camera.fov, this.maxPointSize);
     renderer.render(this.scene, this.camera);
   }
 }

@@ -30,7 +30,8 @@ export const DEFAULTS = {
   hitColor: '#ffe066',
   showFps: false,
   render: {
-    scale: 1, // fraction of the device pixel ratio (capped at 2) to render at
+    auto: true, // lower the resolution by itself when the frame rate drops
+    scale: 1, // fixed fraction of the device pixel ratio (capped at 2) when not auto
   },
   weapon: {
     show: true, // gun model in first person

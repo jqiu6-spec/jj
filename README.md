@@ -43,8 +43,10 @@ To rebuild the single file after changing the source: `npm install && npm run bu
   precision". The Settings tab tells you which mode you got.
 - **Scoping on a Mac trackpad**: right-click is a two-finger click. Ctrl+click and
   the Shift key also scope, and Ctrl+click never fires the gun.
-- **Retina and slow laptops**: Settings has a render scale (100%, 75%, 50%). Drop
-  it if a 4K or Retina display makes the frame rate stutter.
+- **Retina and slow laptops**: the render scale defaults to **Auto**: if a run
+  drops under 50 fps, the resolution steps down (at most once every 2 s, since
+  each change resizes the drawing buffer), and it steps back up between runs
+  when the last one held 58 fps. Settings also has fixed Full, 75% and 50%.
 - Keys use the physical position (R, Space, Esc, Shift), so any keyboard layout
   works, and Cmd/Ctrl shortcuts are left to the browser.
 

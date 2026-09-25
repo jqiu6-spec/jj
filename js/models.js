@@ -303,13 +303,16 @@ export async function loadDetailedGun(id, mats) {
     m.userData.keepEmissive = !!(m.emissive && m.emissive.getHex() !== 0);
   }
 
-  // Sort triangles into buckets by zone and original material.
+  // Sort triangles into buckets by zone and original material, pausing now
+  // and then so a big model never freezes the page for long.
   const buckets = new Map();
+  let work = 0;
   for (const s of src) {
     const P = s.geo.attributes.position;
     const N = s.geo.attributes.normal;
     const UV = s.geo.attributes.uv;
     for (let t = 0; t + 2 < P.count; t += 3) {
+      if (++work % 5000 === 0) await new Promise((res) => setTimeout(res, 0));
       const cx = (P.getX(t) + P.getX(t + 1) + P.getX(t + 2)) / 3;
       const cy = (P.getY(t) + P.getY(t + 1) + P.getY(t + 2)) / 3;
       const chroma = () => {
@@ -490,9 +493,46 @@ export function decals(group, x, y, size, rot, side = -1, aspect = 1) {
   _dbox.max.set(x + r, y + r, z + depth);
   for (const p of list) {
     if (!p.geometry.boundingBox.intersectsBox(_dbox)) continue;
-    const g = new DecalGeometry(p, _pos, orient, sz);
+    // Project onto just the triangles near the sticker: a big mesh has tens
+    // of thousands, and clipping them all made dragging a sticker stutter.
+    const near = nearTriangles(p.geometry, _dbox);
+    if (!near) continue;
+    const g = new DecalGeometry(new THREE.Mesh(near, PROXY_MAT), _pos, orient, sz);
+    near.dispose();
     if (g.attributes.position.count) out.push(g);
     else g.dispose();
   }
   return out;
+}
+
+// The triangles of `geo` whose bounds touch `box`, as a small geometry.
+function nearTriangles(geo, box) {
+  const P = geo.attributes.position.array;
+  const N = geo.attributes.normal ? geo.attributes.normal.array : null;
+  const I = geo.index ? geo.index.array : null;
+  const count = I ? I.length : P.length / 3;
+  const { min, max } = box;
+  const pos = [];
+  const nor = [];
+  for (let t = 0; t + 2 < count; t += 3) {
+    const a = I ? I[t] : t;
+    const b = I ? I[t + 1] : t + 1;
+    const c = I ? I[t + 2] : t + 2;
+    const ax = P[a * 3]; const ay = P[a * 3 + 1]; const az = P[a * 3 + 2];
+    const bx = P[b * 3]; const by = P[b * 3 + 1]; const bz = P[b * 3 + 2];
+    const cx = P[c * 3]; const cy = P[c * 3 + 1]; const cz = P[c * 3 + 2];
+    if (Math.max(ax, bx, cx) < min.x || Math.min(ax, bx, cx) > max.x) continue;
+    if (Math.max(ay, by, cy) < min.y || Math.min(ay, by, cy) > max.y) continue;
+    if (Math.max(az, bz, cz) < min.z || Math.min(az, bz, cz) > max.z) continue;
+    for (const v of [a, b, c]) {
+      pos.push(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]);
+      if (N) nor.push(N[v * 3], N[v * 3 + 1], N[v * 3 + 2]);
+    }
+  }
+  if (!pos.length) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  if (N) g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  else g.computeVertexNormals();
+  return g;
 }

@@ -388,7 +388,7 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
 .slot .empty { width: 40px; height: 40px; border: 1px dashed var(--line-hi); border-radius: 6px; }
 .slot span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .slot[aria-checked='true'] { border-color: var(--accent); color: var(--accent); }
-.sticker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; }
+.sticker-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .sticker-grid button {
   display: grid; place-items: center; aspect-ratio: 1; padding: 4px; max-width: 100%;
   border: 1px solid var(--line); border-radius: 8px; background: rgba(0, 0, 0, 0.2); font-size: 11px; color: var(--muted);

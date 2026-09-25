@@ -3,12 +3,15 @@
 // muzzle flash. Also drives the turntable inspect view in the Weapon tab.
 import * as THREE from '../vendor/three.module.min.js';
 import { GUNS, buildGun } from './guns.js';
-import { MODEL_INFO, loadDetailedGun } from './models.js';
+import { MODEL_INFO, loadDetailedGun, decals } from './models.js';
 import { Effects } from './effects.js';
 import { sampleKnife, knifeLength } from './knife.js';
 import {
-  SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, woodCanvas, stickerCanvas, STICKERS,
+  SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, woodCanvas, stickerCanvas, STICKERS, stickerRevision,
 } from './skins.js';
+
+// Stickers are drawn at CS2 size: about as tall as the receiver's side.
+const STICKER_SIZE = 2.0;
 
 const TAU = Math.PI * 2;
 const DEG = Math.PI / 180;
@@ -185,6 +188,8 @@ class GunView {
     this.info = GUNS[id];
     this.root = new THREE.Group();
     this.simple = buildGun(id, FIXED);
+    // Stickers wrap onto the simple model's surface too.
+    this.simple.decal = (x, y, size, rot, side) => decals(this.simple.group, x, y, size, rot, side);
     this.detailed = null;
     this.loading = null;
     this.wantDetailed = false;
@@ -270,7 +275,7 @@ class GunView {
       this.pattern = skin.pattern;
       this.assign(skin);
     }
-    const ssig = JSON.stringify(skin.stickers || []) + (m.suppressor ? String(skin.suppressor !== false) : '');
+    const ssig = JSON.stringify(skin.stickers || []) + (m.suppressor ? String(skin.suppressor !== false) : '') + stickerRevision();
     if (ssig !== this.stickerSig) {
       this.stickerSig = ssig;
       this.applyStickers(skin.stickers || []);
@@ -407,31 +412,26 @@ class GunView {
         m.material.dispose();
       }
     }
-    const detailed = !!this.model.decal;
     this.model.slots.forEach((slot, i) => {
       const st = list[i];
       if (!st || !STICKERS[st.id]) return;
       const tex = new THREE.CanvasTexture(stickerCanvas(st));
       tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
       const mat = stickerMaterial(st.finish, tex);
-      const size = slot.size * (st.scale || 1);
-      const x = slot.x + (st.dx || 0) * slot.size * 0.5;
-      const y = slot.y + (st.dy || 0) * slot.size * 0.5;
-      if (detailed) {
-        // Wrapped onto the mesh around the slot.
-        this.model.decal(x, y, size, (st.rot || 0) * DEG).forEach((geo, k) => {
-          const mesh = new THREE.Mesh(geo, mat);
-          mesh.userData.decal = true;
-          mesh.userData.shared = k > 0;
-          this.stickers.add(mesh);
-        });
-        return;
-      }
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
-      // Planes face -Z (the left side); roll about the surface normal.
-      mesh.rotation.set(0, Math.PI, -(st.rot || 0) * DEG);
-      mesh.position.set(x, y, slot.z - 0.0004);
-      this.stickers.add(mesh);
+      const size = slot.size * STICKER_SIZE * (st.scale || 1);
+      // Where it sits: dragged onto the gun (`at`: x, y, side) or the slot.
+      const [ax, ay, side] = st.at || [slot.x, slot.y, -1];
+      const x = ax + (st.dx || 0) * size * 0.5;
+      const y = ay + (st.dy || 0) * size * 0.5;
+      // Wrapped onto the surface around that point.
+      this.model.decal(x, y, size, (st.rot || 0) * DEG, side).forEach((geo, k) => {
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.userData.decal = true;
+        mesh.userData.slot = i;
+        mesh.userData.shared = k > 0;
+        this.stickers.add(mesh);
+      });
     });
   }
 
@@ -484,6 +484,8 @@ function studioEnvironment(renderer) {
 }
 
 const _m = new THREE.Vector3();
+const _rc = new THREE.Raycaster();
+const _inv = new THREE.Matrix4();
 const _kp = new THREE.Vector3();
 const _kq = new THREE.Quaternion();
 const _up = new THREE.Vector3(0, 1, 0);
@@ -677,6 +679,36 @@ export class Viewmodel {
     p.size = 0.04 + Math.random() * 0.03;
   }
 
+  // Sticker slot under the pointer (NDC) on the turntable gun, or -1.
+  pickSticker(ndc) {
+    const gv = this.current;
+    if (!gv) return -1;
+    this.scene.updateMatrixWorld();
+    _rc.setFromCamera(ndc, this.camera);
+    const hit = _rc.intersectObjects(gv.stickers.children, false)[0];
+    return hit ? hit.object.userData.slot : -1;
+  }
+
+  // The point on the gun's surface under the pointer, in gun space, and
+  // which side it is on (-1 left, +1 right). Null off the gun.
+  surfaceAt(ndc) {
+    const gv = this.current;
+    if (!gv) return null;
+    this.scene.updateMatrixWorld();
+    _rc.setFromCamera(ndc, this.camera);
+    const meshes = [];
+    gv.model.group.traverse((o) => {
+      if (!o.isMesh) return;
+      for (let a = o; a; a = a.parent) if (!a.visible) return;
+      meshes.push(o);
+    });
+    const hit = _rc.intersectObjects(meshes, false)[0];
+    if (!hit) return null;
+    const p = gv.root.worldToLocal(hit.point.clone());
+    const dir = _rc.ray.direction.clone().transformDirection(_inv.copy(gv.root.matrixWorld).invert());
+    return { x: p.x, y: p.y, side: dir.z > 0 ? -1 : 1 };
+  }
+
   // A test shot from the turntable gun's muzzle along its barrel, shown in
   // slow motion so the skin's effect can be seen in the Weapon tab.
   testShot(fx) {
@@ -760,7 +792,9 @@ export class Viewmodel {
       this.switching = null;
       this.camera.fov = 32;
       this.camera.updateProjectionMatrix();
-      const dist = (front - rear) * 2.4;
+      // A knife is framed as if it were a rifle's length, so it shows at
+      // its real size next to the guns.
+      const dist = (gv.info.melee ? Math.max(front - rear, 0.9) : front - rear) * 2.4;
       const halfH = Math.tan((this.camera.fov * Math.PI) / 360) * dist;
       // A knife lies along X on the turntable, blade tip where a muzzle would be.
       gun.rotation.set(0, 0, gv.info.melee ? Math.PI / 2 : 0);
@@ -795,7 +829,7 @@ export class Viewmodel {
       sampleKnife(this.knifeAnim, this.knifeT, _kp, _kq);
       rig.position.set(
         _kp.x - this.swayX * 0.25,
-        _kp.y + bob + this.swayY * 0.2 - lower * 0.26,
+        _kp.y + bob + this.swayY * 0.2 - lower * 0.4,
         _kp.z + lower * 0.05,
       );
       rig.quaternion.copy(_kq);

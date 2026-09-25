@@ -12,7 +12,7 @@ import { GUNS, ZONE_LABELS } from './guns.js';
 import { MODEL_INFO } from './models.js';
 import {
   SKIN_PRESETS, PATTERNS, COLOR_ROLES, FINISHES, ZONE_FINISHES, STICKERS, STICKER_FINISHES, SKIN_KEYS,
-  stickerCanvas, wearLabel, randomSkin,
+  stickerCanvas, wearLabel, randomSkin, loadCustomStickers, addCustomSticker, removeCustomSticker, onStickerImages,
 } from './skins.js';
 import { FX_TYPES } from './effects.js';
 
@@ -166,11 +166,10 @@ function renderHud(h) {
   $('hud').classList.toggle('on-target', !!h.onTarget);
   if (h.countdown) $('countdown-num').textContent = h.countdown;
   if (h.ammo !== null) {
-    $('hud-ammo-n').textContent = h.reload > 0 ? '—' : h.ammo;
-    $('hud-ammo-info').textContent = h.reload > 0
-      ? `RELOADING ${h.reload.toFixed(1)} S`
-      : `${h.zoom ? `${h.zoom}X SCOPE` : 'UNSCOPED'} · ${OPERATOR.magazine} ROUNDS`;
+    $('hud-ammo-n').textContent = '∞';
+    $('hud-ammo-info').textContent = `${h.zoom ? `${h.zoom}X SCOPE` : 'UNSCOPED'} · INFINITE ROUNDS`;
   }
+
   if (settings.showFps && performance.now() - hudFpsTimer > 250) {
     hudFpsTimer = performance.now();
     $('hud-fps').textContent = `${Math.round(h.fps)} fps`;
@@ -732,6 +731,8 @@ function renderStickers() {
   }
   $('w-st-fields').hidden = !cur;
   if (cur) {
+    $('w-st-home').hidden = !cur.at && !cur.dx && !cur.dy;
+    $('w-st-delete').hidden = !(STICKERS[cur.id] && STICKERS[cur.id].custom);
     $('w-st-text-wrap').hidden = cur.id !== 'text';
     $('w-st-text').value = cur.text || '';
     $('w-st-color').value = cur.color;
@@ -907,11 +908,98 @@ $('w-reset').addEventListener('click', (e) => armButton(e.currentTarget, 'Reset 
 }));
 // Drag the stage to turn the gun.
 const stage = $('weapon-stage');
-let dragging = false;
-stage.addEventListener('pointerdown', (e) => { dragging = true; stage.setPointerCapture(e.pointerId); });
-stage.addEventListener('pointermove', (e) => { if (dragging) game.vm.inspectDrag(e.movementX, e.movementY); });
-stage.addEventListener('pointerup', () => { dragging = false; });
-stage.addEventListener('pointercancel', () => { dragging = false; });
+let dragging = false; // turning the gun
+let dragSticker = -1; // slot whose sticker is being dragged
+let downAt = null;
+const stageNdc = (e) => ({ x: (e.clientX / window.innerWidth) * 2 - 1, y: -(e.clientY / window.innerHeight) * 2 + 1 });
+const stickersOn = () => !GUNS[weaponGun].melee;
+// Put slot i's sticker on the gun's surface under the pointer.
+function moveSticker(i, e) {
+  const st = skinOf().stickers[i];
+  const p = st && game.vm.surfaceAt(stageNdc(e));
+  if (!p) return;
+  st.at = [Math.round(p.x * 10000) / 10000, Math.round(p.y * 10000) / 10000, p.side];
+  st.dx = 0;
+  st.dy = 0;
+  $('w-st-dx').value = 0;
+  $('w-st-dy').value = 0;
+  skinChanged(false);
+}
+stage.addEventListener('pointerdown', (e) => {
+  stage.setPointerCapture(e.pointerId);
+  downAt = { x: e.clientX, y: e.clientY };
+  const slot = stickersOn() ? game.vm.pickSticker(stageNdc(e)) : -1;
+  if (slot >= 0) {
+    dragSticker = slot;
+    if (stickerSlot !== slot) {
+      stickerSlot = slot;
+      renderStickers();
+      renderWeaponOutputs();
+    }
+    stage.style.cursor = 'grabbing';
+  } else {
+    dragging = true;
+  }
+});
+stage.addEventListener('pointermove', (e) => {
+  if (dragSticker >= 0) moveSticker(dragSticker, e);
+  else if (dragging) game.vm.inspectDrag(e.movementX, e.movementY);
+  else if (stickersOn()) stage.style.cursor = game.vm.pickSticker(stageNdc(e)) >= 0 ? 'grab' : '';
+});
+stage.addEventListener('pointerup', (e) => {
+  // A click (not a drag) on the gun places the selected sticker there.
+  const click = downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 5;
+  if (dragging && click && stickersOn() && skinOf().stickers[stickerSlot]) moveSticker(stickerSlot, e);
+  dragging = false;
+  dragSticker = -1;
+  downAt = null;
+  stage.style.cursor = '';
+});
+stage.addEventListener('pointercancel', () => { dragging = false; dragSticker = -1; downAt = null; stage.style.cursor = ''; });
+
+// Stickers from the player's own image files.
+loadCustomStickers();
+onStickerImages(() => {
+  game.setSkins(skins);
+  if (!$('panel-weapon').hidden) renderStickers();
+});
+$('w-st-add').addEventListener('click', () => $('w-st-upload').click());
+$('w-st-upload').addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const id = await addCustomSticker(file);
+    const sk = skinOf();
+    sk.stickers[stickerSlot] = { ...STICKER_DEFAULT, seed: 1 + Math.floor(Math.random() * 998), ...(sk.stickers[stickerSlot] || {}), id };
+    $('w-st-upload-note').textContent = `Added "${STICKERS[id].name}" to slot ${stickerSlot + 1}. It stays in this browser.`;
+    skinChanged(false);
+    renderStickers();
+    renderWeaponOutputs();
+  } catch (err) {
+    $('w-st-upload-note').textContent = err.message;
+  }
+});
+$('w-st-home').addEventListener('click', () => {
+  const st = skinOf().stickers[stickerSlot];
+  if (!st) return;
+  delete st.at;
+  st.dx = 0;
+  st.dy = 0;
+  skinChanged(false);
+  renderStickers();
+});
+$('w-st-delete').addEventListener('click', (e) => armButton(e.currentTarget, 'Delete this image', () => {
+  const st = skinOf().stickers[stickerSlot];
+  if (!st || !STICKERS[st.id] || !STICKERS[st.id].custom) return;
+  const id = st.id;
+  // Take it off every gun that wears it, then forget the image.
+  for (const s of Object.values(skins)) s.stickers = s.stickers.map((x) => (x && x.id === id ? null : x));
+  removeCustomSticker(id);
+  skinChanged(false);
+  renderStickers();
+  renderWeaponOutputs();
+}));
 const recentre = () => { if (!$('panel-weapon').hidden) game.setInspect(weaponGun, stageCenter()); };
 window.addEventListener('resize', recentre);
 $('menu').addEventListener('scroll', recentre, { passive: true });

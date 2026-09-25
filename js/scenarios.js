@@ -11,14 +11,13 @@ export const CATEGORIES = [
 ];
 
 // Valorant Operator numbers: 0.6 rounds/s, 2.5x and 5x zoom, 255 head /
-// 150 body / 120 legs, 5-round magazine, 3.7 s reload. The scope-in time is
-// not published, so it is an estimate the player can change in Settings.
+// 150 body / 120 legs. Ammo is infinite here: no magazine, no reload, so a
+// run is all aiming. The scope-in time is not published, so it is an
+// estimate the player can change in Settings.
 export const OPERATOR = {
   fireInterval: 1 / 0.6,
   zooms: [2.5, 5],
   damage: { head: 255, body: 150, legs: 120 },
-  magazine: 5,
-  reload: 3.7,
   hipSpread: 5, // degrees; unscoped Operator shots are close to useless
 };
 

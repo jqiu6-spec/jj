@@ -16,6 +16,12 @@ import * as THREE from '../vendor/three.module.min.js';
 
 const TAU = Math.PI * 2;
 
+// Keyframe positions are laid out for a hand 21 cm from the eye; HOLD
+// pushes the whole hand out to where it holds a rifle's grip (about 38 cm),
+// so the knife keeps its place on screen but shows at its real size next
+// to the guns.
+const HOLD = 1.8;
+
 // The resting grip: the ring a little right of centre and below the
 // crosshair, the blade pointing right (a touch up and away), edge up.
 export const KNIFE_IDLE = { p: [0.045, -0.032, -0.21], blade: [1, 0.12, -0.25], face: [0.1, -0.1, -1] };
@@ -108,7 +114,7 @@ const Z = new THREE.Vector3(0, 0, 1);
 export function sampleKnife(name, t, pos, quat) {
   const keys = KNIFE_ANIMS[name];
   if (!keys || t >= keys[keys.length - 1].t) {
-    pos.fromArray(I.p);
+    pos.fromArray(I.p).multiplyScalar(HOLD);
     quat.copy(IDLE_Q);
     return;
   }
@@ -118,7 +124,7 @@ export function sampleKnife(name, t, pos, quat) {
   const b = keys[i + 1];
   const u = ease(Math.min(1, Math.max(0, (t - a.t) / (b.t - a.t))), b.ease);
   const mix = (m, n) => m + (n - m) * u;
-  pos.set(mix(a.p[0], b.p[0]), mix(a.p[1], b.p[1]), mix(a.p[2], b.p[2]));
+  pos.set(mix(a.p[0], b.p[0]), mix(a.p[1], b.p[1]), mix(a.p[2], b.p[2])).multiplyScalar(HOLD);
   // Hand turn in camera space, then the grip, then the spin on the ring.
   _turn.set(mix(a.turn[0], b.turn[0]), mix(a.turn[1], b.turn[1]), mix(a.turn[2], b.turn[2]), 'YXZ');
   quat.setFromEuler(_turn).multiply(IDLE_Q);

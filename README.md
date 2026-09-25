@@ -202,11 +202,24 @@ lightning, Neon Splatter spectral).
 
 ### Stickers
 
-Each gun has five sticker slots on the side you see in first person. A slot takes
-one of twelve designs, including a text sticker with your own text. You can set
-its colour, finish (paper, glossy, holo or gold foil), size, rotation, position
-and scrape. On the detailed models stickers are projected onto the mesh, so they
-wrap around curved magazines and receivers.
+Each gun has five sticker slots. A slot takes one of twenty designs drawn in
+code (among them a warning plate, stained glass, a team-style holo logo, an ace,
+a dragon and a text sticker with your own words) or an image of your own. You
+can set its colour, finish (paper, glossy, holo or gold foil), size, rotation
+and scrape.
+
+- **Size**: stickers come at CS2 scale, about as tall as a rifle's receiver.
+- **Placing**: drag a sticker across the gun on the turntable to move it, onto
+  either side; click the gun to put the selected sticker there. "Back to its
+  slot" returns it. The sliders nudge it along and up or down.
+- **Your own images**: "Add your own sticker" takes any image file (a PNG with
+  a transparent background looks best). It is kept in this browser only.
+- Stickers are projected onto the mesh, so they wrap around curved magazines
+  and receivers.
+
+The Weapon tab's designs are original. Stickers from CS2 and csgoskins.gg are
+Valve's and the teams' artwork, so none are bundled; add any you own with
+"Add your own sticker".
 
 ### Fire sounds
 
@@ -282,8 +295,9 @@ from bolster to tip.
 ## Sniping (Valorant Operator)
 
 The sniping scenarios use the AWP model with Valorant Operator numbers: 0.6
-shots a second (1.67 s apart), 2.5x and 5x zoom, a 5-round magazine with a
-3.7 s reload, and 255 head / 150 body / 120 leg damage against 150 HP agents. A
+shots a second (1.67 s apart), 2.5x and 5x zoom, and 255 head / 150 body / 120
+leg damage against 150 HP agents. Ammo is infinite: no magazine and no reload,
+so the whole run is aiming. A
 body shot kills; a leg shot doesn't. Crates block both shots and line of sight.
 
 - **Right click** scopes to 2.5x, a second click goes to 5x and a third unscopes.

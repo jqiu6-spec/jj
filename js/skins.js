@@ -627,46 +627,469 @@ export const STICKERS = {
       }
     },
   },
+  // A dark warning plate, the kind stuck on a stock as a joke.
+  warning: {
+    name: 'Warning',
+    draw(g, color) {
+      g.fillStyle = '#2d2f33';
+      g.beginPath();
+      if (g.roundRect) g.roundRect(18, 18, 220, 220, 22); else g.rect(18, 18, 220, 220);
+      g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.05)';
+      for (let i = 0; i < 9; i++) g.fillRect(18, 30 + i * 24, 220, 8);
+      g.fillStyle = color;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = '900 40px "Saira Condensed", "Arial Narrow", sans-serif';
+      g.fillText('WARNING', 128, 50);
+      g.fillStyle = '#ffffff';
+      g.font = '700 14.5px "Saira Condensed", "Arial Narrow", sans-serif';
+      ['AIM TRAINING IN PROGRESS.', 'THE FLICKS YOU ARE ABOUT', 'TO SEE WERE PRACTISED BY', 'PROFESSIONALS. DO NOT TRY', 'THEM WITHOUT A MOUSEPAD.']
+        .forEach((line, i) => g.fillText(line, 128, 84 + i * 19));
+      // Skull over crossed crosshairs.
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 7;
+      g.lineCap = 'round';
+      g.beginPath();
+      g.moveTo(86, 222); g.lineTo(170, 186);
+      g.moveTo(86, 186); g.lineTo(170, 222);
+      g.stroke();
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.arc(128, 188, 20, 0, TAU);
+      g.fill();
+      g.fillRect(116, 196, 24, 16);
+      g.fillStyle = '#2d2f33';
+      g.beginPath();
+      g.arc(120, 188, 5, 0, TAU);
+      g.arc(136, 188, 5, 0, TAU);
+      g.fill();
+    },
+  },
+  // Stained glass: a rose window of tinted panes around a lightning chevron.
+  glass: {
+    name: 'Stained Glass',
+    draw(g, color) {
+      const base = new THREE.Color(color);
+      const tint = (dh, l) => {
+        const c = base.clone().offsetHSL(dh, 0, 0);
+        const hsl = {};
+        c.getHSL(hsl);
+        return `#${c.setHSL(hsl.h, Math.min(1, hsl.s + 0.1), l).getHexString()}`;
+      };
+      g.fillStyle = '#4a4752';
+      g.beginPath();
+      if (g.roundRect) g.roundRect(14, 14, 228, 228, 24); else g.rect(14, 14, 228, 228);
+      g.fill();
+      for (let i = 0; i < 16; i++) {
+        const a0 = (i / 16) * TAU;
+        const a1 = ((i + 1) / 16) * TAU;
+        g.fillStyle = tint((i % 4) * 0.03 - 0.04, 0.55 + (i % 3) * 0.1);
+        g.beginPath();
+        g.moveTo(128, 124);
+        g.arc(128, 124, 92, a0, a1);
+        g.closePath();
+        g.fill();
+      }
+      g.strokeStyle = '#4a4752';
+      g.lineWidth = 4;
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * TAU;
+        g.beginPath();
+        g.moveTo(128, 124);
+        g.lineTo(128 + Math.cos(a) * 92, 124 + Math.sin(a) * 92);
+        g.stroke();
+      }
+      for (const r of [48, 92]) { g.beginPath(); g.arc(128, 124, r, 0, TAU); g.stroke(); }
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * TAU + 0.2;
+        g.fillStyle = tint(0.08, 0.8);
+        g.beginPath();
+        g.arc(128 + Math.cos(a) * 70, 124 + Math.sin(a) * 70, 9, 0, TAU);
+        g.fill();
+        g.stroke();
+      }
+      for (const [x, y] of [[36, 36], [220, 36], [36, 220], [220, 220]]) {
+        g.fillStyle = tint(-0.06, 0.78);
+        g.beginPath();
+        g.arc(x, y, 16, 0, TAU);
+        g.fill();
+      }
+      // Lightning chevron.
+      g.fillStyle = tint(0, 0.4);
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 5;
+      g.beginPath();
+      [[76, 86], [180, 86], [128, 186]].forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      [[138, 96], [112, 132], [128, 132], [116, 166], [148, 120], [132, 120], [150, 96]].forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.closePath();
+      g.fill();
+      g.font = '900 22px "Saira Condensed", "Arial Narrow", sans-serif';
+      g.textAlign = 'center';
+      g.lineWidth = 6;
+      g.strokeStyle = '#4a4752';
+      g.strokeText('TRACKLINE 2026', 128, 232);
+      g.fillStyle = tint(0.05, 0.85);
+      g.fillText('TRACKLINE 2026', 128, 232);
+    },
+  },
+  // Team-style logo: an angular monogram over a paint splash, with a name
+  // and event line underneath. Looks best in holo.
+  team: {
+    name: 'Team Logo',
+    draw(g, color) {
+      const rand = rng(77);
+      g.fillStyle = color;
+      g.globalAlpha = 0.55;
+      for (let i = 0; i < 38; i++) {
+        const r = 8 + rand() * 24;
+        g.beginPath();
+        g.arc(128 + (rand() - 0.5) * 150, 100 + (rand() - 0.5) * 130, r, 0, TAU);
+        g.fill();
+      }
+      g.globalAlpha = 1;
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      [[52, 40], [204, 40], [204, 76], [150, 76], [150, 168], [112, 186], [112, 76], [52, 76]].forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.closePath();
+      g.fill();
+      g.fillStyle = color;
+      g.beginPath();
+      [[62, 48], [196, 48], [196, 68], [142, 68], [142, 162], [120, 172], [120, 68], [62, 68]].forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.closePath();
+      g.fill();
+      g.textAlign = 'center';
+      g.font = '900 30px "Saira Condensed", "Arial Narrow", sans-serif';
+      g.lineWidth = 7;
+      g.strokeStyle = '#16171a';
+      g.strokeText('TRACKLINE', 128, 206);
+      g.fillStyle = '#ffffff';
+      g.fillText('TRACKLINE', 128, 206);
+      g.font = '800 18px "Saira Condensed", "Arial Narrow", sans-serif';
+      g.strokeText('HEADSHOT CUP 2026', 128, 236);
+      g.fillText('HEADSHOT CUP 2026', 128, 236);
+    },
+  },
+  ace: {
+    name: 'Ace of Spades',
+    draw(g, color) {
+      g.save();
+      g.translate(128, 128);
+      g.rotate(-0.12);
+      g.fillStyle = '#ffffff';
+      g.strokeStyle = color;
+      g.lineWidth = 8;
+      g.beginPath();
+      if (g.roundRect) g.roundRect(-78, -108, 156, 216, 16); else g.rect(-78, -108, 156, 216);
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#16171a';
+      g.beginPath();
+      g.moveTo(0, -60);
+      g.bezierCurveTo(-60, -10, -62, 30, -30, 34);
+      g.bezierCurveTo(-14, 36, -6, 26, -4, 18);
+      g.lineTo(-18, 62);
+      g.lineTo(18, 62);
+      g.lineTo(4, 18);
+      g.bezierCurveTo(6, 26, 14, 36, 30, 34);
+      g.bezierCurveTo(62, 30, 60, -10, 0, -60);
+      g.fill();
+      g.fillStyle = color;
+      g.font = '900 34px "Saira Condensed", "Arial Narrow", sans-serif';
+      g.textAlign = 'center';
+      g.fillText('A', -52, -70);
+      g.rotate(Math.PI);
+      g.fillText('A', -52, -70);
+      g.restore();
+    },
+  },
+  wings: {
+    name: 'Wings',
+    draw(g, color) {
+      g.fillStyle = color;
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < 5; i++) {
+          g.beginPath();
+          const y = 86 + i * 20;
+          g.moveTo(128 + side * 30, y);
+          g.quadraticCurveTo(128 + side * (70 + i * 6), y - 40 + i * 4, 128 + side * (122 - i * 12), y - 30 + i * 10);
+          g.quadraticCurveTo(128 + side * (80 + i * 4), y + 6, 128 + side * 30, y + 16);
+          g.fill();
+        }
+      }
+      g.beginPath();
+      g.arc(128, 124, 40, 0, TAU);
+      g.fill();
+      g.fillStyle = '#ffffff';
+      star(g, 128, 126, 28, 0.45);
+      g.fill();
+    },
+  },
+  cat: {
+    name: 'Cat',
+    draw(g, color) {
+      g.fillStyle = color;
+      g.beginPath();
+      g.moveTo(40, 60); g.lineTo(96, 84); g.lineTo(160, 84); g.lineTo(216, 60);
+      g.lineTo(212, 150); g.quadraticCurveTo(200, 222, 128, 224); g.quadraticCurveTo(56, 222, 44, 150);
+      g.closePath();
+      g.fill();
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.ellipse(94, 138, 22, 26, 0, 0, TAU);
+      g.ellipse(162, 138, 22, 26, 0, 0, TAU);
+      g.fill();
+      g.fillStyle = '#16171a';
+      g.beginPath();
+      g.ellipse(96, 140, 8, 18, 0, 0, TAU);
+      g.ellipse(160, 140, 8, 18, 0, 0, TAU);
+      g.fill();
+      g.fillStyle = '#ff8fb3';
+      g.beginPath();
+      g.moveTo(118, 176); g.lineTo(138, 176); g.lineTo(128, 188);
+      g.closePath();
+      g.fill();
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 4;
+      for (const [x0, y0, x1, y1] of [[110, 186, 50, 176], [110, 192, 52, 198], [146, 186, 206, 176], [146, 192, 204, 198]]) {
+        g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      }
+    },
+  },
+  rocket: {
+    name: 'Rocket',
+    draw(g, color) {
+      g.save();
+      g.translate(128, 128);
+      g.rotate(Math.PI / 4);
+      g.fillStyle = '#ffb02e';
+      g.beginPath();
+      g.moveTo(-18, 70); g.quadraticCurveTo(0, 130, 18, 70);
+      g.fill();
+      g.fillStyle = color;
+      g.beginPath();
+      g.moveTo(-30, 40); g.lineTo(-54, 76); g.lineTo(-24, 66);
+      g.moveTo(30, 40); g.lineTo(54, 76); g.lineTo(24, 66);
+      g.fill();
+      g.fillStyle = '#e8edf2';
+      g.beginPath();
+      g.moveTo(0, -104);
+      g.bezierCurveTo(40, -70, 36, 20, 26, 70);
+      g.lineTo(-26, 70);
+      g.bezierCurveTo(-36, 20, -40, -70, 0, -104);
+      g.fill();
+      g.fillStyle = color;
+      g.beginPath();
+      g.moveTo(0, -104);
+      g.bezierCurveTo(22, -86, 30, -64, 32, -50);
+      g.lineTo(-32, -50);
+      g.bezierCurveTo(-30, -64, -22, -86, 0, -104);
+      g.fill();
+      g.fillStyle = '#5fd8ff';
+      g.strokeStyle = '#16171a';
+      g.lineWidth = 5;
+      g.beginPath();
+      g.arc(0, -14, 15, 0, TAU);
+      g.fill();
+      g.stroke();
+      g.restore();
+    },
+  },
+  eightball: {
+    name: '8-Ball',
+    draw(g, color) {
+      g.fillStyle = '#16171a';
+      g.beginPath();
+      g.arc(128, 128, 108, 0, TAU);
+      g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.18)';
+      g.beginPath();
+      g.ellipse(92, 80, 40, 22, -0.6, 0, TAU);
+      g.fill();
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.arc(128, 116, 50, 0, TAU);
+      g.fill();
+      g.fillStyle = color;
+      g.font = '900 72px "Saira Condensed", "Arial Narrow", sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('8', 128, 122);
+    },
+  },
+  dragon: {
+    name: 'Dragon',
+    draw(g, color) {
+      const dark = `#${new THREE.Color(color).multiplyScalar(0.55).getHexString()}`;
+      // Back spikes.
+      g.fillStyle = dark;
+      for (let i = 0; i < 5; i++) {
+        const x = 60 + i * 22;
+        g.beginPath();
+        g.moveTo(x, 70 - i * 4); g.lineTo(x + 12, 34 - i * 4); g.lineTo(x + 22, 72 - i * 4);
+        g.fill();
+      }
+      // Head and snout, jaw open.
+      g.fillStyle = color;
+      g.beginPath();
+      g.moveTo(40, 150);
+      g.quadraticCurveTo(40, 64, 120, 60);
+      g.quadraticCurveTo(200, 58, 232, 110);
+      g.lineTo(226, 132);
+      g.lineTo(140, 138);
+      g.lineTo(226, 158);
+      g.quadraticCurveTo(210, 206, 140, 204);
+      g.quadraticCurveTo(60, 206, 40, 150);
+      g.fill();
+      g.fillStyle = '#ffffff';
+      for (let i = 0; i < 5; i++) {
+        const x = 150 + i * 15;
+        g.beginPath(); g.moveTo(x, 136); g.lineTo(x + 7, 148); g.lineTo(x + 14, 137); g.fill();
+        g.beginPath(); g.moveTo(x, 160); g.lineTo(x + 7, 149); g.lineTo(x + 14, 160); g.fill();
+      }
+      g.beginPath();
+      g.ellipse(120, 100, 18, 14, 0, 0, TAU);
+      g.fill();
+      g.fillStyle = '#16171a';
+      g.beginPath();
+      g.ellipse(124, 100, 6, 12, 0, 0, TAU);
+      g.fill();
+      g.beginPath();
+      g.ellipse(214, 102, 5, 3, 0, 0, TAU);
+      g.fill();
+      g.strokeStyle = dark;
+      g.lineWidth = 6;
+      g.beginPath(); g.arc(76, 150, 18, 0.6, 2.6); g.stroke();
+    },
+  },
 };
 
+// Stickers the player adds from their own image files. They live in this
+// browser only; each becomes a design like the built-in ones.
+const CUSTOM_KEY = 'trackline.stickers.custom.v1';
+let stickerVersion = 0;
+const imageListeners = [];
+
+export const stickerRevision = () => stickerVersion;
+export function onStickerImages(fn) { imageListeners.push(fn); }
+
+function registerCustom(rec) {
+  const img = new Image();
+  const design = { name: rec.name, custom: true, img, ready: false, draw(g) {
+    if (!design.ready) return;
+    // Fit inside the 256 box, keeping the image's proportions.
+    const k = Math.min(236 / img.width, 236 / img.height);
+    const w = img.width * k;
+    const h = img.height * k;
+    g.drawImage(img, 128 - w / 2, 128 - h / 2, w, h);
+  } };
+  img.onload = () => {
+    design.ready = true;
+    stickerVersion++;
+    for (const fn of imageListeners) fn();
+  };
+  img.src = rec.data;
+  STICKERS[rec.id] = design;
+}
+
+function readCustom() {
+  try {
+    const list = JSON.parse(localStorage.getItem(CUSTOM_KEY));
+    return Array.isArray(list) ? list : [];
+  } catch (e) { return []; }
+}
+
+export function loadCustomStickers() {
+  for (const rec of readCustom()) if (rec && rec.id && rec.data) registerCustom(rec);
+}
+
+// Add an image file as a sticker. Resolves to its id; rejects if the file
+// isn't an image or the browser has no room left to keep it.
+export function addCustomSticker(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('That file could not be read.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('That file is not an image this browser can open.'));
+      img.onload = () => {
+        const k = Math.min(1, 384 / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.width * k));
+        c.height = Math.max(1, Math.round(img.height * k));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        const rec = { id: `custom-${Date.now().toString(36)}`, name: (file.name || 'My sticker').replace(/\.[a-z0-9]+$/i, '').slice(0, 24), data: c.toDataURL('image/png') };
+        const list = readCustom();
+        list.push(rec);
+        try {
+          localStorage.setItem(CUSTOM_KEY, JSON.stringify(list));
+        } catch (e) {
+          reject(new Error('This browser has no room left for another sticker image. Delete one first.'));
+          return;
+        }
+        registerCustom(rec);
+        resolve(rec.id);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+export function removeCustomSticker(id) {
+  const list = readCustom().filter((r) => r.id !== id);
+  try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(list)); } catch (e) { /* storage unavailable */ }
+  delete STICKERS[id];
+  stickerVersion++;
+}
+
 // A sticker as a die-cut decal: the design, a white border, and scraping.
+// Drawn at 512 px (designs work in a 256 px space) so large stickers stay sharp.
+const R = 512;
 export function stickerCanvas(st) {
   const design = STICKERS[st.id];
   const art = document.createElement('canvas');
-  art.width = art.height = 256;
+  art.width = art.height = R;
   const a = art.getContext('2d');
   a.save();
+  a.scale(R / 256, R / 256);
   a.translate(128, 128);
   a.scale(0.86, 0.86);
   a.translate(-128, -128);
-  design.draw(a, st.color, st.text);
+  if (design) design.draw(a, st.color, st.text);
   a.restore();
 
   const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d');
+  c.width = c.height = R;
+  const g = c.getContext('2d', { willReadFrequently: true });
   // White border: stamp a white silhouette around the design.
   const sil = document.createElement('canvas');
-  sil.width = sil.height = 256;
+  sil.width = sil.height = R;
   const s = sil.getContext('2d');
   s.drawImage(art, 0, 0);
   s.globalCompositeOperation = 'source-in';
   s.fillStyle = '#ffffff';
-  s.fillRect(0, 0, 256, 256);
+  s.fillRect(0, 0, R, R);
+  const border = (7 * R) / 256;
   for (let i = 0; i < 16; i++) {
     const ang = (i / 16) * TAU;
-    g.drawImage(sil, Math.cos(ang) * 7, Math.sin(ang) * 7);
+    g.drawImage(sil, Math.cos(ang) * border, Math.sin(ang) * border);
   }
   g.drawImage(art, 0, 0);
 
   if (st.scrape > 0) {
     const n1 = noiseField(rng(st.seed || 3), 6);
     const n2 = noiseField(rng((st.seed || 3) + 1), 20);
-    const img = g.getImageData(0, 0, 256, 256);
-    for (let y = 0; y < 256; y++) {
-      for (let x = 0; x < 256; x++) {
-        const v = n1(x / 256, y / 256) * 0.65 + n2(x / 256, y / 256) * 0.35;
-        if (v < st.scrape * 0.85) img.data[(y * 256 + x) * 4 + 3] = 0;
+    const img = g.getImageData(0, 0, R, R);
+    for (let y = 0; y < R; y++) {
+      for (let x = 0; x < R; x++) {
+        const v = n1(x / R, y / R) * 0.65 + n2(x / R, y / R) * 0.35;
+        if (v < st.scrape * 0.85) img.data[(y * R + x) * 4 + 3] = 0;
       }
     }
     g.putImageData(img, 0, 0);

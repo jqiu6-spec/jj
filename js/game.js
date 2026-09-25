@@ -526,8 +526,6 @@ export class Game {
       reactCount: 0,
       unscoped: 0,
       lastShot: -99,
-      ammo: OPERATOR.magazine,
-      reloadLeft: 0,
       timeline: [],
       tickTimer: 0,
     };
@@ -649,7 +647,7 @@ export class Game {
   // sniper scopes. Toggle cycles 2.5x, 5x, off; hold is 2.5x while held.
   scopePress() {
     const live = this.state === 'running' || this.state === 'countdown';
-    if (!this.sniper || !live || this.knifeOut || (this.run && this.run.reloadLeft > 0)) return;
+    if (!this.sniper || !live || this.knifeOut) return;
     if (this.settings.sniper.scopeMode === 'hold') this.setZoom(1);
     else this.setZoom((this.zoomLevel + 1) % 3);
   }
@@ -792,11 +790,9 @@ export class Game {
   sniperShoot() {
     const r = this.run;
     const w = this.scn.weapon;
-    if (r.reloadLeft > 0) return;
     if (r.elapsed - r.lastShot < OPERATOR.fireInterval) { sfx.dry(); return; }
     r.lastShot = r.elapsed;
     r.shots++;
-    r.ammo--;
     const settled = this.zoomLevel ? this.scopeT : 0;
     if (settled < 1) r.unscoped++;
     this.vm.shot(true);
@@ -833,11 +829,6 @@ export class Game {
       r.score = Math.max(0, r.score - w.missPenalty);
     }
     if (this.settings.sniper.unscope) this.setZoom(0);
-    if (r.ammo <= 0) {
-      r.reloadLeft = OPERATOR.reload;
-      this.setZoom(0);
-      sfx.reload();
-    }
   }
 
   // ------------------------------------------------------------- effects
@@ -985,10 +976,6 @@ export class Game {
       else if (t.respawnAt !== null && r.elapsed >= t.respawnAt) this.spawn(t);
     }
     this.trackVisibility(dt);
-    if (r.reloadLeft > 0) {
-      r.reloadLeft -= dt;
-      if (r.reloadLeft <= 0) { r.reloadLeft = 0; r.ammo = OPERATOR.magazine; }
-    }
 
     if (this.knifeOut && this.firing && this.vm.knifeAttack('slash')) sfx.slash();
     const firing = !this.knifeOut && (this.firing || (w.type === 'beam' && this.settings.autoFire));
@@ -1082,8 +1069,7 @@ export class Game {
       acc,
       kills: r.kills,
       fps: this.fps,
-      ammo: this.sniper ? r.ammo : null,
-      reload: r.reloadLeft,
+      ammo: this.sniper ? Infinity : null, // the AWP never runs dry
       zoom: this.zoomLevel ? OPERATOR.zooms[this.zoomLevel - 1] : 0,
       onTarget: beam && this.targets.some((t) => t.flash > 0.9),
     };

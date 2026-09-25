@@ -154,18 +154,23 @@ come faster than that rate.
 - **Presets**: Original (the model's own factory textures), Fade (the default:
   crimson at the front, magenta and purple through the receiver, blue at the
   rear, a gold suppressor, black furniture), Recon Digital, Coyote, Gunmetal,
-  Woodland, Arctic Digital, Carbon Weave, Ember Tiger, Cobalt Hex, Neon Splatter
-  and Damascus.
+  Woodland, Arctic Digital, Carbon Weave, Ember Tiger, Cobalt Hex, Neon Splatter,
+  Clear Ice and Damascus.
 - **Pattern**: original textures, solid, fade, woodland camo, digital camo,
   carbon fibre, hex grid, tiger stripe, splatter or Damascus steel, each with
   three colours. On the detailed models the paint keeps the model's normal maps,
   so it follows every machined edge and screw, and barrels, sights and small
   metal parts stay metal.
-- **Finish** (matte, satin, gloss, anodized, metallic), **wear** (0–1, adding
-  scratches and chipped paint), **pattern scale** and **pattern seed**.
+- **Finish** (matte, satin, gloss, anodized, metallic, or clear glossy
+  plastic), **wear** (0–1, adding scratches and chipped paint), **pattern
+  scale** and **pattern seed**. Clear glossy plastic turns the paint into
+  see-through plastic tinted by the pattern, with a clear coat: you see the
+  gun's insides through it, and it gets denser and shinier toward the edges and
+  where it catches the light.
 - **Parts**: every part a gun has (handguard, stock, grip, foregrip, magazine,
   suppressor, scope, butt pad) wears the pattern or a solid finish: black, gunmetal,
-  tan, wood, gold or steel. Detailed models add **Factory**, the part's own
+  tan, wood, gold, steel, clear plastic, or clear plastic tinted with the skin's
+  first colour (a see-through magazine, for example). Detailed models add **Factory**, the part's own
   textures, so you can paint the receiver and keep the AK's real wood. The list
   changes with the gun.
 - **Fade direction**: run the fade back to front or front to back.

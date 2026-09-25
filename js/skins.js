@@ -37,6 +37,7 @@ export const FINISHES = {
   gloss: { label: 'Gloss', roughness: 0.22, metalness: 0 },
   anodized: { label: 'Anodized', roughness: 0.28, metalness: 0.62 },
   metallic: { label: 'Metallic', roughness: 0.3, metalness: 0.88 },
+  clear: { label: 'Clear glossy plastic', roughness: 0.05, metalness: 0, clear: true },
 };
 
 // Solid choices for a gun's zones (stock, grip, magazine, suppressor, scope
@@ -51,6 +52,8 @@ export const ZONE_FINISHES = {
   gray: { label: 'Gunmetal polymer', color: '#3f444c', roughness: 0.62, metalness: 0.1 },
   gold: { label: 'Gold', color: '#e9ad3c', roughness: 0.24, metalness: 1 },
   steel: { label: 'Steel', color: '#9aa1aa', roughness: 0.32, metalness: 1 },
+  clear: { label: 'Clear plastic', color: '#dbe8f3', roughness: 0.05, metalness: 0, clear: true },
+  clearTint: { label: 'Tinted clear plastic (skin colour)', roughness: 0.05, metalness: 0, clear: true, tint: true },
 };
 
 // Starting points; every value can be changed afterwards. `zones` names the
@@ -70,6 +73,7 @@ export const SKIN_PRESETS = {
   ember: { name: 'Ember Tiger', pattern: 'stripes', c1: '#ff8a1e', c2: '#1b120d', c3: '#000000', finish: 'gloss', wear: 0.1, scale: 1, seed: 11, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black' }, fx: { type: 'flame', color: '#ff7a1a', glow: true } },
   cobalt: { name: 'Cobalt Hex', pattern: 'hex', c1: '#10284d', c2: '#46b3ff', c3: '#0b1a36', finish: 'satin', wear: 0.05, scale: 1, seed: 5, zones: { mag: 'steel', suppressor: 'steel', scope: 'steel', butt: 'black' }, fx: { type: 'lightning', color: '#5cc8ff', glow: true } },
   neon: { name: 'Neon Splatter', pattern: 'splatter', c1: '#17171f', c2: '#3dfc9b', c3: '#ff3df0', finish: 'gloss', wear: 0.05, scale: 1, seed: 21, zones: { stock: 'black', grip: 'black', foregrip: 'black', butt: 'black' }, fx: { type: 'spectral', color: '#3dfc9b', glow: true } },
+  ice: { name: 'Clear Ice', pattern: 'solid', c1: '#8fd3ff', c2: '#dff4ff', c3: '#2a6f9e', finish: 'clear', wear: 0, scale: 1, seed: 4, zones: { grip: 'black', stock: 'clear', mag: 'clear', suppressor: 'steel', scope: 'steel', butt: 'black' }, fx: { type: 'tracer', color: '#bfeaff', glow: false } },
   damascus: { name: 'Damascus', pattern: 'damascus', c1: '#8a919b', c2: '#2c3036', c3: '#000000', finish: 'metallic', wear: 0.03, scale: 1, seed: 2, zones: { stock: 'black', grip: 'black', foregrip: 'black', mag: 'steel', suppressor: 'steel', scope: 'steel', butt: 'black' }, fx: { type: 'none', color: '#ffd27a', glow: false } },
 };
 

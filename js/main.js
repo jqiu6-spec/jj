@@ -613,7 +613,7 @@ function renderZones() {
   const host = $('w-zones');
   host.textContent = '';
   const detailed = game.vm.isDetailed(weaponGun);
-  const opts = ['skin', ...(detailed ? ['factory'] : []), 'black', 'gray', 'tan', 'wood', 'gold', 'steel'];
+  const opts = ['skin', ...(detailed ? ['factory'] : []), 'black', 'gray', 'tan', 'wood', 'gold', 'steel', 'clear', 'clearTint'];
   $('w-zones-hint').textContent = detailed
     ? 'Each part wears the pattern, its factory textures, or a solid finish.'
     : 'Each part wears the pattern or a solid finish.';

@@ -129,6 +129,53 @@ function stickerMaterial(finish, map) {
   return new THREE.MeshStandardMaterial({ ...base, roughness: 0.85, metalness: 0 });
 }
 
+// Clear plastic: see-through in the middle, denser toward the edges and
+// wherever it catches a reflection, the way clear polymer looks. Paints and
+// finishes share this shader hook; the CLEAR_PLASTIC define switches it on.
+function plasticShader(shader) {
+  shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+#ifdef CLEAR_PLASTIC
+  float facing = clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0);
+  float edge = pow(1.0 - facing, 2.5);
+  vec3 shine = totalSpecular;
+  #ifdef USE_CLEARCOAT
+    shine += (clearcoatSpecularDirect + clearcoatSpecularIndirect) * material.clearcoat;
+  #endif
+  float gloss = dot(shine, vec3(0.299, 0.587, 0.114));
+  gl_FragColor.a = clamp(gl_FragColor.a + edge * 0.5 + gloss * 0.8, 0.0, 1.0);
+#endif`);
+}
+
+function physical(params) {
+  const m = new THREE.MeshPhysicalMaterial(params);
+  m.onBeforeCompile = plasticShader;
+  return m;
+}
+
+// Turn a material into glossy clear plastic, or back to an opaque finish.
+function setPlastic(mat, on) {
+  if (on) {
+    mat.defines = { ...(mat.defines || {}), CLEAR_PLASTIC: '' };
+    mat.transparent = true;
+    mat.opacity = 0.18;
+    mat.depthWrite = false;
+    mat.side = THREE.DoubleSide; // inside walls show through, back faces first
+    mat.metalness = 0;
+    mat.clearcoat = 1;
+    mat.clearcoatRoughness = 0.02;
+    mat.envMapIntensity = 1.8;
+  } else {
+    if (mat.defines) delete mat.defines.CLEAR_PLASTIC;
+    mat.transparent = false;
+    mat.opacity = 1;
+    mat.depthWrite = true;
+    mat.side = mat.userData.side;
+    mat.clearcoat = 0;
+    mat.envMapIntensity = 1;
+  }
+  mat.needsUpdate = true;
+}
+
 // One gun with its skin materials, sticker decals and fire-effect glow. It
 // starts on the built-in model and moves to the detailed mesh once loaded.
 class GunView {
@@ -240,8 +287,9 @@ class GunView {
     const key = orig || null;
     let p = this.paints.get(key);
     if (!p) {
-      p = new THREE.MeshStandardMaterial({ vertexColors: true });
+      p = physical({ vertexColors: true });
       p.userData.paint = true;
+      p.userData.side = orig ? THREE.DoubleSide : THREE.FrontSide;
       if (orig) {
         p.side = THREE.DoubleSide;
         if (orig.normalMap) {
@@ -258,6 +306,7 @@ class GunView {
   paintSetup(p, s) {
     const f = FINISHES[s.finish] || FINISHES.satin;
     p.map = this.texture || null;
+    setPlastic(p, !!f.clear);
     p.roughness = Math.min(1, f.roughness + s.wear * 0.15);
     p.metalness = f.metalness;
     p.needsUpdate = true;
@@ -268,7 +317,11 @@ class GunView {
     let mat = this.finishMats.get(key);
     if (!mat) {
       const z = ZONE_FINISHES[choice];
-      mat = new THREE.MeshStandardMaterial({ color: z.color, roughness: z.roughness, metalness: z.metalness, map: z.wood ? wood() : null });
+      mat = physical({ color: z.color || '#ffffff', roughness: z.roughness, metalness: z.metalness, map: z.wood ? wood() : null });
+      mat.userData.side = orig ? THREE.DoubleSide : THREE.FrontSide;
+      mat.userData.tint = !!z.tint;
+      if (z.clear) setPlastic(mat, true);
+      if (z.tint && this.skin) mat.color.set(this.skin.c1);
       if (orig) {
         mat.side = THREE.DoubleSide;
         if (orig.normalMap) {
@@ -292,6 +345,7 @@ class GunView {
     tex.repeat.set(tiles, tiles * (c.width / c.height));
     this.texture = tex;
     for (const p of this.paints.values()) this.paintSetup(p, s);
+    for (const m of this.finishMats.values()) if (m.userData.tint) m.color.set(s.c1);
 
     // Fade runs through three colours along the painted body, rear to front
     // unless reversed. Other patterns keep the vertex colour white.

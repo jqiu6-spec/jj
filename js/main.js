@@ -144,11 +144,14 @@ function onGameState(s) {
   $('pause').hidden = s !== 'paused';
   $('hud-ammo').hidden = !((inGame || s === 'paused') && game.sniper);
   $('hud-moves').hidden = !(inGame || s === 'paused');
+  $('btn-end').hidden = !(s === 'paused' && game.run && game.run.free);
   if (s === 'results' && document.pointerLockElement === canvas) document.exitPointerLock();
   if (s === 'paused') {
     pausedAt = performance.now();
     $('pause-name').textContent = game.scn.name;
-    $('pause-msg').textContent = 'The run is frozen. Resume locks the mouse again.';
+    $('pause-msg').textContent = game.run && game.run.free
+      ? 'The run is frozen. Resume locks the mouse again; Finish run shows your results.'
+      : 'The run is frozen. Resume locks the mouse again.';
   }
   if (s === 'menu') {
     $('results').hidden = true;
@@ -167,6 +170,7 @@ function onGameState(s) {
         ? `Hold right click to scope (${z1}). Left click fires. 2 for a rifle (again for the next), 1 the AWP.`
         : `Right click scopes to ${z1}, again for ${z2}. Left click fires. 2 for a rifle (again for the next), 1 the AWP.`;
     }
+    if (game.run && game.run.free) hint = `${hint.replace(/\.$/, '')}. No time limit: Esc, then Finish run, when you're done.`;
     $('countdown-hint').textContent = hint;
     // Trackline adds no acceleration of its own, but without raw input the
     // system's pointer acceleration still applies: say so, and how to stop it.
@@ -181,7 +185,7 @@ function onGameState(s) {
 let hudFpsTimer = 0;
 function renderHud(h) {
   if (!h) return;
-  $('hud-time').textContent = h.time.toFixed(1);
+  $('hud-time').textContent = h.free ? clock(h.time) : h.time.toFixed(1);
   $('hud-score').textContent = fmt(h.score);
   $('hud-acc').textContent = h.acc === null ? '–' : pct(h.acc);
   $('hud').classList.toggle('on-target', !!h.onTarget);
@@ -280,7 +284,7 @@ function renderDetail() {
     ['Speed', d.speed],
   ];
   if (d.moves) rows.push(['Moves', d.moves]);
-  rows.push(['Weapon', `${d.fire}`], ['Scoring', d.scoring], ['Controls', `WASD moves · Space jumps · Shift crouches · ${s.weapon.type === 'sniper' ? '1 AWP, 2 rifle (again for the next), 3 knife' : 'wheel or 3 knife, 1 gun'} · R restarts`]);
+  rows.push(['Weapon', `${d.fire}`], ['Scoring', d.scoring], ['Controls', `WASD moves · Space jumps · Shift crouches (slides while running) · E dashes · ${s.weapon.type === 'sniper' ? '1 AWP, 2 rifle (again for the next), 3 knife' : 'wheel or 3 knife, 1 gun'} · R restarts`]);
   $('d-specs').innerHTML = rows.map(([k, val]) => `<dt>${k}</dt><dd>${val}</dd>`).join('');
 
   const beam = s.weapon.type === 'beam';
@@ -311,14 +315,18 @@ function renderDetail() {
   $('d-pb').textContent = best ? fmt(best.score) : '—';
   $('d-avg').textContent = avg === null ? '—' : fmt(avg);
   $('d-runs').textContent = runs.length;
-  $('btn-start').innerHTML = `Start <span class="dur">· ${s.duration} s</span>`;
-  $('btn-start').setAttribute('aria-label', `Start ${s.name}, ${s.duration} seconds`);
+  $('d-time-timed-lbl').textContent = `${s.duration} s`;
+  $('d-time-timed').checked = !settings.freePlay;
+  $('d-time-free').checked = !!settings.freePlay;
+  $('btn-start').innerHTML = settings.freePlay ? 'Start <span class="dur">· no time limit</span>' : `Start <span class="dur">· ${s.duration} s</span>`;
+  $('btn-start').setAttribute('aria-label', settings.freePlay ? `Start ${s.name} with no time limit` : `Start ${s.name}, ${s.duration} seconds`);
   sparkline($('d-spark'), runs.slice(-20).map((r) => r.score));
 }
 
 // ----------------------------------------------------------------- results
 function showResults(result) {
-  const { prevBest, isPB } = addRun(result, defKeyFor(game.scn));
+  // Runs with no time limit aren't comparable with timed ones: shown, not saved.
+  const { prevBest, isPB } = result.free ? { prevBest: null, isPB: false } : addRun(result, defKeyFor(game.scn));
   lastResult = result;
   lastPrevBest = prevBest;
   const s = game.scn;
@@ -330,7 +338,10 @@ function showResults(result) {
   $('r-setup').textContent = setupLabel(s, game.setup);
   $('r-score').textContent = fmt(result.score);
   const delta = $('r-delta');
-  if (isPB) {
+  if (result.free) {
+    delta.className = 'delta';
+    delta.textContent = `No time limit · ${clock(result.duration)} · not saved to your history`;
+  } else if (isPB) {
     delta.className = 'delta pb';
     delta.textContent = prevBest ? `New personal best, +${fmt(result.score - prevBest.score)}` : 'First run, new personal best';
   } else {
@@ -364,7 +375,13 @@ function showResults(result) {
   $('results').hidden = false;
   // A lone series needs no legend; the chart title names it.
   $('r-legend').hidden = !(prevBest && prevBest.timeline);
-  paceChart($('r-chart'), result.timeline, prevBest ? prevBest.timeline : null, s.duration);
+  paceChart($('r-chart'), result.timeline, prevBest ? prevBest.timeline : null, result.free ? Math.max(1, result.timeline.length) : s.duration);
+}
+
+// Minutes and seconds, for runs with no time limit.
+function clock(sec) {
+  const s = Math.floor(sec);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 function coaching(r, s, v) {
@@ -1227,6 +1244,14 @@ for (const lv of ['easy', 'medium', 'hard']) {
 $('btn-again').addEventListener('click', () => play(game.scn));
 $('btn-menu').addEventListener('click', () => game.toMenu());
 $('btn-quit').addEventListener('click', () => { document.exitPointerLock?.(); game.toMenu(); });
+$('btn-end').addEventListener('click', () => game.endRun());
+for (const id of ['d-time-timed', 'd-time-free']) {
+  $(id).addEventListener('change', () => {
+    settings.freePlay = $('d-time-free').checked;
+    saveSettings(settings);
+    renderDetail();
+  });
+}
 $('btn-restart').addEventListener('click', () => play(game.scn));
 $('btn-resume').addEventListener('click', async () => {
   try {
@@ -1272,12 +1297,10 @@ document.addEventListener('keydown', (e) => {
   }
   if (k === 'ShiftLeft' || k === 'ShiftRight') {
     if (live) e.preventDefault();
+    // Shift while running slides, as in Apex; otherwise (and once the
+    // slide is over, if it's still held) it crouches.
+    if (live && !e.repeat) game.slide();
     game.crouch(true);
-    return;
-  }
-  if (k === 'KeyC' && live) {
-    e.preventDefault();
-    if (!e.repeat) game.slide();
     return;
   }
   if (k === 'KeyE' && live) {
@@ -1336,7 +1359,7 @@ fsBtn.addEventListener('click', () => {
 
 window.addEventListener('resize', () => {
   if (!$('results').hidden && lastResult) {
-    paceChart($('r-chart'), lastResult.timeline, lastPrevBest ? lastPrevBest.timeline : null, game.scn.duration);
+    paceChart($('r-chart'), lastResult.timeline, lastPrevBest ? lastPrevBest.timeline : null, lastResult.free ? Math.max(1, lastResult.timeline.length) : game.scn.duration);
   }
 });
 

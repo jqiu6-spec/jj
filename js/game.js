@@ -19,7 +19,7 @@ const MAX_PITCH = 89 * DEG;
 const JUMP_SPEED = 301.993 * 0.0254;
 const GRAVITY = 800 * 0.0254;
 const CROUCH_DROP = 18 * 0.0254;
-// Apex's slide: tap C from a run for a burst of speed that friction bleeds
+// Apex's slide: Shift from a run for a burst of speed that friction bleeds
 // off over about a second, low to the ground (the burst again only after
 // 0.8 s). Jump out of it to keep the speed.
 const SLIDE_BOOST = 1.45; // start speed, times the run speed
@@ -764,6 +764,7 @@ export class Game {
     Object.assign(this.recoil, { p: 0, y: 0, index: 0, last: -9 });
     this.run = {
       scenario: this.scn.id,
+      free: !!this.settings.freePlay, // no time limit
       elapsed: 0,
       score: 0,
       shots: 0,
@@ -824,6 +825,11 @@ export class Game {
     this.hooks.onState(s);
   }
 
+  // Finish a run with no time limit from the pause screen: its results.
+  endRun() {
+    if (this.run && this.state === 'paused') this.finish();
+  }
+
   pause() {
     if (this.state === 'running' || this.state === 'countdown') {
       this.pausedFrom = this.state;
@@ -851,7 +857,7 @@ export class Game {
     const r = this.run;
     const beam = this.scn.weapon.type === 'beam';
     const accuracy = beam ? (r.fireTime > 0 ? r.onTime / r.fireTime : 0) : (r.shots ? r.hits / r.shots : 0);
-    while (r.timeline.length < this.scn.duration) r.timeline.push(Math.round(r.score));
+    if (!r.free) while (r.timeline.length < this.scn.duration) r.timeline.push(Math.round(r.score));
     this.setZoom(0);
     const result = {
       scenario: this.scn.id,
@@ -873,6 +879,8 @@ export class Game {
       unscoped: r.unscoped,
       gun: this.gunId,
       timeline: r.timeline,
+      free: r.free, // no time limit: shown, not saved
+      duration: r.free ? r.elapsed : this.scn.duration,
       fps: Math.round(this.fps),
     };
     this.firing = false;
@@ -1416,10 +1424,10 @@ export class Game {
     this.wasFiring = (w.type === 'beam' && firing) || spraying;
     if (!firing) this.pressAt = null;
 
-    while (r.timeline.length < Math.floor(r.elapsed) && r.timeline.length < this.scn.duration) {
+    while (r.timeline.length < Math.floor(r.elapsed) && (r.free || r.timeline.length < this.scn.duration)) {
       r.timeline.push(Math.round(r.score));
     }
-    if (r.elapsed >= this.scn.duration) this.finish();
+    if (!r.free && r.elapsed >= this.scn.duration) this.finish();
   }
 
   // WASD held (KeyW, KeyA, KeyS, KeyD) or let go.
@@ -1440,8 +1448,11 @@ export class Game {
     this.crouching = !!on;
   }
 
-  // C: slide, if running on the ground. Tapping it again, or jumping, ends
-  // it early.
+  // Shift while running on the ground: slide (a tap is enough; holding it
+  // crouches once the slide is over). It goes the way the movement keys
+  // point, so you can slide forward, sideways, diagonally or backwards;
+  // with none held, the way you're already moving. Pressing it again, or
+  // jumping, ends it early. Not running, Shift only crouches.
   slide() {
     if (this.state !== 'running' || this.dashing) return;
     if (this.sliding) {
@@ -1453,7 +1464,9 @@ export class Game {
     const grounded = this.jumpY === 0 && this.vy === 0;
     if (!grounded || v < run * 0.6) return;
     const burst = this.moveClock - this.lastSlide > 0.8;
-    this.sliding = { t: 0, dir: new THREE.Vector3(this.vel.x, 0, this.vel.z).normalize(), speed: Math.max(v, run * (burst ? SLIDE_BOOST : 1)) };
+    const dir = this.wishDir(new THREE.Vector3());
+    if (!dir.lengthSq()) dir.set(this.vel.x, 0, this.vel.z);
+    this.sliding = { t: 0, dir: dir.normalize(), speed: Math.max(v, run * (burst ? SLIDE_BOOST : 1)) };
     this.lastSlide = this.moveClock;
     sfx.slide();
   }
@@ -1555,10 +1568,15 @@ export class Game {
       this.fovShown = this.fovKick;
       this.applyZoom();
     }
-    // In a slide the view tips a little and the gun leans in; it doesn't
-    // bob.
+    // In a slide the view tips a little (to the left in a slide to the
+    // left, otherwise to the right) and the gun leans in; it doesn't bob.
     const lean = this.sliding ? 1 : 0;
-    this.viewRoll += (lean * -0.045 - this.viewRoll) * (1 - Math.exp(-dt * 10));
+    let tip = 1;
+    if (this.sliding) {
+      const side = this.sliding.dir.x * Math.cos(this.yaw) - this.sliding.dir.z * Math.sin(this.yaw);
+      tip = Math.max(-1, Math.min(1, 1 + 2 * side));
+    }
+    this.viewRoll += (lean * tip * -0.045 - this.viewRoll) * (1 - Math.exp(-dt * 10));
     this.vm.lean += (lean - this.vm.lean) * (1 - Math.exp(-dt * 10));
     this.vm.moving = this.sliding || this.dashing ? 0 : Math.min(1, this.vel.length() / 5.4);
     if (!this.vel.x && !this.vel.z) return;
@@ -1641,7 +1659,8 @@ export class Game {
     const beam = this.scn.weapon.type === 'beam';
     const acc = beam ? (r.fireTime > 0 ? r.onTime / r.fireTime : null) : (r.shots ? r.hits / r.shots : null);
     return {
-      time: Math.max(0, this.scn.duration - r.elapsed),
+      time: r.free ? r.elapsed : Math.max(0, this.scn.duration - r.elapsed),
+      free: r.free,
       countdown: this.state === 'countdown' ? Math.ceil(this.countdown) : 0,
       score: Math.round(r.score),
       acc,

@@ -24,7 +24,7 @@
 <div id="hud-fps" hidden></div>
 <div id="scope" aria-hidden="true"><i class="scope-h"></i><i class="scope-v"></i><i class="scope-dot"></i></div>
 <div id="hud-ammo" hidden><b id="hud-ammo-n">∞</b><span id="hud-ammo-info"></span></div>
-<div id="hud-moves" hidden><span class="key">E</span><span>Dash</span><span id="hud-dash"><i></i><i></i></span><span class="key">C</span><span>Slide</span></div>
+<div id="hud-moves" hidden><span class="key">E</span><span>Dash</span><span id="hud-dash"><i></i><i></i></span><span class="key">Shift</span><span>Slide</span></div>
 <div id="dash-fx" aria-hidden="true"></div>
 <div id="countdown" hidden><b id="countdown-num">3</b><span id="countdown-hint"></span><span id="countdown-accel" hidden></span></div>
 
@@ -92,6 +92,13 @@
           <div><span class="lbl">Runs</span><b id="d-runs">0</b></div>
         </div>
         <div id="d-spark" class="spark"></div>
+      </div>
+      <div class="f time-limit">
+        <span class="lbl-plain" id="d-time-lbl">Time limit</span>
+        <div class="seg seg-sm" role="radiogroup" aria-labelledby="d-time-lbl">
+          <label><input type="radio" name="d-time" id="d-time-timed" value="timed"><span id="d-time-timed-lbl">60 s</span></label>
+          <label><input type="radio" name="d-time" id="d-time-free" value="free"><span>None</span></label>
+        </div>
       </div>
       <button class="btn-start" id="btn-start">Start</button>
       <p class="keys"><kbd>Esc</kbd> pause <span aria-hidden="true">·</span> <kbd>R</kbd> restart <span aria-hidden="true">·</span> <kbd>Space</kbd> play again</p>
@@ -337,6 +344,7 @@
     <p class="hint" id="pause-msg">The run is frozen. Resume locks the mouse again.</p>
     <div class="row">
       <button id="btn-resume" class="btn-primary">Resume</button>
+      <button id="btn-end" hidden>Finish run</button>
       <button id="btn-restart">Restart</button>
       <button id="btn-quit">Scenarios</button>
     </div>

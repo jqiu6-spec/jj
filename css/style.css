@@ -263,6 +263,7 @@ body.in-menu #crosshair { display: none; }
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 .btn-start .dur { text-transform: none; letter-spacing: 0.02em; opacity: 0.65; }
+.time-limit { grid-template-columns: auto 1fr; align-items: center; gap: 10px; margin-bottom: 10px; }
 .btn-start:hover, .btn-primary:hover { filter: brightness(1.07); }
 .btn-start:active, .btn-primary:active { transform: translateY(1px); }
 .btn-primary kbd { color: var(--accent-ink); border-color: rgba(29, 24, 4, 0.35); margin-left: 8px; vertical-align: 3px; }

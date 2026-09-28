@@ -18,6 +18,7 @@ export const CROSSHAIR_STYLES = {
 
 export const DEFAULTS = {
   sensMode: 'game', // 'game' | 'cm360'
+  freePlay: false, // runs with no time limit: the clock counts up and you finish when you like
   game: 'source',
   sens: 1.2,
   cm360: 35,

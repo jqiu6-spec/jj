@@ -35,8 +35,6 @@ const idle = (t) => ({ t, p: I.p });
 const HANG = { blade: [0.15, -1, 0.1], face: [0, 0, 1] };
 // Turned blade-down at the end of the inspect, the flat half toward you.
 const HANG_DOWN = { blade: [0.05, -1, -0.15], face: [0.45, 0, 1] };
-// Pointing up out of the fist as it's drawn.
-const POINT_UP = { blade: [-0.2, 1, -0.2], face: [0, 0, 1] };
 // Upright: the fist raised, fingers curled round the upright handle toward
 // you, the blade hanging below it and curving down to the left, its flat
 // toward you (CS2's inspect); rocked a little each way as it's looked at.
@@ -57,21 +55,17 @@ const DRIVEN = { blade: [-0.5, -0.85, -0.3], face: [0.2, 0.3, 0.9] };
 // where the knife starts, in radians. Spins end on whole turns, back in the
 // grip.
 export const KNIFE_ANIMS = {
-  // Drawn, as in CS2 (0.75 s): the hand comes up from the bottom right with
-  // the knife pointing up, flips it once round the finger, and drops into
-  // the grip; the free hand comes in at the end.
+  // Drawn: the hand comes up on the right with the knife flipping round the
+  // finger, then drops into the grip; the free hand comes in at the end.
   draw: {
     spinFrom: -TAU,
-    spins: [{ from: 0.17, to: 0.43, turns: 1 }],
-    away: [-1, 0, 0.42, 0.62],
+    spins: [{ from: 0.03, to: 0.55, turns: 1 }],
+    away: [-1, 0, 0.55, 0.8],
     keys: [
-      { t: 0, p: at(0.14, -0.2, 0.05), grip: POINT_UP },
-      { t: 0.1, p: at(0.125, 0.0, 0.01), grip: POINT_UP },
-      { t: 0.22, p: at(0.105, 0.04, 0), grip: POINT_UP },
-      { t: 0.4, p: at(0.095, 0.03, 0), grip: HANG },
-      { t: 0.52, p: at(0.06, 0.015, 0), turn: [0.3, -0.2, 0.4] },
-      { t: 0.63, p: at(0.02, 0.003, 0), turn: [0.08, 0, 0.1] },
-      idle(0.75),
+      { t: 0, p: at(0.08, -0.2, 0.05), turn: [0.3, 0, -0.6] },
+      { t: 0.25, p: at(0.03, 0.035, 0), grip: HANG },
+      { t: 0.45, p: at(0.02, 0.03, 0), grip: HANG },
+      idle(0.85),
     ],
   },
   // Backhand: dip to the lower left, whip across the screen to the right.

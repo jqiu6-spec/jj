@@ -118,6 +118,13 @@ The scenario panel has a setup row:
 Personal bests and history are kept separately for each setup, so a 5-target run
 is never compared with a 3-target run.
 
+**Time limit.** Above the Start button, pick the scenario's length (60 s for
+most) or **None** to practise for as long as you like. With no limit the clock
+counts up from 0:00, and the run lasts until you press Esc and then **Finish
+run**. The results screen shows your score and pace chart for the whole run,
+but a free run is never saved to your history or counted as a personal best,
+since it can't be compared fairly with a timed one.
+
 Tracking scenarios use a beam that fires while you hold mouse 1 and does 100 damage
 per second on target. Your score is the damage you deal, and accuracy is time on
 target divided by time firing. The results screen also reports your average offset
@@ -192,12 +199,16 @@ and you move at a third of your speed. Walls and crates stop you (the crates
 are too tall to jump onto), the gun bobs as you run, and every run starts
 from the scenario's spot. Moving doesn't cost accuracy.
 
-**Slide.** Tap **C** while running, as in Apex Legends: you drop low and slide
-at about one and a half times your run speed, the view tilting a little and
-the gun leaning in, and friction bleeds the speed off over about a second
-(about 6 m). You can aim and shoot the whole way. Jump out of it to carry the
-speed into the air; tap C again to stand up early. The burst comes back 0.8 s
-after a slide.
+**Slide.** Press **Shift** while running, as in Apex Legends: you drop low and
+slide at about one and a half times your run speed, the way your movement keys
+point, so a slide can go forward, sideways, diagonally or backwards (hold W+A,
+D, S and so on as you press Shift). The view tilts a little toward the side
+you're sliding and the gun leans in, and friction bleeds the speed off over
+about a second (about 6 m). A tap is enough; keep holding it and you're
+crouched when the slide ends. You can aim and shoot the whole way. Jump out of
+it to carry the speed into the air; press Shift again to stand up early. Only
+a run slides: standing or walking, Shift just crouches. The burst comes back
+0.8 s after a slide.
 
 **Dash.** Press **E** to dash like Jett's Tailwind in Valorant: about 6.5 m in
 a fifth of a second the way the movement keys point (W A S D and diagonals;
@@ -474,10 +485,8 @@ wheel** to swap between them (or press **3** for the knife, **1** for the gun,
 **Q** to swap). The animations follow CS2's karambit, keyframed from a
 recording of it in game. At rest the fist sits low in the middle, palm down on
 the knife's flat, the ring and index finger on the left and the blade lying
-out to the right, with the free hand relaxed at the bottom left. Drawn (0.75
-s), the hand comes up from the bottom right with the knife pointing up,
-flips it once round the finger and drops into the grip as the free hand
-comes in. **F** inspects (4.7 s): the free hand drops away, the knife hand
+out to the right, with the free hand relaxed at the bottom left. Drawn, it comes up on the right, flipping round the finger in one smooth
+spin, and drops into the grip as the free hand comes in. **F** inspects (4.7 s): the free hand drops away, the knife hand
 dips and twists and flips the knife up into an upright hold at the right of
 the middle, fingers curled round the handle toward you and the blade hanging
 down with its flat toward you; it rocks it a little to catch the light,
@@ -548,10 +557,10 @@ before the scope settled.
 
 - **Mouse 1**: fire (hold it in tracking scenarios, or turn on auto-fire in Settings); slash with the knife
 - **Mouse 2**, or **Ctrl+click** on a Mac: scope with the AWP in sniping scenarios (CS2 or Operator handling); stab with the knife
-- **W A S D**: move; **Space**: jump; **Shift** (held): crouch; **C**: slide (while running); **E**: dash the way you're moving
+- **W A S D**: move; **Space**: jump; **Shift** (held): crouch, or slide while running; **E**: dash the way you're moving
 - **Mouse wheel**, **1**, **3**, **Q**: swap between the gun and the knife; in sniping scenarios **1** is the AWP, **2** a rifle (again for the next) and **3** the knife
 - **F**: inspect the knife
-- **Esc**: pause. Press Esc again to go back to the scenario list
+- **Esc**: pause. Press Esc again to go back to the scenario list; in a run with no time limit, **Finish run** ends it and shows your results
 - **R**: restart the current run
 - **Space / Enter** on the results screen: play again
 

@@ -403,7 +403,7 @@ export const sfx = {
   // Knife, timed to the animations in knife.js: CS2's recorded flip as it's
   // drawn and in the inspect, and whooshes for the slashes and the heavy.
   knifeDraw() {
-    if (playSample('knifeDraw', { delay: 0.12, pitch: 0.02 })) return;
+    if (playSample('knifeDraw', { delay: 0.05, pitch: 0.02 })) return;
     sweep(0.24, 2600, 7800, { gain: 0.12, q: 2.2 });
     tone(2950, 0.4, { type: 'sine', gain: 0.035, delay: 0.06 });
     tone(4420, 0.28, { type: 'sine', gain: 0.018, delay: 0.06 });

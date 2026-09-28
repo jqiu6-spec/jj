@@ -19,6 +19,21 @@ const MAX_PITCH = 89 * DEG;
 const JUMP_SPEED = 301.993 * 0.0254;
 const GRAVITY = 800 * 0.0254;
 const CROUCH_DROP = 18 * 0.0254;
+// Apex's slide: tap C from a run for a burst of speed that friction bleeds
+// off over about a second, low to the ground (the burst again only after
+// 0.8 s). Jump out of it to keep the speed.
+const SLIDE_BOOST = 1.45; // start speed, times the run speed
+const SLIDE_END = 0.5; // ends below this share of the run speed
+const SLIDE_DRAG = 0.55; // exponential slowdown per second
+const SLIDE_FRICTION = 1.9; // and linear, m/s²
+const SLIDE_MAX = 1.3; // seconds
+// Jett's Tailwind: E dashes about 6.5 m in 0.2 s the way you're moving
+// (forward if you aren't), even in the air. Two charges, each back 3 s
+// after it's used.
+const DASH_DIST = 6.5;
+const DASH_TIME = 0.2;
+const DASH_CHARGES = 2;
+const DASH_RECHARGE = 3;
 const COUNTDOWN = 3;
 
 // ------------------------------------------------------------------ textures
@@ -151,6 +166,14 @@ export class Game {
     this.vy = 0;
     this.crouching = false; // Shift held
     this.crouchT = 0; // 0 standing .. 1 crouched
+    this.sliding = null; // { t, dir, speed } while sliding
+    this.dashing = null; // { t, dir } while dashing
+    this.dashCharges = DASH_CHARGES;
+    this.dashRecharge = 0; // seconds until the next charge is back
+    this.moveClock = 0; // seconds of movement, for the slide's cooldown
+    this.lastSlide = -9;
+    this.viewRoll = 0; // the view tilts a little in a slide
+    this.fovKick = 0; // degrees, wider for a moment in a dash
     this.rifleId = null; // the rifle in slot 2 of a sniping run
     this.lastSlot = 'knife'; // where Q goes back to
     this.recoil = { p: 0, y: 0, index: 0, last: -9 }; // view kick (radians) and place in the spray
@@ -425,7 +448,7 @@ export class Game {
 
   applyZoom() {
     const half = (this.hipFov * Math.PI) / 360;
-    this.camera.fov = (Math.atan(Math.tan(half) / this.zoom) * 360) / Math.PI;
+    this.camera.fov = (Math.atan(Math.tan(half) / this.zoom) * 360) / Math.PI + (this.zoomLevel ? 0 : this.fovKick || 0);
     this.camera.updateProjectionMatrix();
   }
 
@@ -777,6 +800,15 @@ export class Game {
     this.crouchT = 0;
     this.vel.set(0, 0, 0);
     this.vm.moving = 0;
+    this.vm.lean = 0;
+    this.sliding = null;
+    this.dashing = null;
+    this.dashCharges = DASH_CHARGES;
+    this.dashRecharge = 0;
+    this.lastSlide = -9;
+    this.viewRoll = 0;
+    this.fovKick = 0;
+    this.applyZoom();
     this.resetTargets();
     this.lookAtTargets(true);
     this.pitch = Math.max(-0.35, Math.min(0.35, this.pitch));
@@ -1042,7 +1074,7 @@ export class Game {
       depth = 0.9;
     }
     this.camera.position.copy(this.eye);
-    this.camera.rotation.set(this.pitch, this.yaw, 0);
+    this.camera.rotation.set(this.pitch, this.yaw, this.viewRoll);
     this.camera.updateMatrixWorld();
     this.updateForward();
     out.set(nx, ny, 0.5).unproject(this.camera).sub(this.eye).normalize();
@@ -1251,7 +1283,7 @@ export class Game {
     // sways. The view itself never kicks, so a shot lands where it's aimed.
     const muzzle = this.fx.anchored() ? this.muzzleStart(_from) : null;
     this.camera.position.copy(this.eye);
-    this.camera.rotation.set(this.pitch, this.yaw, 0);
+    this.camera.rotation.set(this.pitch, this.yaw, this.viewRoll);
     this.updateTargetVisuals(dt);
     this.updatePops(dt);
     this.fx.update(dt, muzzle);
@@ -1408,15 +1440,71 @@ export class Game {
     this.crouching = !!on;
   }
 
+  // C: slide, if running on the ground. Tapping it again, or jumping, ends
+  // it early.
+  slide() {
+    if (this.state !== 'running' || this.dashing) return;
+    if (this.sliding) {
+      this.sliding = null;
+      return;
+    }
+    const run = (GUNS[this.heldId] || {}).run || 5.4;
+    const v = Math.hypot(this.vel.x, this.vel.z);
+    const grounded = this.jumpY === 0 && this.vy === 0;
+    if (!grounded || v < run * 0.6) return;
+    const burst = this.moveClock - this.lastSlide > 0.8;
+    this.sliding = { t: 0, dir: new THREE.Vector3(this.vel.x, 0, this.vel.z).normalize(), speed: Math.max(v, run * (burst ? SLIDE_BOOST : 1)) };
+    this.lastSlide = this.moveClock;
+    sfx.slide();
+  }
+
+  // E: dash the way the movement keys point (forward with none), if a
+  // charge is left.
+  dash() {
+    if (this.state !== 'running' || this.dashing || this.dashCharges < 1) return;
+    const dir = this.wishDir(new THREE.Vector3());
+    if (!dir.lengthSq()) dir.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    this.dashing = { t: 0, dir: dir.normalize() };
+    this.sliding = null;
+    this.dashCharges--;
+    if (!this.dashRecharge) this.dashRecharge = DASH_RECHARGE;
+    this.vy = Math.max(0, this.vy); // a dash holds you up
+    sfx.dash();
+    if (this.hooks.onDash) this.hooks.onDash();
+  }
+
+  // The direction the movement keys point, flat, not normalised (zero with
+  // none held).
+  wishDir(out) {
+    const k = this.keys;
+    const f = (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0);
+    const s = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
+    const sin = Math.sin(this.yaw);
+    const cos = Math.cos(this.yaw);
+    return out.set(-sin * f + cos * s, 0, -cos * f - sin * s);
+  }
+
   // WASD: run around the arena at the held weapon's speed (CS2's, or
   // Valorant's for the Riot guns; half with the AWP scoped). Speeding up
   // and stopping are quick, so counter-strafing works. Walls and crates
   // stop you.
   move(dt) {
-    // Crouching lowers the eye 0.46 m (CS2's 64 to 46 units) in 0.12 s;
-    // a jump rises and falls under CS2's gravity.
-    this.crouchT = Math.max(0, Math.min(1, this.crouchT + (this.crouching ? dt : -dt) / 0.12));
-    if (this.jumpY > 0 || this.vy > 0) {
+    this.moveClock += dt;
+    // Dash charges come back one at a time.
+    if (this.dashCharges < DASH_CHARGES) {
+      this.dashRecharge -= dt;
+      if (this.dashRecharge <= 0) {
+        this.dashCharges++;
+        this.dashRecharge = this.dashCharges < DASH_CHARGES ? DASH_RECHARGE : 0;
+      }
+    }
+    const run = (GUNS[this.heldId] || {}).run || 5.4;
+    // Crouching lowers the eye 0.46 m (CS2's 64 to 46 units) in 0.12 s, as
+    // does a slide; a jump rises and falls under CS2's gravity (not during
+    // a dash).
+    const low = this.crouching || !!this.sliding;
+    this.crouchT = Math.max(0, Math.min(1, this.crouchT + (low ? dt : -dt) / 0.12));
+    if ((this.jumpY > 0 || this.vy > 0) && !this.dashing) {
       this.vy -= GRAVITY * dt;
       this.jumpY += this.vy * dt;
       if (this.jumpY <= 0 && this.vy <= 0) { // landed (not the frame it left)
@@ -1427,23 +1515,52 @@ export class Game {
     const grounded = this.jumpY === 0 && this.vy === 0;
     const c = this.crouchT;
     this.eye.y = this.baseEye + this.jumpY - CROUCH_DROP * c * c * (3 - 2 * c);
-    const k = this.keys;
-    const f = (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0);
-    const s = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
-    const sin = Math.sin(this.yaw);
-    const cos = Math.cos(this.yaw);
-    _v.set(-sin * f + cos * s, 0, -cos * f - sin * s);
+    this.wishDir(_v);
     const wish = _v.length();
-    const gun = GUNS[this.heldId] || {};
-    let speed = gun.run || 5.4;
-    if (this.zoomLevel) speed *= 0.5;
-    if (this.crouching) speed *= 0.34; // CS2 crouch-walks at a third of a run
-    if (wish > 0) _v.multiplyScalar(speed / wish);
-    // In the air you keep your momentum and steer only a little.
-    const rate = !grounded ? 1.5 : wish > 0 ? 12 : 16;
-    this.vel.lerp(_v, 1 - Math.exp(-dt * rate));
-    if (wish === 0 && this.vel.lengthSq() < 1e-4) this.vel.set(0, 0, 0);
-    this.vm.moving = Math.min(1, this.vel.length() / 5.4);
+    if (this.dashing) {
+      // Fast at first, easing off as it arrives; you come out of it at a
+      // run in the same direction.
+      const D = this.dashing;
+      D.t += dt;
+      const u = Math.min(1, D.t / DASH_TIME);
+      this.vel.copy(D.dir).multiplyScalar((DASH_DIST / DASH_TIME) * 1.5 * (1 - u * u));
+      if (u >= 1) {
+        this.vel.copy(D.dir).multiplyScalar(run);
+        this.dashing = null;
+      }
+      this.fovKick = 7 * Math.sin(Math.PI * Math.min(1, D.t / (DASH_TIME * 1.6)));
+    } else if (this.sliding) {
+      // Friction bleeds the speed off; you can steer a little. It ends when
+      // slow, when you leave the ground (a slide jump keeps the speed), or
+      // after its time.
+      const S = this.sliding;
+      S.t += dt;
+      S.speed = S.speed * Math.exp(-dt * SLIDE_DRAG) - SLIDE_FRICTION * dt;
+      if (wish > 0) S.dir.lerp(_v.clone().divideScalar(wish), 1 - Math.exp(-dt * 0.8)).normalize();
+      this.vel.copy(S.dir).multiplyScalar(Math.max(0, S.speed));
+      if (!grounded || S.speed < run * SLIDE_END || S.t > SLIDE_MAX) this.sliding = null;
+    } else {
+      let speed = run;
+      if (this.zoomLevel) speed *= 0.5;
+      if (this.crouching) speed *= 0.34; // CS2 crouch-walks at a third of a run
+      if (wish > 0) _v.multiplyScalar(speed / wish);
+      // In the air you keep your momentum and steer only a little.
+      const rate = !grounded ? 1.5 : wish > 0 ? 12 : 16;
+      this.vel.lerp(_v, 1 - Math.exp(-dt * rate));
+      if (wish === 0 && this.vel.lengthSq() < 1e-4) this.vel.set(0, 0, 0);
+    }
+    if (!this.dashing) this.fovKick *= Math.exp(-dt * 12);
+    if (this.fovKick > 0.01 || this.fovKick !== this.fovShown) {
+      if (this.fovKick < 0.01) this.fovKick = 0;
+      this.fovShown = this.fovKick;
+      this.applyZoom();
+    }
+    // In a slide the view tips a little and the gun leans in; it doesn't
+    // bob.
+    const lean = this.sliding ? 1 : 0;
+    this.viewRoll += (lean * -0.045 - this.viewRoll) * (1 - Math.exp(-dt * 10));
+    this.vm.lean += (lean - this.vm.lean) * (1 - Math.exp(-dt * 10));
+    this.vm.moving = this.sliding || this.dashing ? 0 : Math.min(1, this.vel.length() / 5.4);
     if (!this.vel.x && !this.vel.z) return;
     const e = this.eye;
     e.x += this.vel.x * dt;
@@ -1533,6 +1650,7 @@ export class Game {
       ammo: this.sniper ? Infinity : null, // guns in sniping runs never run dry
       awp: this.awpHeld,
       gunName: (GUNS[this.heldId] || {}).name || '',
+      dash: { charges: this.dashCharges, max: DASH_CHARGES, back: this.dashCharges < DASH_CHARGES ? 1 - this.dashRecharge / DASH_RECHARGE : 1 },
       zoom: this.zoomLevel ? this.zoomMag(this.zoomLevel) : 0,
       onTarget: beam && this.targets.some((t) => t.flash > 0.9),
     };

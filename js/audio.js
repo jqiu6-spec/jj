@@ -435,6 +435,18 @@ export const sfx = {
     noise(0.04, { freq: 5000, q: 1.5, gain: 0.1 });
   },
   dry() { tone(2600, 0.02, { type: 'square', gain: 0.04 }); },
+  // A slide: boots scraping along the floor, fading as it slows.
+  slide() {
+    noise(0.75, { freq: 1100, q: 0.6, gain: 0.1 });
+    noise(0.55, { freq: 380, q: 0.8, gain: 0.08, filter: 'lowpass' });
+    sweep(0.3, 2400, 900, { gain: 0.05, q: 1.2 });
+  },
+  // A dash: a gust of wind, rising and past.
+  dash() {
+    sweep(0.34, 500, 3400, { gain: 0.26, q: 0.8 });
+    sweep(0.26, 1800, 6200, { gain: 0.08, q: 2, delay: 0.03 });
+    tone(160, 0.22, { type: 'sine', gain: 0.06, slide: 220 });
+  },
   scope() { noise(0.05, { freq: 5200, q: 4, gain: 0.04 }); },
   reload() {
     tone(700, 0.04, { type: 'square', gain: 0.05 });

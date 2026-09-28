@@ -422,6 +422,28 @@ body.scoped #crosshair { visibility: hidden; }
 }
 #hud-ammo b { font: 800 40px/1 var(--font-display); font-variant-numeric: tabular-nums; }
 #hud-ammo span { font: 500 12px/1.2 var(--font-mono); color: var(--text-2); letter-spacing: 0.04em; }
+#hud-moves {
+  position: fixed; left: 20px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); z-index: 4;
+  display: flex; align-items: center; gap: 6px; pointer-events: none;
+  font: 500 12px/1 var(--font-mono); color: var(--text-2); letter-spacing: 0.04em; text-transform: uppercase;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+#hud-moves .key { border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 4px; padding: 3px 5px; color: var(--text); }
+#hud-dash { display: inline-flex; gap: 4px; margin-right: 10px; }
+#hud-dash i {
+  width: 18px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.18); overflow: hidden; position: relative;
+}
+#hud-dash i::after {
+  content: ''; position: absolute; inset: 0; background: #8fe6ff; transform-origin: left; transform: scaleX(var(--fill, 1));
+}
+#hud-dash i:not(.on)::after { opacity: 0.45; }
+#dash-fx {
+  position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(190, 235, 255, 0.22) 75%, rgba(220, 245, 255, 0.4) 100%);
+}
+#dash-fx.on { animation: dash-rush 0.38s ease-out; }
+@keyframes dash-rush { 0% { opacity: 0; transform: scale(1.06); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { #dash-fx.on { animation: none; } }
 
 /* ---------------------------------------------------------------- overlays */
 .overlay {

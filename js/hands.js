@@ -11,6 +11,7 @@
 // origin, the fingers toward +Y, the palm facing +Z, the thumb toward +X.
 import * as THREE from '../vendor/three.module.min.js';
 import { materialTextures } from './materials.js';
+import { loadModelFile } from './models.js';
 
 // A gloved adult hand, metres.
 const PALM_LEN = 0.094; // wrist to knuckles
@@ -227,13 +228,18 @@ function buildForearm(mats) {
 }
 
 // ------------------------------------------------------------- posing
+// A hand's measurements, in hand space, for posing it: the palm's surface
+// (z), each finger's knuckle (x, y, z), radius and bone lengths, and the
+// thumb's base and bone lengths.
+const BUILT = { palm: PALM_T / 2, fingers: FINGERS.map((f) => ({ ...f, z: 0 })), thumb: THUMB };
+
 // Close a finger round a circle in the hand's YZ plane (centre `cy`, `cz`,
 // radius `rho`, the finger's own radius included): each bone ends on the
 // circle, going round it the way the fingers curl. Writes the bend at each
 // joint (radians, curling toward the palm) into `out`.
 function wrapFinger(f, cy, cz, rho, maxTurn, out) {
   let py = f.y;
-  let pz = 0;
+  let pz = f.z;
   let a = 0;
   f.len.forEach((L, k) => {
     const dy = cy - py;
@@ -272,71 +278,73 @@ function wrapFinger(f, cy, cz, rho, maxTurn, out) {
 
 const _d = new THREE.Vector3();
 const _w = new THREE.Vector3();
-const _n = new THREE.Vector3();
-const _d0 = new THREE.Vector3();
 const _j1 = new THREE.Vector3();
 const _e = new THREE.Vector3();
 const _s1 = new THREE.Vector3();
 const _z = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 
-// Point the thumb at `tip` (hand space), bending toward `inside`: the base
-// turns to aim it, the two joints bend (the last by a fixed amount).
-function aimThumb(thumb, tip, inside) {
-  const [L0, L1, L2] = THUMB.len;
-  const b2 = THUMB.bend;
+// Aim a thumb (`T`: base `at`, bone lengths `len`, last joint's bend `bend`)
+// at `tip` (hand space), bending toward `inside`. Returns its frame: the
+// bending axis `n`, the first bone's direction `d0`, the way it bends `z`,
+// and the two joints' bends.
+const _thumb = { n: new THREE.Vector3(), d0: new THREE.Vector3(), z: new THREE.Vector3(), bend1: 0, bend2: 0 };
+function aimThumb(T, tip, inside) {
+  const [L0, L1, L2] = T.len;
+  const b2 = T.bend;
   const L12 = Math.sqrt(L1 * L1 + L2 * L2 + 2 * L1 * L2 * Math.cos(b2));
   const off = Math.atan2(L2 * Math.sin(b2), L1 + L2 * Math.cos(b2));
-  _d.copy(tip).sub(THUMB.at);
+  const { n, d0, z } = _thumb;
+  _d.copy(tip).sub(T.at);
   const dist = clamp(_d.length(), Math.abs(L0 - L12) + 1e-4, L0 + L12 - 1e-4);
   _d.normalize();
   _w.copy(inside).addScaledVector(_d, -inside.dot(_d)).normalize();
-  _n.crossVectors(_d, _w).normalize(); // the bending axis
+  n.crossVectors(_d, _w).normalize();
   const a0 = Math.acos(clamp((L0 * L0 + dist * dist - L12 * L12) / (2 * L0 * dist), -1, 1));
-  _d0.copy(_d).multiplyScalar(Math.cos(a0)).addScaledVector(_w, -Math.sin(a0));
-  _j1.copy(THUMB.at).addScaledVector(_d0, L0);
-  _e.copy(_d).multiplyScalar(dist).add(THUMB.at).sub(_j1).normalize();
-  _z.crossVectors(_n, _e);
+  d0.copy(_d).multiplyScalar(Math.cos(a0)).addScaledVector(_w, -Math.sin(a0));
+  _j1.copy(T.at).addScaledVector(d0, L0);
+  _e.copy(_d).multiplyScalar(dist).add(T.at).sub(_j1).normalize();
+  _z.crossVectors(n, _e);
   _s1.copy(_e).multiplyScalar(Math.cos(off)).addScaledVector(_z, -Math.sin(off));
-  _z.crossVectors(_n, _d0);
-  thumb[0].quaternion.setFromRotationMatrix(_m.makeBasis(_n, _d0, _z));
-  thumb[1].rotation.set(Math.atan2(_z.dot(_s1), _d0.dot(_s1)), 0, 0);
-  thumb[2].rotation.set(b2, 0, 0);
+  z.crossVectors(n, d0);
+  _thumb.bend1 = Math.atan2(z.dot(_s1), d0.dot(_s1));
+  _thumb.bend2 = b2;
+  return _thumb;
 }
 
 // Where each hand goes on a weapon, in its own space (see gripsFor): the
 // grip is a cylinder with centre `c`, axis `axis` (toward the index finger)
-// and radius `r`; the palm sits on the `out` side of it. `y` is how far
-// along the palm it crosses; `kind` picks the thumb and index finger.
-function handMatrix(g, out) {
+// and radius `r`; the palm (its surface at `palm` in hand space) sits on
+// the `out` side of it. `y` is how far along the palm it crosses.
+function handMatrix(g, palm, out) {
   const X = g.axis;
   const Z = _z.copy(g.out).negate();
   const Y = _e.crossVectors(Z, X);
   out.makeBasis(X, Y, Z);
   if (g.mirror) out.multiply(_m.makeScale(-1, 1, 1));
-  _d.copy(g.c).addScaledVector(g.out, PALM_T / 2 + g.r).addScaledVector(Y, -g.y).addScaledVector(X, -(g.x || 0));
+  _d.copy(g.c).addScaledVector(g.out, palm + g.r).addScaledVector(Y, -g.y).addScaledVector(X, -(g.x || 0));
   out.setPosition(_d);
   return out;
 }
 
-const _bends = [0, 0, 0];
+const _bends = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
 const _tip = new THREE.Vector3();
 const _in = new THREE.Vector3();
 
-// Curl the fingers and thumb for grip `g`; `open` (0..1) loosens all but
-// the index finger (the karambit spinning round it).
+// Curl hand `H` for grip `g`: work out every finger's bends and the thumb's
+// aim from the hand's measurements, then let the hand turn its joints.
+// `open` (0..1) loosens all but the index finger (the karambit spinning
+// round it).
 function curl(H, g, open = 0) {
+  const S = H.shape;
   const cy = g.y;
-  const cz = PALM_T / 2 + g.r;
-  FINGERS.forEach((f, i) => {
+  const cz = S.palm + g.r;
+  S.fingers.forEach((f, i) => {
     const trigger = i === 0 && g.kind === 'pistol';
     const rho = g.r + f.r * 0.9 + (trigger ? 0.016 : 0);
-    wrapFinger(f, cy, cz, rho, trigger ? 1.9 : g.kind === 'fore' ? 3.2 : 4.2, _bends);
+    wrapFinger(f, cy, cz, rho, trigger ? 1.9 : g.kind === 'fore' ? 3.2 : 4.2, _bends[i]);
     const loose = i === 0 ? 0 : open;
-    H.fingers[i].forEach((j, k) => {
-      const rest = [0.55, 0.7, 0.4][k]; // loosened, not flat open
-      j.rotation.set(_bends[k] + (rest - _bends[k]) * loose, 0, k ? 0 : (1.5 - i) * -0.03);
-    });
+    for (let k = 0; k < 3; k++) _bends[i][k] += ([0.55, 0.7, 0.4][k] - _bends[i][k]) * loose; // loosened, not flat open
   });
   if (g.kind === 'pistol') {
     // Over the top of the grip and along its far side, pointing forward.
@@ -349,11 +357,159 @@ function curl(H, g, open = 0) {
     _tip.set(0.008 - open * 0.02, cy + 0.012, cz + g.r + 0.012 - open * 0.02);
   }
   // It bends round the grip, whose line runs along x.
-  _in.set(0, cy - (THUMB.at.y + _tip.y) / 2, cz - (THUMB.at.z + _tip.z) / 2);
-  aimThumb(H.thumb, _tip, _in);
+  _in.set(0, cy - (S.thumb.at.y + _tip.y) / 2, cz - (S.thumb.at.z + _tip.z) / 2);
+  H.apply(_bends, aimThumb(S.thumb, _tip, _in));
 }
 
+// The hand built in code: its joints are groups; bends turn them about x.
+function builtHand(mats) {
+  const H = buildHand(mats);
+  H.shape = BUILT;
+  H.apply = (bends, T) => {
+    H.fingers.forEach((J, i) => J.forEach((j, k) => j.rotation.set(bends[i][k], 0, k ? 0 : (1.5 - i) * -0.03)));
+    H.thumb[0].quaternion.setFromRotationMatrix(_m.makeBasis(T.n, T.d0, T.z));
+    H.thumb[1].rotation.set(T.bend1, 0, 0);
+    H.thumb[2].rotation.set(T.bend2, 0, 0);
+  };
+  return H;
+}
+
+// ------------------------------------------------------------- the model
+// The supplied hand model (models/hands.glb, a rigged hand): its bones by
+// finger, index to little, knuckle to tip, and the thumb's.
+const RIG = {
+  wrist: 'Bone',
+  fingers: [['Bone017', 'Bone018', 'Bone019'], ['Bone014', 'Bone015', 'Bone016'], ['Bone011', 'Bone012', 'Bone013'], ['Bone008', 'Bone009', 'Bone010']],
+  thumb: ['Bone005', 'Bone006', 'Bone007'],
+};
+
 const _hm = new THREE.Matrix4();
+const _pm = new THREE.Matrix4();
+const _am = new THREE.Matrix4();
+const _q = new THREE.Quaternion();
+const _v = new THREE.Vector3();
+const _p = new THREE.Vector3();
+const _sc = new THREE.Vector3();
+
+// Build a hand from the loaded model (`gltf`): the model fitted into hand
+// space (its wrist at the origin, fingers along +Y, palm toward +Z, thumb
+// toward +X; a left-hand model is mirrored into it), scaled so the palm is
+// a real hand's length, in the glove material; posed by turning its bones.
+function modelHand(gltf, mats) {
+  const scene = gltf.scene;
+  const bones = {};
+  let mesh = null;
+  scene.traverse((o) => {
+    if (o.isBone) bones[o.name] = o;
+    if (o.isSkinnedMesh && !mesh) mesh = o;
+  });
+  if (!mesh || !bones[RIG.wrist]) throw new Error('hand model: no rig');
+  scene.updateMatrixWorld(true);
+  const at = (name) => bones[name].getWorldPosition(new THREE.Vector3());
+  const W = at(RIG.wrist);
+  const Y = at(RIG.fingers[1][0]).sub(W);
+  const s = PALM_LEN / Y.length();
+  Y.normalize();
+  const X = at(RIG.fingers[0][0]).sub(at(RIG.fingers[3][0]));
+  X.addScaledVector(Y, -X.dot(Y)).normalize();
+  const Z = new THREE.Vector3().crossVectors(X, Y);
+  // The palm is the side the thumb folds toward.
+  if (at(RIG.thumb[2]).sub(W).dot(Z) < 0) Z.negate();
+  const N = new THREE.Matrix4().set(
+    X.x, X.y, X.z, 0,
+    Y.x, Y.y, Y.z, 0,
+    Z.x, Z.y, Z.z, 0,
+    0, 0, 0, 1,
+  ).premultiply(new THREE.Matrix4().makeScale(s, s, s)).multiply(new THREE.Matrix4().makeTranslation(-W.x, -W.y, -W.z));
+  const fit = new THREE.Group();
+  fit.matrixAutoUpdate = false;
+  fit.matrix.copy(N);
+  fit.add(scene);
+  const hand = new THREE.Group();
+  hand.matrixAutoUpdate = false;
+  hand.add(fit);
+  // Hand space of anything under the fitted model.
+  const handOf = (o, out) => {
+    const chain = [];
+    for (let x = o; x && x !== hand; x = x.parent) chain.push(x);
+    out.identity();
+    for (let i = chain.length - 1; i >= 0; i--) {
+      if (chain[i].matrixAutoUpdate) chain[i].updateMatrix();
+      out.multiply(chain[i].matrix);
+    }
+    return out;
+  };
+  const head = (name) => new THREE.Vector3().setFromMatrixPosition(handOf(bones[name], _hm));
+  // The glove: the model's own shape, textured at its real size.
+  const g = mesh.geometry;
+  const bind = new THREE.Matrix4().multiplyMatrices(N, mesh.matrixWorld);
+  const pos = g.attributes.position;
+  const nor = g.attributes.normal;
+  const uv = new Float32Array(pos.count * 2);
+  const nm = new THREE.Matrix3().getNormalMatrix(bind);
+  let palm = 0;
+  for (let i = 0; i < pos.count; i++) {
+    _p.fromBufferAttribute(pos, i).applyMatrix4(bind);
+    _v.fromBufferAttribute(nor, i).applyMatrix3(nm).normalize();
+    const ax = Math.abs(_v.x);
+    const ay = Math.abs(_v.y);
+    const az = Math.abs(_v.z);
+    const [u, w] = ax >= ay && ax >= az ? [_p.z, _p.y] : ay >= az ? [_p.x, _p.z] : [_p.x, _p.y];
+    uv[i * 2] = u;
+    uv[i * 2 + 1] = w;
+    if (_p.y > 0.035 && _p.y < 0.075 && Math.abs(_p.x) < 0.02) palm = Math.max(palm, _p.z);
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  mesh.material = mats.glove;
+  mesh.frustumCulled = false;
+  // Its measurements, for posing.
+  const fingers = RIG.fingers.map(([a, b, c], i) => {
+    const h0 = head(a);
+    const h1 = head(b);
+    const h2 = head(c);
+    const l1 = h1.distanceTo(h0);
+    const l2 = h2.distanceTo(h1);
+    return { x: h0.x, y: h0.y, z: h0.z, r: i === 3 ? 0.0078 : 0.0088, len: [l1, l2, l2 * 0.82], dir: h1.clone().sub(h0).normalize() };
+  });
+  const t0 = head(RIG.thumb[0]);
+  const t1 = head(RIG.thumb[1]);
+  const t2 = head(RIG.thumb[2]);
+  const shape = {
+    palm: palm || PALM_T / 2,
+    fingers,
+    thumb: { at: t0, r: 0.0105, len: [t1.distanceTo(t0), t2.distanceTo(t1), t2.distanceTo(t1) * 0.85], bend: THUMB.bend },
+  };
+  // The thumb's frame at rest: along its first bone, bending toward the
+  // palm and across it.
+  const td = t1.clone().sub(t0).normalize();
+  const tz = new THREE.Vector3(-0.6, 0, 0.8).addScaledVector(td, -new THREE.Vector3(-0.6, 0, 0.8).dot(td)).normalize();
+  const thumbRest = new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(td, tz), td, tz);
+  const rest = new Map();
+  for (const b of Object.values(bones)) rest.set(b, b.quaternion.clone());
+  // Turn bone `b` by rotation `R` (hand space) about its own joint.
+  const turn = (b, R) => {
+    handOf(b, _hm);
+    _p.setFromMatrixPosition(_hm);
+    _am.makeTranslation(_p.x, _p.y, _p.z).multiply(R).multiply(_pm.makeTranslation(-_p.x, -_p.y, -_p.z)).multiply(_hm);
+    handOf(b.parent, _pm).invert();
+    _pm.multiply(_am).decompose(_v, _q, _sc);
+    b.quaternion.copy(_q);
+  };
+  const R = new THREE.Matrix4();
+  const apply = (bends, T) => {
+    for (const [b, q] of rest) b.quaternion.copy(q);
+    fingers.forEach((f, i) => {
+      // Each finger curls about the line across it in the palm's plane.
+      const axis = _e.crossVectors(f.dir, _z.set(0, 0, 1)).normalize();
+      RIG.fingers[i].forEach((name, k) => turn(bones[name], R.makeRotationAxis(axis, bends[i][k])));
+    });
+    turn(bones[RIG.thumb[0]], R.makeBasis(T.n, T.d0, T.z).multiply(_am.copy(thumbRest).transpose()));
+    turn(bones[RIG.thumb[1]], R.makeRotationAxis(T.n, T.bend1));
+    turn(bones[RIG.thumb[2]], R.makeRotationAxis(T.n, T.bend2));
+  };
+  return { hand, shape, apply, model: true };
+}
+
 const _wrist = new THREE.Vector3();
 const _hx = new THREE.Vector3();
 const _fy = new THREE.Vector3();
@@ -365,11 +521,25 @@ export class Arms {
     this.group = new THREE.Group();
     this.mats = armMaterials();
     this.sides = ['right', 'left'].map(() => {
-      const H = buildHand(this.mats);
+      const H = builtHand(this.mats);
       const arm = buildForearm(this.mats);
       this.group.add(H.hand, arm);
-      return { H, arm, grip: null, sig: '' };
+      return { H, arm, sig: '' };
     });
+    // The supplied hand model replaces the built hands once it loads (one
+    // copy each side; each is posed on its own).
+    Promise.all([loadModelFile('hands', 'hands.glb'), loadModelFile('hands', 'hands.glb')]).then((models) => {
+      this.sides.forEach((S, i) => {
+        const H = modelHand(models[i], this.mats);
+        H.hand.visible = S.H.hand.visible;
+        H.hand.matrix.copy(S.H.hand.matrix);
+        this.group.remove(S.H.hand);
+        this.group.add(H.hand);
+        S.H = H;
+        S.sig = '';
+      });
+      this.model = true;
+    }).catch((e) => console.warn('Trackline: using the built hands', e));
   }
 
   // Glove and sleeve colours.
@@ -392,7 +562,7 @@ export class Arms {
         S.sig = sig;
         curl(S.H, g, open);
       }
-      S.H.hand.matrix.multiplyMatrices(base, handMatrix(g, _hm));
+      S.H.hand.matrix.multiplyMatrices(base, handMatrix(g, S.H.shape.palm, _hm));
       S.H.hand.matrixWorldNeedsUpdate = true;
       // The forearm: from the wrist toward its elbow, turned with the hand.
       _wrist.setFromMatrixPosition(S.H.hand.matrix);

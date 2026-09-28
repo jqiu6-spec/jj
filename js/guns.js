@@ -21,6 +21,10 @@ export const ZONE_LABELS = {
   blade: 'Blade',
   handle: 'Handle',
   metal: 'Barrel & metal parts',
+  upper: 'Upper handguard',
+  dustcover: 'Dust cover',
+  sights: 'Sights',
+  trigger: 'Trigger & guard',
   barrel: 'Barrel',
   receiver: 'Receiver',
   rail: 'Top rail',
@@ -68,6 +72,11 @@ export const GUNS = {
     fireInterval: 0.1,
     blurb: '7.62 rifle with a curved magazine and wood furniture. 600 rounds per minute.',
     zones: ['handguard', 'stock', 'grip', 'mag'],
+    // The detailed model's steel parts stay steel unless chosen (or set with
+    // Barrel & metal parts); the upper handguard matches the lower one.
+    defaultZones: { barrel: 'factory', sights: 'factory', trigger: 'factory' },
+    metalZones: ['barrel', 'sights', 'trigger'],
+    linkedZones: { upper: 'handguard' },
     sound: () => 'ak47',
   },
   xm7: {
@@ -534,6 +543,7 @@ export function zoneChoice(gunId, zones, zone) {
   if (zones[zone]) return zones[zone];
   const g = GUNS[gunId] || {};
   if (g.metalZones && g.metalZones.includes(zone) && zones.metal) return zones.metal;
+  if (g.linkedZones && g.linkedZones[zone]) return zoneChoice(gunId, zones, g.linkedZones[zone]);
   return (g.defaultZones && g.defaultZones[zone]) || (zone === 'metal' ? 'factory' : 'skin');
 }
 

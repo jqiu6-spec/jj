@@ -39,26 +39,33 @@ export const MODEL_INFO = {
       { name: 'Magwell', x: 0.0, y: -0.113, size: 0.022 },
     ],
   },
+  // The weathered AK-47, modelled in separate parts, each its own zone.
   ak47: {
     file: 'ak47.glb',
     rear: -0.484, bore: 0.012,
-    zones: ['handguard', 'stock', 'grip', 'mag'],
+    zones: ['handguard', 'upper', 'stock', 'grip', 'mag', 'receiver', 'dustcover', 'barrel', 'sights', 'trigger'],
     rules: [
-      { zone: 'stock', part: /stockWood/ },
-      { zone: 'fixed', part: /stock|belt/ },
-      { zone: 'grip', part: /grip/ },
-      { zone: 'mag', part: /magazine/ },
-      { zone: 'handguard', part: /woodUpper|woodLower/ },
-      { zone: 'body', part: /m_base|dustcover/ },
-      { zone: 'fixed' },
+      { zone: 'handguard', part: /^AK_WoodHandle_lp/ },
+      { zone: 'upper', part: /^AK_WoodHandle02_lp/ },
+      { zone: 'stock', part: /^AK_Buttstock_lp/ },
+      // The grip and trigger guard are one part: the guard is the grey steel.
+      { zone: 'trigger', part: /^AK_TriggerHandle_lp/, neutral: 0.06 },
+      { zone: 'grip', part: /^AK_TriggerHandle_lp/ },
+      { zone: 'trigger', part: /^AK_Trigger(_|Handle0[23])/ }, // trigger, magazine release
+      { zone: 'mag', part: /^AK_Magazine_lp/ },
+      { zone: 'receiver', part: /^AK_Chassis02_lp/ },
+      { zone: 'dustcover', part: /^AK_(Chassis01|Back)_lp/ },
+      { zone: 'barrel', part: /^AK_Barrel0[13]_lp/ }, // barrel, gas block
+      { zone: 'sights', part: /^AK_(Sights_0\d|Barrel02)_lp/ }, // rear sight, front sight
+      { zone: 'fixed' }, // handguard bands, charging handle, selector
     ],
-    fade: [-0.2, 0.2],
+    fade: [-0.3, 0.3],
     slots: [
-      { name: 'Receiver rear', x: -0.14, y: 0.1, size: 0.036 },
-      { name: 'Receiver front', x: -0.03, y: 0.1, size: 0.03 },
-      { name: 'Magazine', x: 0.025, y: 0.02, size: 0.036 },
-      { name: 'Handguard', x: 0.14, y: 0.093, size: 0.04 },
-      { name: 'Stock', x: -0.33, y: 0.085, size: 0.052 },
+      { name: 'Receiver rear', x: -0.155, y: 0.036, size: 0.034 },
+      { name: 'Receiver front', x: -0.06, y: 0.04, size: 0.03 },
+      { name: 'Magazine', x: 0.0, y: -0.045, size: 0.036 },
+      { name: 'Handguard', x: 0.13, y: 0.035, size: 0.04 },
+      { name: 'Stock', x: -0.31, y: 0.012, size: 0.05 },
     ],
   },
   xm7: {
@@ -247,8 +254,12 @@ function base64ToBuffer(b64) {
 // Hosts that won't serve .glb files get base64 text copies instead
 // (models/NAME.glb.txt) when the page sets window.TRACKLINE_MODEL_TEXT.
 async function fetchModel(id) {
+  return loadModelFile(id, MODEL_INFO[id].file);
+}
+
+// Loads models/`file` (known as `id` in trackline-models.js) as glTF.
+export async function loadModelFile(id, file) {
   const loader = new GLTFLoader();
-  const file = MODEL_INFO[id].file;
   const w = typeof window !== 'undefined' ? window : {};
   const embedded = w.TRACKLINE_MODELS && w.TRACKLINE_MODELS[id];
   if (embedded) return loader.parseAsync(base64ToBuffer(embedded), '');

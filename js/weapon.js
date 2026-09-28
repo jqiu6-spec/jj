@@ -811,6 +811,7 @@ export class Viewmodel {
     this.onDraw = null; // called with the weapon id as it is drawn
     this.drawnAt = -1; // this.t when the last draw started
     this.moving = 0; // 0..1, how fast the player is running (set by the game)
+    this.lean = 0; // 0..1, leaning into a slide (set by the game)
     this.stepPhase = 0;
     this.switching = null; // { id, skin, t } while the held weapon is lowered
     this.knifeAnim = null; // playing knife animation, or null for idle
@@ -1198,12 +1199,12 @@ export class Viewmodel {
     _m.set(P.x, P.y, P.z);
     const aim = aimAt(_m, gv.muzzle ? gv.muzzle.y : 0, P.aim || CONVERGE);
     rig.position.set(
-      P.x + ap[0] + runX - this.swayX * 0.25,
-      P.y + ap[1] + bob + runY + this.swayY * 0.2 - this.kick * 0.004 - lower * 0.24,
+      P.x + ap[0] + runX - this.swayX * 0.25 - this.lean * 0.012,
+      P.y + ap[1] + bob + runY + this.swayY * 0.2 - this.kick * 0.004 - lower * 0.24 - this.lean * 0.014,
       P.z + ap[2] + this.kick * 0.022 + lower * 0.06,
     );
     rig.rotation.set(
-      ar[0] + this.swayX * 0.4,
+      ar[0] + this.swayX * 0.4 - this.lean * 0.16,
       aim.yaw + ar[1] + this.swayX,
       aim.pitch + ar[2] - this.swayY + this.kick * 0.03 - lower * 0.7,
     );

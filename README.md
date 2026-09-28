@@ -159,8 +159,10 @@ wrapped up the far side and the thumb along the side facing you (on the AWP,
 the thumbhole grip and the forend). On the karambit it's a fist round the
 handle with the index finger through the ring; the knife spins round that
 finger while the other fingers loosen to let it turn. The hands are tactical
-gloves (a fine grain texture, knuckle pads, a strapped cuff) and the sleeves
-ripstop cloth with folds; the forearms come in from the bottom corners of the
+gloves over the supplied rigged hand model (`models/hands.glb`, a smooth
+skinned hand whose finger and thumb bones are turned to close round each grip;
+the hands built in code stand in until it loads), with a strapped cuff, and
+the sleeves ripstop cloth with folds; the forearms come in from the bottom corners of the
 screen whatever the gun is doing, and the hands move with every animation,
 recoil and sway. Where they hold is worked out from each model's grip and
 handguard parts, and the fingers close round whatever thickness the grip is.
@@ -185,6 +187,20 @@ with only a little steering. Hold **Shift** to crouch: the eye drops 0.46 m
 and you move at a third of your speed. Walls and crates stop you (the crates
 are too tall to jump onto), the gun bobs as you run, and every run starts
 from the scenario's spot. Moving doesn't cost accuracy.
+
+**Slide.** Tap **C** while running, as in Apex Legends: you drop low and slide
+at about one and a half times your run speed, the view tilting a little and
+the gun leaning in, and friction bleeds the speed off over about a second
+(about 6 m). You can aim and shoot the whole way. Jump out of it to carry the
+speed into the air; tap C again to stand up early. The burst comes back 0.8 s
+after a slide.
+
+**Dash.** Press **E** to dash like Jett's Tailwind in Valorant: about 6.5 m in
+a fifth of a second the way the movement keys point (W A S D and diagonals;
+straight ahead with none held), in the air too, where it holds your height.
+You come out of it at a run. There are two charges, each back three seconds
+after it's used; the pips at the bottom left show them. The view widens for
+an instant with a rush of wind.
 
 **Recoil.** The AK-47 kicks like CS2's: each round of a spray climbs the view,
 about 3.5° over the first second of full auto, and wanders left and right
@@ -249,7 +265,9 @@ under First-person view in the Weapon tab.
 - **Parts**: every part a gun has (handguard, stock, grip, foregrip, magazine,
   suppressor, scope, butt pad, and **Barrel & metal parts**: barrel, sights,
   trigger; the AWP adds its grip, forend, receiver, barrel, scope mounts and
-  bipod, and the Phantom its top rail, upper receiver and butt pad) wears the
+  bipod, the Phantom its top rail, upper receiver and butt pad, and the AK-47
+  its upper handguard, receiver, dust cover, barrel, sights and trigger and
+  guard, the upper handguard matching the lower until you set it) wears the
   pattern or a finish: black, gunmetal, silver, tan, gold, steel, clear
   plastic, or clear plastic tinted with the skin's first colour (a
   see-through magazine, for example); a **real material** (below); **your own
@@ -402,7 +420,7 @@ metres, +X toward the muzzle, +Y up, +Z the gun's right side.
 
 | File | Source | Notes |
 |---|---|---|
-| `ak47.glb` | AK-47 `.usdz` supplied by the project owner | Wood and steel textures |
+| `ak47.glb` | "Weathered AK47" `.usdz` supplied by the project owner | Weathered steel and wood, modelled in 21 separate parts; each is its own skin part: lower and upper handguard, stock, grip, trigger and guard, magazine, receiver, dust cover, barrel (with the gas block), sights, and the small metal parts |
 | `m4a1s.glb` | M4A1 `.usdz` supplied by the project owner | The model has a bare flash hider; Trackline adds the M4A1-S suppressor in code |
 | `awp.glb` | AWP `.usdz` supplied by the project owner (the second, in parts) | Eleven parts with their own textures: butt pad, cheek rest, chassis (split into stock, grip, forend and body), receiver, bolt handle, magazine, barrel, muzzle brake, scope (and rings) and bipod |
 | `xm7.glb` | SIG XM7 `.obj` supplied by the project owner | Plain materials, no textures |
@@ -417,6 +435,11 @@ Riot's fan content policy allows free, non-commercial fan
 projects that credit Riot, so keep Trackline free and don't redistribute the
 mesh on its own. Trackline isn't endorsed by Riot Games.
 
+The first-person hands are "free basic hands" (`hand rig.blend`, a rigged hand)
+supplied by the project owner, exported to `models/hands.glb` with Blender's
+glTF exporter; `js/hands.js` fits it to the hand's frame and mirrors it for the
+other side.
+
 The karambit and its "Eye of God" finish are Axlebolt's artwork from Standoff 2.
 Keep them in a free, non-commercial project, credit Axlebolt, and don't
 redistribute the mesh on its own.
@@ -429,7 +452,7 @@ To add or replace a model, convert it with `tools/convert_model.py`:
 
 ```sh
 pip install usd-core numpy pillow pygltflib   # plus `npm install fbx2gltf` for .fbx
-python3 tools/convert_model.py AK-47.usdz models/ak47.glb --max-texture 1024 --scale 0.459
+python3 tools/convert_model.py Weathered_AK47.usdz models/ak47.glb --max-texture 1024 --scale 0.07267
 python3 tools/convert_model.py AWP_1.usdz models/awp.glb --max-texture 1024 --rotate y90 --scale 0.07537
 ```
 
@@ -513,7 +536,7 @@ before the scope settled.
 
 - **Mouse 1**: fire (hold it in tracking scenarios, or turn on auto-fire in Settings); slash with the knife
 - **Mouse 2**, or **Ctrl+click** on a Mac: scope with the AWP in sniping scenarios (CS2 or Operator handling); stab with the knife
-- **W A S D**: move; **Space**: jump; **Shift** (held): crouch
+- **W A S D**: move; **Space**: jump; **Shift** (held): crouch; **C**: slide (while running); **E**: dash the way you're moving
 - **Mouse wheel**, **1**, **3**, **Q**: swap between the gun and the knife; in sniping scenarios **1** is the AWP, **2** a rifle (again for the next) and **3** the knife
 - **F**: inspect the knife
 - **Esc**: pause. Press Esc again to go back to the scenario list

@@ -46,6 +46,13 @@ const xhair = $('crosshair');
 const game = new Game(canvas, settings, {
   onState: onGameState,
   onHud: renderHud,
+  onDash: () => {
+    // A rush of wind at the screen's edges.
+    const fx = $('dash-fx');
+    fx.classList.remove('on');
+    void fx.offsetWidth;
+    fx.classList.add('on');
+  },
   onFinish: showResults,
   onHit: flashHitmarker,
   onScope: renderScope,
@@ -136,6 +143,7 @@ function onGameState(s) {
   $('countdown').hidden = s !== 'countdown';
   $('pause').hidden = s !== 'paused';
   $('hud-ammo').hidden = !((inGame || s === 'paused') && game.sniper);
+  $('hud-moves').hidden = !(inGame || s === 'paused');
   if (s === 'results' && document.pointerLockElement === canvas) document.exitPointerLock();
   if (s === 'paused') {
     pausedAt = performance.now();
@@ -182,6 +190,16 @@ function renderHud(h) {
     $('hud-ammo-n').textContent = '∞';
     const held = h.awp ? (h.zoom ? `${h.zoom.toFixed(1)}X SCOPE` : 'UNSCOPED') : h.gunName.toUpperCase();
     $('hud-ammo-info').textContent = `${held} · INFINITE ROUNDS`;
+  }
+
+  if (h.dash) {
+    // Dash charges: a pip each, the next one filling as it comes back.
+    const pips = $('hud-dash').children;
+    for (let i = 0; i < pips.length; i++) {
+      const full = i < h.dash.charges;
+      pips[i].classList.toggle('on', full);
+      pips[i].style.setProperty('--fill', full ? 1 : i === h.dash.charges ? h.dash.back.toFixed(2) : 0);
+    }
   }
 
   if (settings.showFps && performance.now() - hudFpsTimer > 250) {
@@ -1255,6 +1273,16 @@ document.addEventListener('keydown', (e) => {
   if (k === 'ShiftLeft' || k === 'ShiftRight') {
     if (live) e.preventDefault();
     game.crouch(true);
+    return;
+  }
+  if (k === 'KeyC' && live) {
+    e.preventDefault();
+    if (!e.repeat) game.slide();
+    return;
+  }
+  if (k === 'KeyE' && live) {
+    e.preventDefault();
+    if (!e.repeat) game.dash();
     return;
   }
   if (k === 'Digit2' || k === 'Numpad2') {

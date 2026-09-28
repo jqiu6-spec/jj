@@ -156,8 +156,8 @@ come faster than that rate.
 Counter-Strike holds it: the right hand round the pistol grip with the index
 finger on the trigger and the thumb along the far side; the left hand against
 the side of the handguard facing you, the back of the glove toward you and
-the fingers curled over the top (on the AWP the same at the front of the
-forend, and the thumbhole grip for the right). The karambit sits low on the right in a
+the fingers curled over the top (the AWP's left hand is under the front of
+the forend instead, palm up, and its right on the thumbhole grip). The karambit sits low on the right in a
 knuckles-up fist, the index finger through the ring and the blade curling up
 out of it, with the free left hand relaxed at the bottom left; the inspect
 raises the fist to the middle of the screen, fingers round the upright

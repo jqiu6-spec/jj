@@ -1,7 +1,8 @@
 // First-person arms: gloved hands and sleeved forearms, built in code and
 // posed on the held weapon. The right hand closes round the pistol grip with
 // its index finger on the trigger and its thumb along the far side; the left
-// hand holds the handguard from the side facing you, fingers over the top;
+// hand holds the handguard from the side facing you, fingers over the top
+// (the AWP's from underneath);
 // on the karambit, a fist round the handle with the index finger through the
 // ring. The fingers wrap whatever size the grip is: each knuckle is placed
 // on a circle round it. The forearms run from the wrists toward elbows off
@@ -342,7 +343,7 @@ function curl(H, g, open = 0) {
   S.fingers.forEach((f, i) => {
     const trigger = i === 0 && g.kind === 'pistol';
     const rho = g.r + f.r * 0.9 + (trigger ? 0.016 : 0);
-    const turn = { over: 3.4, rest: 1.5 }[g.kind] || 4.2;
+    const turn = { under: 3.2, over: 3.4, rest: 1.5 }[g.kind] || 4.2;
     wrapFinger(f, cy, cz, rho, trigger ? 1.9 : turn, _bends[i]);
     const loose = i === 0 ? 0 : open;
     for (let k = 0; k < 3; k++) _bends[i][k] += ([0.55, 0.7, 0.4][k] - _bends[i][k]) * loose; // loosened, not flat open
@@ -350,6 +351,9 @@ function curl(H, g, open = 0) {
   if (g.kind === 'pistol') {
     // Over the top of the grip and along its far side, pointing forward.
     _tip.set(0.047, cy + 0.01, cz + g.r + 0.008);
+  } else if (g.kind === 'under') {
+    // Up the side facing you.
+    _tip.set(0.07, 0.07, cz * 0.6);
   } else if (g.kind === 'over') {
     // Tucked under the handguard.
     _tip.set(0.07, cy - g.r - 0.012, cz * 0.9);
@@ -606,7 +610,10 @@ export function gripsFor(gv) {
     return out;
   };
   if (gv.info.melee) return [knifeGrip(points('handle')), REST];
-  return [pistolGrip(points('grip'), m), overGrip(points('handguard').concat(points('upper')), m, gv.info.supportAt)];
+  const support = gv.info.support === 'under'
+    ? underGrip(points('handguard'), m, gv.info.supportAt)
+    : overGrip(points('handguard').concat(points('upper')), m, gv.info.supportAt);
+  return [pistolGrip(points('grip'), m), support];
 }
 
 // A slice across the handguard, a little ahead of its rear end or at
@@ -625,10 +632,9 @@ function handguardSlice(P, at) {
   return { hx, y0, y1, z0, z1 };
 }
 
-// The support hand as CS holds a rifle (and the AWP, at the front of its
-// forend): the palm against the side of the handguard facing you, the back
-// of the hand toward you and the wrist under it, the fingers curled over
-// the top. They close round the top of the handguard (a cylinder as wide as
+// The support hand as CS holds a rifle: the palm against the side of the
+// handguard facing you, the back of the hand toward you and the wrist under
+// it, the fingers curled over the top. They close round the top of the handguard (a cylinder as wide as
 // it is).
 function overGrip(P, m, at) {
   const S = P.length > 20 ? handguardSlice(P, at) : null;
@@ -644,6 +650,27 @@ function overGrip(P, m, at) {
   }
   const out = new THREE.Vector3(0, 0.3, -1).normalize();
   return { kind: 'over', c, axis: new THREE.Vector3(1, 0, 0), out, r, y: 0.07, x: 0, mirror: true };
+}
+
+// The support hand as CS holds the AWP: under the front of the forend,
+// palm up, the fingers up its far side and the thumb up the side facing
+// you, the wrist below.
+function underGrip(P, m, at) {
+  const S = P.length > 20 ? handguardSlice(P, at) : null;
+  let c;
+  let r;
+  if (S) {
+    r = clamp((S.z1 - S.z0) / 2, 0.014, 0.034);
+    c = new THREE.Vector3(S.hx, S.y0 + r, (S.z0 + S.z1) / 2);
+  } else {
+    const L = m.front - m.rear;
+    r = 0.025;
+    c = new THREE.Vector3(m.rear + L * 0.62, -0.01, 0);
+  }
+  // Meeting it a little to the right (near the knuckles; the heel of the
+  // hand is under its near side).
+  const out = new THREE.Vector3(0, -Math.cos(0.35), Math.sin(0.35));
+  return { kind: 'under', c, axis: new THREE.Vector3(-1, 0, 0), out, r, y: 0.07, x: -0.004, mirror: true };
 }
 
 // The free left hand while the knife is out: relaxed, palm down, low on

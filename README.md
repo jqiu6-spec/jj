@@ -152,13 +152,17 @@ Pick one of the first four with **Use for tracking and clicking**. While you
 track, the gun cycles at its own fire rate; in clicking scenarios, clicks can't
 come faster than that rate.
 
-**Hands.** In first person a pair of gloved hands holds the weapon: the
-right hand round the pistol grip with the index finger on the trigger and the
-thumb along the far side, the left hand under the handguard with its fingers
-wrapped up the far side and the thumb along the side facing you (on the AWP,
-the thumbhole grip and the forend). On the karambit it's a fist round the
-handle with the index finger through the ring; the knife spins round that
-finger while the other fingers loosen to let it turn. The hands are tactical
+**Hands.** In first person a pair of gloved hands holds the weapon, the way
+Counter-Strike holds it: the right hand round the pistol grip with the index
+finger on the trigger and the thumb along the far side; the left hand against
+the side of the handguard facing you, the back of the glove toward you and
+the fingers curled over the top (on the AWP the same at the front of the
+forend, and the thumbhole grip for the right). The karambit sits low on the right in a
+knuckles-up fist, the index finger through the ring and the blade curling up
+out of it, with the free left hand relaxed at the bottom left; the inspect
+raises the fist to the middle of the screen, fingers round the upright
+handle and the blade hanging down. The knife spins round the ring finger
+while the other fingers loosen to let it turn. The hands are tactical
 gloves over the supplied rigged hand model (`models/hands.glb`, a smooth
 skinned hand whose finger and thumb bones are turned to close round each grip;
 the hands built in code stand in until it loads), with a strapped cuff, and

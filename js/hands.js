@@ -1,7 +1,7 @@
 // First-person arms: gloved hands and sleeved forearms, built in code and
 // posed on the held weapon. The right hand closes round the pistol grip with
 // its index finger on the trigger and its thumb along the far side; the left
-// hand holds the handguard from underneath, thumb along the side facing you;
+// hand holds the handguard from the side facing you, fingers over the top;
 // on the karambit, a fist round the handle with the index finger through the
 // ring. The fingers wrap whatever size the grip is: each knuckle is placed
 // on a circle round it. The forearms run from the wrists toward elbows off
@@ -342,16 +342,20 @@ function curl(H, g, open = 0) {
   S.fingers.forEach((f, i) => {
     const trigger = i === 0 && g.kind === 'pistol';
     const rho = g.r + f.r * 0.9 + (trigger ? 0.016 : 0);
-    wrapFinger(f, cy, cz, rho, trigger ? 1.9 : g.kind === 'fore' ? 3.2 : 4.2, _bends[i]);
+    const turn = { over: 3.4, rest: 1.5 }[g.kind] || 4.2;
+    wrapFinger(f, cy, cz, rho, trigger ? 1.9 : turn, _bends[i]);
     const loose = i === 0 ? 0 : open;
     for (let k = 0; k < 3; k++) _bends[i][k] += ([0.55, 0.7, 0.4][k] - _bends[i][k]) * loose; // loosened, not flat open
   });
   if (g.kind === 'pistol') {
     // Over the top of the grip and along its far side, pointing forward.
     _tip.set(0.047, cy + 0.01, cz + g.r + 0.008);
-  } else if (g.kind === 'fore') {
-    // Along the side of the handguard facing you.
-    _tip.set(0.082, 0.042, cz * 0.75);
+  } else if (g.kind === 'over') {
+    // Tucked under the handguard.
+    _tip.set(0.07, cy - g.r - 0.012, cz * 0.9);
+  } else if (g.kind === 'rest') {
+    // Relaxed beside the index finger.
+    _tip.set(0.06, 0.085, 0.03);
   } else {
     // Folded over the fingers.
     _tip.set(0.008 - open * 0.02, cy + 0.012, cz + g.r + 0.012 - open * 0.02);
@@ -511,6 +515,7 @@ function modelHand(gltf, mats) {
 }
 
 const _wrist = new THREE.Vector3();
+const _vb = new THREE.Matrix4();
 const _hx = new THREE.Vector3();
 const _fy = new THREE.Vector3();
 const _fx = new THREE.Vector3();
@@ -552,9 +557,10 @@ export class Arms {
   // Pose the arms: `base` takes the weapon's space into the arms' parent's
   // space; `grips` (see gripsFor) says where each hand holds; `elbows` are
   // where the forearms head, in the parent's space.
-  update(base, grips, elbows, open = 0) {
+  update(base, grips, elbows, open = 0, viewBase = null) {
     this.sides.forEach((S, i) => {
       const g = grips[i];
+      const B = g && g.view ? viewBase || _vb.identity() : base;
       S.H.hand.visible = S.arm.visible = !!g;
       if (!g) return;
       const sig = `${g.kind}|${g.r}|${g.y}|${Math.round(open * 20)}`;
@@ -562,7 +568,7 @@ export class Arms {
         S.sig = sig;
         curl(S.H, g, open);
       }
-      S.H.hand.matrix.multiplyMatrices(base, handMatrix(g, S.H.shape.palm, _hm));
+      S.H.hand.matrix.multiplyMatrices(B, handMatrix(g, S.H.shape.palm, _hm));
       S.H.hand.matrixWorldNeedsUpdate = true;
       // The forearm: from the wrist toward its elbow, turned with the hand.
       _wrist.setFromMatrixPosition(S.H.hand.matrix);
@@ -599,9 +605,60 @@ export function gripsFor(gv) {
     }
     return out;
   };
-  if (gv.info.melee) return [knifeGrip(points('handle')), null];
-  return [pistolGrip(points('grip'), m), foreGrip(points('handguard'), m)];
+  if (gv.info.melee) return [knifeGrip(points('handle')), REST];
+  return [pistolGrip(points('grip'), m), overGrip(points('handguard').concat(points('upper')), m, gv.info.supportAt)];
 }
+
+// A slice across the handguard, a little ahead of its rear end or at
+// share `at` of its length: where it is, how high it reaches and how wide
+// it is.
+function handguardSlice(P, at) {
+  let x0 = Infinity; let x1 = -Infinity;
+  for (const p of P) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); }
+  const hx = x0 + (at ? (x1 - x0) * at : clamp((x1 - x0) * 0.45, 0.07, 0.12));
+  let y0 = Infinity; let y1 = -Infinity; let z0 = Infinity; let z1 = -Infinity;
+  for (const p of P) {
+    if (Math.abs(p.x - hx) > 0.015) continue;
+    y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z);
+  }
+  if (!Number.isFinite(y0)) return null;
+  return { hx, y0, y1, z0, z1 };
+}
+
+// The support hand as CS holds a rifle (and the AWP, at the front of its
+// forend): the palm against the side of the handguard facing you, the back
+// of the hand toward you and the wrist under it, the fingers curled over
+// the top. They close round the top of the handguard (a cylinder as wide as
+// it is).
+function overGrip(P, m, at) {
+  const S = P.length > 20 ? handguardSlice(P, at) : null;
+  let c;
+  let r;
+  if (S) {
+    r = clamp((S.z1 - S.z0) / 2, 0.014, 0.034);
+    c = new THREE.Vector3(S.hx, S.y1 - r, (S.z0 + S.z1) / 2);
+  } else {
+    const L = m.front - m.rear;
+    r = 0.022;
+    c = new THREE.Vector3(m.rear + L * 0.62, 0.01, 0);
+  }
+  const out = new THREE.Vector3(0, 0.3, -1).normalize();
+  return { kind: 'over', c, axis: new THREE.Vector3(1, 0, 0), out, r, y: 0.07, x: 0, mirror: true };
+}
+
+// The free left hand while the knife is out: relaxed, palm down, low on
+// the left of the screen, in the view's own space.
+const REST = {
+  kind: 'rest',
+  view: true,
+  c: new THREE.Vector3(-0.1, -0.2, -0.36),
+  axis: new THREE.Vector3(-1, 0, 0.35).normalize(),
+  out: new THREE.Vector3(0, 1, 0.25).normalize(),
+  r: 0.02,
+  y: 0.07,
+  x: 0,
+  mirror: true,
+};
 
 function pistolGrip(P, m) {
   let c;
@@ -656,37 +713,11 @@ function pistolGrip(P, m) {
   return { kind: 'pistol', c, axis, out, r, y: 0.066, x: 0, mirror: false };
 }
 
-function foreGrip(P, m) {
-  let c;
-  let r;
-  if (P.length > 20) {
-    let x0 = Infinity; let x1 = -Infinity;
-    for (const p of P) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); }
-    const hx = x0 + clamp((x1 - x0) * 0.45, 0.07, 0.12);
-    let y0 = Infinity; let z0 = Infinity; let z1 = -Infinity;
-    for (const p of P) {
-      if (Math.abs(p.x - hx) > 0.015) continue;
-      y0 = Math.min(y0, p.y); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z);
-    }
-    if (!Number.isFinite(y0)) { y0 = -0.02; z0 = -0.025; z1 = 0.025; }
-    r = clamp((z1 - z0) / 2, 0.014, 0.034);
-    c = new THREE.Vector3(hx, y0 + r, (z0 + z1) / 2);
-  } else {
-    const L = m.front - m.rear;
-    r = 0.025;
-    c = new THREE.Vector3(m.rear + L * 0.62, -0.01, 0);
-  }
-  // The palm underneath, meeting it a little to the right (near the
-  // knuckles; the heel of the hand is under its near side); the thumb
-  // forward.
-  const out = new THREE.Vector3(0, -Math.cos(0.35), Math.sin(0.35));
-  return { kind: 'fore', c, axis: new THREE.Vector3(-1, 0, 0), out, r, y: 0.07, x: -0.004, mirror: true };
-}
-
 // The karambit: the ring at the origin, the handle running down from it,
-// its +Z flat toward you at rest. The index finger goes through the ring;
-// the palm is on your side of the handle with the fingers over the edge,
-// so you see the back of the fist, the wrist under it.
+// its +Z flat toward you and its edge up at rest. The index finger goes
+// through the ring; the palm is on the edge side with the fingers pointing
+// away and curled round, so at rest you see the back of the fist on top,
+// the wrist toward you (as CS2 holds it).
 function knifeGrip(P) {
   const mid = new THREE.Vector3(-0.012, -0.05, 0);
   const band = P.filter((p) => p.y < -0.025 && p.y > -0.075);
@@ -696,6 +727,6 @@ function knifeGrip(P) {
   const index = FINGERS[0].x;
   const c = new THREE.Vector3().addScaledVector(axis, -index);
   c.z = 0;
-  const out = new THREE.Vector3(0, 0, 1).addScaledVector(axis, -axis.z).normalize();
+  const out = new THREE.Vector3(1, 0, 0).addScaledVector(axis, -axis.x).normalize();
   return { kind: 'knife', c, axis, out, r, y: 0.07, x: 0, mirror: false };
 }

@@ -115,6 +115,7 @@ export const GUNS = {
   },
   awp: {
     name: 'AWP',
+    supportAt: 0.8, // the left hand at the front of the forend
     run: 5.08, // m/s running: CS2 200 units/s, 100 scoped
     kind: 'Sniper',
     sniper: true,

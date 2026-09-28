@@ -671,11 +671,12 @@ function studioEnvironment(renderer) {
 
 const _m = new THREE.Vector3();
 const _armBase = new THREE.Matrix4();
+const _restBase = new THREE.Matrix4();
 const _spinM = new THREE.Matrix4();
 // Where the forearms head, in the view's space (x right, y up, -z ahead):
 // elbows off the bottom of the screen, right and left.
 const ELBOWS = [new THREE.Vector3(0.34, -0.5, 0.04), new THREE.Vector3(-0.1, -0.55, -0.1)];
-const ELBOWS_KNIFE = [new THREE.Vector3(0.14, -0.55, 0.12), new THREE.Vector3(-0.2, -0.6, 0)];
+const ELBOWS_KNIFE = [new THREE.Vector3(0.24, -0.6, 0.1), new THREE.Vector3(-0.24, -0.6, 0.05)];
 const GLOVE_COLOR = '#2b2d31';
 const SLEEVE_COLOR = '#3f4637';
 const _envQ = new THREE.Quaternion();
@@ -1187,7 +1188,9 @@ export class Viewmodel {
       const offset = { x: runX - this.swayX * 0.25, y: bob + runY + this.swayY * 0.2 - lower * 0.4, z: lower * 0.05, lower };
       const spin = this.poseKnife(rig, this.knifeAnim, this.knifeT, offset);
       this.knifeBlur(gv, dt, offset);
-      this.poseArms(gv, spin);
+      // The free left hand bobs with the run and drops away when switching.
+      _restBase.makeTranslation(offset.x * 0.8, offset.y * 0.8 - lower * 0.1, 0);
+      this.poseArms(gv, spin, _restBase);
       return;
     }
     this.hideBlur();
@@ -1214,7 +1217,7 @@ export class Viewmodel {
   // The hands on the held weapon, which the rig has just posed. A karambit's
   // hand leaves out the knife's spin round the finger, and opens its other
   // fingers while it spins.
-  poseArms(gv, spin) {
+  poseArms(gv, spin, restBase = null) {
     if (!this.armsOn) return;
     if (!gv.grips) gv.grips = gripsFor(gv);
     this.rig.updateMatrix();
@@ -1222,7 +1225,7 @@ export class Viewmodel {
     _armBase.multiplyMatrices(this.rig.matrix, gv.root.matrix);
     if (spin) _armBase.multiply(_spinM.makeRotationZ(-spin));
     const open = spin ? Math.min(1, Math.abs(Math.sin(spin / 2)) * 2.5) : 0;
-    this.arms.update(_armBase, gv.grips, this.mode === 'play' ? (gv.info.melee ? ELBOWS_KNIFE : ELBOWS) : null, open);
+    this.arms.update(_armBase, gv.grips, this.mode === 'play' ? (gv.info.melee ? ELBOWS_KNIFE : ELBOWS) : null, open, restBase);
     this.arms.group.visible = true;
   }
 

@@ -20,9 +20,10 @@ const TAU = Math.PI * 2;
 // to the guns.
 const HOLD = 1.8;
 
-// The resting grip: the ring a little right of centre and below the
-// crosshair, the blade pointing right (a touch up and away), edge up.
-export const KNIFE_IDLE = { p: [0.045, -0.032, -0.21], blade: [1, 0.12, -0.25], face: [0.1, -0.1, -1] };
+// The resting grip, as CS2 holds it: the fist low on the right of the
+// screen with its knuckles up, the blade coming out to the right and
+// curling up, edge up, a flat toward you.
+export const KNIFE_IDLE = { p: [0.05, -0.085, -0.21], blade: [1, 0.3, -0.15], face: [0.05, 0.45, -1] };
 
 const I = KNIFE_IDLE;
 const at = (dx, dy, dz) => [I.p[0] + dx, I.p[1] + dy, I.p[2] + dz];
@@ -98,19 +99,20 @@ export const KNIFE_ANIMS = {
       idle(1.1),
     ],
   },
-  // Inspect: a flip up into the upright hold in the middle of the screen,
-  // a long look at the blade, a turn of the wrist, then a flip back down.
+  // Inspect: a flip up into the upright hold in the middle of the screen
+  // (the fist raised, fingers round the handle, the blade hanging down), a
+  // long look at the blade, a turn of the wrist, then a flip back down.
   inspect: {
     spins: [{ from: 0.2, to: 0.8, turns: -1 }, { from: 3.3, to: 3.95, turns: 1 }],
     keys: [
       idle(0),
-      { t: 0.2, p: at(0, -0.02, 0.01), turn: [0.25, 0, -0.3] },
-      { t: 0.45, p: at(0.03, 0.03, 0), grip: HANG },
-      { t: 0.8, p: at(-0.01, 0.045, 0.02), grip: UPRIGHT, stop: true },
-      { t: 1.8, p: at(-0.013, 0.043, 0.02), grip: UPRIGHT },
-      { t: 2.9, p: at(-0.015, 0.04, 0.02), grip: UPRIGHT, stop: true },
-      { t: 3.2, p: at(-0.01, 0.035, 0.02), grip: UPRIGHT_TURNED, stop: true },
-      { t: 3.45, p: at(0.03, 0, 0), grip: HANG },
+      { t: 0.2, p: at(0, 0.01, 0.01), turn: [0.25, 0, -0.3] },
+      { t: 0.45, p: at(0.02, 0.075, 0), grip: HANG },
+      { t: 0.8, p: at(-0.012, 0.1, 0.02), grip: UPRIGHT, stop: true },
+      { t: 1.8, p: at(-0.015, 0.098, 0.02), grip: UPRIGHT },
+      { t: 2.9, p: at(-0.017, 0.095, 0.02), grip: UPRIGHT, stop: true },
+      { t: 3.2, p: at(-0.012, 0.09, 0.02), grip: UPRIGHT_TURNED, stop: true },
+      { t: 3.45, p: at(0.025, 0.04, 0), grip: HANG },
       { t: 3.75, p: at(0.01, -0.01, 0), turn: [0, 0, 0] },
       idle(4.0),
     ],

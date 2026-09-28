@@ -343,7 +343,7 @@ function curl(H, g, open = 0) {
   S.fingers.forEach((f, i) => {
     const trigger = i === 0 && g.kind === 'pistol';
     const rho = g.r + f.r * 0.9 + (trigger ? 0.016 : 0);
-    const turn = { under: 3.2, over: 3.4, rest: 1.5 }[g.kind] || 4.2;
+    const turn = { under: 3.2, over: 3.4, rest: 1.1 }[g.kind] || 4.2;
     wrapFinger(f, cy, cz, rho, trigger ? 1.9 : turn, _bends[i]);
     const loose = i === 0 ? 0 : open;
     for (let k = 0; k < 3; k++) _bends[i][k] += ([0.55, 0.7, 0.4][k] - _bends[i][k]) * loose; // loosened, not flat open
@@ -673,14 +673,15 @@ function underGrip(P, m, at) {
   return { kind: 'under', c, axis: new THREE.Vector3(-1, 0, 0), out, r, y: 0.07, x: -0.004, mirror: true };
 }
 
-// The free left hand while the knife is out: relaxed, palm down, low on
-// the left of the screen, in the view's own space.
+// The free left hand while the knife is out: relaxed and open, palm down,
+// fingers toward the middle, low on the left of the screen (in the view's
+// own space).
 const REST = {
   kind: 'rest',
   view: true,
-  c: new THREE.Vector3(-0.1, -0.2, -0.36),
-  axis: new THREE.Vector3(-1, 0, 0.35).normalize(),
-  out: new THREE.Vector3(0, 1, 0.25).normalize(),
+  c: new THREE.Vector3(-0.13, -0.175, -0.39),
+  axis: new THREE.Vector3(-0.93, 0, -0.37).normalize(),
+  out: new THREE.Vector3(0, 1, 0.2).normalize(),
   r: 0.02,
   y: 0.07,
   x: 0,
@@ -740,11 +741,11 @@ function pistolGrip(P, m) {
   return { kind: 'pistol', c, axis, out, r, y: 0.066, x: 0, mirror: false };
 }
 
-// The karambit: the ring at the origin, the handle running down from it,
-// its +Z flat toward you and its edge up at rest. The index finger goes
-// through the ring; the palm is on the edge side with the fingers pointing
-// away and curled round, so at rest you see the back of the fist on top,
-// the wrist toward you (as CS2 holds it).
+// The karambit: the ring at the origin, the handle running down from it.
+// The index finger goes through the ring; the palm lies on the knife's +Z
+// flat with the fingers round its edge, so at rest (the flat up) you see
+// the back of the fist on top, and held upright (the flat away) the
+// fingers curled toward you, as CS2 holds it.
 function knifeGrip(P) {
   const mid = new THREE.Vector3(-0.012, -0.05, 0);
   const band = P.filter((p) => p.y < -0.025 && p.y > -0.075);
@@ -754,6 +755,6 @@ function knifeGrip(P) {
   const index = FINGERS[0].x;
   const c = new THREE.Vector3().addScaledVector(axis, -index);
   c.z = 0;
-  const out = new THREE.Vector3(1, 0, 0).addScaledVector(axis, -axis.x).normalize();
+  const out = new THREE.Vector3(0, 0, 1).addScaledVector(axis, -axis.z).normalize();
   return { kind: 'knife', c, axis, out, r, y: 0.07, x: 0, mirror: false };
 }

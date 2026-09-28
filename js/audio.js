@@ -403,7 +403,7 @@ export const sfx = {
   // Knife, timed to the animations in knife.js: CS2's recorded flip as it's
   // drawn and in the inspect, and whooshes for the slashes and the heavy.
   knifeDraw() {
-    if (playSample('knifeDraw', { delay: 0.05, pitch: 0.02 })) return;
+    if (playSample('knifeDraw', { delay: 0.12, pitch: 0.02 })) return;
     sweep(0.24, 2600, 7800, { gain: 0.12, q: 2.2 });
     tone(2950, 0.4, { type: 'sine', gain: 0.035, delay: 0.06 });
     tone(4420, 0.28, { type: 'sine', gain: 0.018, delay: 0.06 });
@@ -414,10 +414,10 @@ export const sfx = {
     sweep(0.3, 380, 1700, { gain: 0.24, q: 1, delay: 0.36 });
   },
   knifeInspect() {
-    for (const d of [0.25, 3.35]) {
+    for (const d of [0.45, 3.95]) {
       if (!playSample('knifeFlip', { delay: d, pitch: 0.03 })) sweep(0.18, 700, 2200, { gain: 0.07, q: 1.4, delay: d });
     }
-    tone(3100, 0.05, { type: 'triangle', gain: 0.03, delay: 3.1 });
+    tone(3100, 0.05, { type: 'triangle', gain: 0.03, delay: 3.8 });
   },
   // A gun picked up: CS2's recorded draws (the AWP's own, the AK-47's for
   // the rifles), or clicks made in code until they decode.

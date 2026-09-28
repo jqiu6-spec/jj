@@ -471,12 +471,21 @@ texture set, and `--help` for the rest. Then add an entry to `MODEL_INFO` in
 
 Every scenario has a knife as well as the gun. In a run, **scroll the mouse
 wheel** to swap between them (or press **3** for the knife, **1** for the gun,
-**Q** to swap). The animations follow CS2's karambit: drawn, it comes up on
-the right, flipping round the finger, and drops into the grip; **left click**
-whips it across the screen, backhand then forehand (hold it to keep slashing);
+**Q** to swap). The animations follow CS2's karambit, keyframed from a
+recording of it in game. At rest the fist sits low in the middle, palm down on
+the knife's flat, the ring and index finger on the left and the blade lying
+out to the right, with the free hand relaxed at the bottom left. Drawn (0.75
+s), the hand comes up from the bottom right with the knife pointing up,
+flips it once round the finger and drops into the grip as the free hand
+comes in. **F** inspects (4.7 s): the free hand drops away, the knife hand
+dips and twists and flips the knife up into an upright hold at the right of
+the middle, fingers curled round the handle toward you and the blade hanging
+down with its flat toward you; it rocks it a little to catch the light,
+turns it blade-down out to the right, spins it once round the finger and
+drops back into the grip as the free hand returns. **Left click** whips it
+across the screen, backhand then forehand (hold it to keep slashing);
 **right click** is the heavy, the fist raised high on the right and driven
-down; **F** inspects: a flip up into an upright hold in front of you, the
-blade curving down and round, a turn of the wrist, and a flip back down.
+down.
 Knives don't shoot, so nothing scores while it's out, and every run starts
 with the gun.
 
@@ -484,8 +493,7 @@ The animations are keyframed in `js/knife.js`. The hand moves on a smooth
 curve through its keys (coming to rest only at holds), and each flip is one
 continuous spin around the ring that speeds up and slows down once. While it
 spins fast, faint copies of the knife trail a fraction of a frame behind, a
-motion blur that makes the flip read as a spin even at 60 fps. The knife is held the CS2 way: finger through the ring at the left of the
-fist, blade out to the right and curling up. Blade and handle are separate
+motion blur that makes the flip read as a spin even at 60 fps. Blade and handle are separate
 parts, each with its own finish; a skin paints the blade and leaves the
 knife's own handle unless you pick otherwise, and Fade runs along the blade
 from bolster to tip.

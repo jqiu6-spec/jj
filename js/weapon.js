@@ -5,7 +5,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { GUNS, buildGun, zoneChoice } from './guns.js';
 import { MODEL_INFO, loadDetailedGun, decals } from './models.js';
 import { Effects } from './effects.js';
-import { sampleKnife, knifeLength } from './knife.js';
+import { sampleKnife, knifeLength, freeHandAway } from './knife.js';
 import { AWP_BOLT_AT } from './audio.js';
 import { buildLightBars, disposeLightBars, glowLightBars, tintLightBars } from './lightbars.js';
 import { materialTextures } from './materials.js';
@@ -1188,8 +1188,10 @@ export class Viewmodel {
       const offset = { x: runX - this.swayX * 0.25, y: bob + runY + this.swayY * 0.2 - lower * 0.4, z: lower * 0.05, lower };
       const spin = this.poseKnife(rig, this.knifeAnim, this.knifeT, offset);
       this.knifeBlur(gv, dt, offset);
-      // The free left hand bobs with the run and drops away when switching.
-      _restBase.makeTranslation(offset.x * 0.8, offset.y * 0.8 - lower * 0.1, 0);
+      // The free left hand bobs with the run, drops away when switching and
+      // during the draw and the inspect.
+      const away = Math.max(lower, freeHandAway(this.knifeAnim, this.knifeT));
+      _restBase.makeTranslation(offset.x * 0.8 - away * 0.05, offset.y * 0.8 - away * 0.3, away * 0.05);
       this.poseArms(gv, spin, _restBase);
       return;
     }

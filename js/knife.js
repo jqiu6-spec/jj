@@ -20,10 +20,11 @@ const TAU = Math.PI * 2;
 // to the guns.
 const HOLD = 1.8;
 
-// The resting grip, as CS2 holds it: the fist low on the right of the
-// screen with its knuckles up, the blade coming out to the right and
-// curling up, edge up, a flat toward you.
-export const KNIFE_IDLE = { p: [0.05, -0.085, -0.21], blade: [1, 0.3, -0.15], face: [0.05, 0.45, -1] };
+// The resting grip, as CS2 holds it: the fist low in the middle of the
+// screen, palm down on the knife's flat, the ring (and the index finger
+// through it) on the left, the blade lying flat and curving out forward to
+// the right, its edge forward.
+export const KNIFE_IDLE = { p: [0.014, -0.05, -0.17], blade: [1, 0, -0.5], face: [0, -1, -0.45] };
 
 const I = KNIFE_IDLE;
 const at = (dx, dy, dz) => [I.p[0] + dx, I.p[1] + dy, I.p[2] + dz];
@@ -32,10 +33,16 @@ const idle = (t) => ({ t, p: I.p });
 // Grips other than the resting one, as { blade, face } like KNIFE_IDLE.
 // Hanging: the knife dangles from the finger, blade down, mid-flip.
 const HANG = { blade: [0.15, -1, 0.1], face: [0, 0, 1] };
-// Upright: the fist held up with its back to you, the blade curving down
-// and round to the left, its flat toward you (CS2's inspect).
-const UPRIGHT = { blade: [-0.5, -1, 0.15], face: [0, 0, 1] };
-const UPRIGHT_TURNED = { blade: [-0.4, -1, 0.3], face: [0.4, 0, 0.9] };
+// Turned blade-down at the end of the inspect, the flat half toward you.
+const HANG_DOWN = { blade: [0.05, -1, -0.15], face: [0.45, 0, 1] };
+// Pointing up out of the fist as it's drawn.
+const POINT_UP = { blade: [-0.2, 1, -0.2], face: [0, 0, 1] };
+// Upright: the fist raised, fingers curled round the upright handle toward
+// you, the blade hanging below it and curving down to the left, its flat
+// toward you (CS2's inspect); rocked a little each way as it's looked at.
+const UPRIGHT = { blade: [-0.15, -1, 0.1], face: [0, 0, 1] };
+const UPRIGHT_L = { blade: [-0.25, -1, 0.05], face: [-0.3, 0, 1] };
+const UPRIGHT_R = { blade: [-0.05, -1, 0.15], face: [0.3, 0.05, 1] };
 // Hammer grip up high: the blade pointing left from the top of the fist.
 const RAISED = { blade: [-1, -0.25, 0.15], face: [0, 0, 1] };
 const DRIVEN = { blade: [-0.5, -0.85, -0.3], face: [0.2, 0.3, 0.9] };
@@ -50,16 +57,21 @@ const DRIVEN = { blade: [-0.5, -0.85, -0.3], face: [0.2, 0.3, 0.9] };
 // where the knife starts, in radians. Spins end on whole turns, back in the
 // grip.
 export const KNIFE_ANIMS = {
-  // Drawn: the hand comes up on the right with the knife flipping round the
-  // finger, then drops into the grip.
+  // Drawn, as in CS2 (0.75 s): the hand comes up from the bottom right with
+  // the knife pointing up, flips it once round the finger, and drops into
+  // the grip; the free hand comes in at the end.
   draw: {
     spinFrom: -TAU,
-    spins: [{ from: 0.03, to: 0.55, turns: 1 }],
+    spins: [{ from: 0.17, to: 0.43, turns: 1 }],
+    away: [-1, 0, 0.42, 0.62],
     keys: [
-      { t: 0, p: at(0.08, -0.2, 0.05), turn: [0.3, 0, -0.6] },
-      { t: 0.25, p: at(0.03, 0.035, 0), grip: HANG },
-      { t: 0.45, p: at(0.02, 0.03, 0), grip: HANG },
-      idle(0.85),
+      { t: 0, p: at(0.14, -0.2, 0.05), grip: POINT_UP },
+      { t: 0.1, p: at(0.125, 0.0, 0.01), grip: POINT_UP },
+      { t: 0.22, p: at(0.105, 0.04, 0), grip: POINT_UP },
+      { t: 0.4, p: at(0.095, 0.03, 0), grip: HANG },
+      { t: 0.52, p: at(0.06, 0.015, 0), turn: [0.3, -0.2, 0.4] },
+      { t: 0.63, p: at(0.02, 0.003, 0), turn: [0.08, 0, 0.1] },
+      idle(0.75),
     ],
   },
   // Backhand: dip to the lower left, whip across the screen to the right.
@@ -99,22 +111,27 @@ export const KNIFE_ANIMS = {
       idle(1.1),
     ],
   },
-  // Inspect: a flip up into the upright hold in the middle of the screen
-  // (the fist raised, fingers round the handle, the blade hanging down), a
-  // long look at the blade, a turn of the wrist, then a flip back down.
+  // Inspect, as in CS2 (4.7 s): the free hand drops away; the knife hand
+  // dips and twists, flips the knife up into the upright hold at the right
+  // of the middle (fingers round the handle, the blade hanging down, its
+  // flat toward you) and holds it there, rocking it to catch the light;
+  // then turns it blade-down out to the right, spins it once round the
+  // finger and drops back into the grip as the free hand comes back.
   inspect: {
-    spins: [{ from: 0.2, to: 0.8, turns: -1 }, { from: 3.3, to: 3.95, turns: 1 }],
+    spins: [{ from: 0.45, to: 0.95, turns: -1 }, { from: 3.95, to: 4.35, turns: 1 }],
+    away: [0.15, 0.45, 4.3, 4.6],
     keys: [
       idle(0),
-      { t: 0.2, p: at(0, 0.01, 0.01), turn: [0.25, 0, -0.3] },
-      { t: 0.45, p: at(0.02, 0.075, 0), grip: HANG },
-      { t: 0.8, p: at(-0.012, 0.1, 0.02), grip: UPRIGHT, stop: true },
-      { t: 1.8, p: at(-0.015, 0.098, 0.02), grip: UPRIGHT },
-      { t: 2.9, p: at(-0.017, 0.095, 0.02), grip: UPRIGHT, stop: true },
-      { t: 3.2, p: at(-0.012, 0.09, 0.02), grip: UPRIGHT_TURNED, stop: true },
-      { t: 3.45, p: at(0.025, 0.04, 0), grip: HANG },
-      { t: 3.75, p: at(0.01, -0.01, 0), turn: [0, 0, 0] },
-      idle(4.0),
+      { t: 0.3, p: at(0.03, -0.03, 0.02), turn: [0.45, -0.3, -0.5] },
+      { t: 0.6, p: at(0.06, 0.035, 0.01), grip: HANG },
+      { t: 1.0, p: at(0.042, 0.058, 0.015), grip: UPRIGHT, stop: true },
+      { t: 1.8, p: at(0.04, 0.055, 0.017), grip: UPRIGHT_L },
+      { t: 2.7, p: at(0.044, 0.06, 0.015), grip: UPRIGHT_R },
+      { t: 3.45, p: at(0.042, 0.057, 0.015), grip: UPRIGHT, stop: true },
+      { t: 3.85, p: at(0.078, 0.052, 0.01), grip: HANG_DOWN, stop: true },
+      { t: 4.2, p: at(0.072, 0.045, 0), grip: HANG },
+      { t: 4.45, p: at(0.04, 0.004, 0), turn: [0.15, -0.1, 0.2] },
+      idle(4.7),
     ],
   },
 };
@@ -170,6 +187,20 @@ for (const anim of Object.values(KNIFE_ANIMS)) {
   const vp = velocities(anim.keys, (k) => k.p);
   const vq = velocities(anim.keys, (k) => k.q);
   anim.keys.forEach((k, i) => { k.vp = vp[i]; k.vq = vq[i]; });
+}
+
+// How far the free hand has dropped out of view (0 in view .. 1 gone) at
+// time `t` of animation `name`: an animation's `away` is [start going,
+// gone, start coming back, back].
+export function freeHandAway(name, t) {
+  const anim = KNIFE_ANIMS[name];
+  if (!anim || !anim.away) return 0;
+  const [a, b, c, d] = anim.away;
+  const s = (x) => x * x * (3 - 2 * x);
+  if (t <= a || t >= d) return 0;
+  if (t < b) return s((t - a) / (b - a));
+  if (t <= c) return 1;
+  return 1 - s((t - c) / (d - c));
 }
 
 export const knifeLength = (name) => {

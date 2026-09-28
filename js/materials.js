@@ -234,6 +234,26 @@ function stipple() {
   };
 }
 
+// Ripstop cloth, as on a combat shirt's sleeve: a plain weave with a
+// heavier thread every eighth, making a grid of small squares.
+function ripstop(N) {
+  const rand = rng(43);
+  const slub = noiseGrid(rand, 6, 90);
+  return (u, v, o) => {
+    const i = Math.floor(u * N);
+    const j = Math.floor(v * N);
+    const fu = u * N - i;
+    const fv = v * N - j;
+    const warpOver = (i + j) % 2 === 0;
+    const across = warpOver ? fv : fu;
+    const bulge = Math.sqrt(Math.max(0, 1 - (2 * across - 1) ** 2));
+    const heavy = (warpOver ? j : i) % 8 === 0;
+    o.h = 0.25 + 0.6 * bulge * (heavy ? 1.35 : 1);
+    o.k = 0.84 + 0.1 * bulge + (slub(u, v) - 0.5) * 0.12 - (heavy ? 0.05 : 0);
+    o.r = 1;
+  };
+}
+
 // Diamond knurling: two sets of grooves at 45 degrees leaving pyramids.
 function knurl(N) {
   return (u, v, o) => {
@@ -358,6 +378,9 @@ export const MATERIALS = {
   rubber: { tile: 0.02, size: 256, bump: 2.5, make: () => grain({ seed: 37, fine: 0.3, pebble: 90 }) },
   laminate: { tile: 0.08, size: 512, bump: 0.8, make: () => laminate([rgb('#4a3020'), rgb('#302a26'), rgb('#6e5236')].map((c) => c.map((x) => (x / 255) ** 2.2))), own: true },
   walnut: { tile: 0.25, size: 512, bump: 0.8, make: walnut, own: true },
+  // For the first-person arms: sleeves and gloves.
+  ripstop: { tile: 0.02, size: 256, bump: 1.2, make: () => ripstop(40) },
+  glove: { tile: 0.012, size: 256, bump: 1.4, make: () => grain({ seed: 41, fine: 0.5, peel: 0.3 }) },
 };
 
 // Bake a material's maps once: its shade (0..1 between two colours) or its

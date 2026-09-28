@@ -152,6 +152,22 @@ Pick one of the first four with **Use for tracking and clicking**. While you
 track, the gun cycles at its own fire rate; in clicking scenarios, clicks can't
 come faster than that rate.
 
+**Hands.** In first person a pair of gloved hands holds the weapon: the
+right hand round the pistol grip with the index finger on the trigger and the
+thumb along the far side, the left hand under the handguard with its fingers
+wrapped up the far side and the thumb along the side facing you (on the AWP,
+the thumbhole grip and the forend). On the karambit it's a fist round the
+handle with the index finger through the ring; the knife spins round that
+finger while the other fingers loosen to let it turn. The hands are tactical
+gloves (a fine grain texture, knuckle pads, a strapped cuff) and the sleeves
+ripstop cloth with folds; the forearms come in from the bottom corners of the
+screen whatever the gun is doing, and the hands move with every animation,
+recoil and sway. Where they hold is worked out from each model's grip and
+handguard parts, and the fingers close round whatever thickness the grip is.
+**Hands** under First-person view turns them off, and the colour pickers
+beside it set the gloves and sleeves; left-handed mirrors them with the gun.
+They don't show on the turntable. (`js/hands.js`.)
+
 **Picking up.** Each run starts with the gun being picked up, and so does every
 swap back from the knife: as in CS2, it swings up from low on the right, turned
 to show its side, the charging handle is pulled back and let go, and it settles
@@ -550,6 +566,7 @@ js/gun-sounds.js      recorded shots: Champions Vandal, M4A1-S (base64 WAV)
 js/skins.js           skin patterns, presets, random skins and sticker designs
 js/materials.js       real materials for parts: carbon fibre, metals, coatings, wood
 js/lightbars.js       light bars: LED tubes laid along the gun's surface
+js/hands.js           first-person gloved hands and sleeves, posed on each weapon
 js/effects.js         fire effects: tracers, impacts, muzzle glow
 js/weapon.js          first-person gun view, skins, stickers, turntable
 models/               detailed gun meshes (.glb)

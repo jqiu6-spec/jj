@@ -196,14 +196,16 @@ const _p = [0, 0, 0];
 const _q = [0, 0, 0, 0];
 
 // Pose of animation `name` at time `t` (seconds) into `pos` and `quat`.
-// With no animation (or past its end) this is the resting grip.
+// With no animation (or past its end) this is the resting grip. Returns how
+// far the knife has spun round the ring (radians, 0 at rest), which the hand
+// holding it doesn't follow.
 export function sampleKnife(name, t, pos, quat) {
   const anim = KNIFE_ANIMS[name];
   const keys = anim && anim.keys;
   if (!keys || t >= keys[keys.length - 1].t) {
     pos.fromArray(I.p).multiplyScalar(HOLD);
     quat.copy(IDLE_Q);
-    return;
+    return 0;
   }
   t = Math.max(0, t);
   let i = 0;
@@ -219,4 +221,5 @@ export function sampleKnife(name, t, pos, quat) {
   let spin = anim.spinFrom;
   for (const sp of anim.spins) spin += sp.turns * TAU * smoother(Math.min(1, Math.max(0, (t - sp.from) / (sp.to - sp.from))));
   if (spin % TAU) quat.multiply(_spin.setFromAxisAngle(Z, spin));
+  return spin;
 }

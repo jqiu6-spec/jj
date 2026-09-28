@@ -9,6 +9,7 @@ import { sampleKnife, knifeLength } from './knife.js';
 import { AWP_BOLT_AT } from './audio.js';
 import { buildLightBars, disposeLightBars, glowLightBars, tintLightBars } from './lightbars.js';
 import { materialTextures } from './materials.js';
+import { Arms, gripsFor } from './hands.js';
 import {
   SKIN_KEYS, FINISHES, ZONE_FINISHES, skinCanvas, stickerCanvas, STICKERS, stickerRevision, championsWordmark,
   ZONE_COLOR_DEFAULT, lightsOn,
@@ -266,6 +267,7 @@ class GunView {
 
   setModel(model) {
     this.modelVersion = (this.modelVersion || 0) + 1; // stickers reshape onto it
+    this.grips = null; // where the hands hold it (hands.js), worked out when first needed
     if (this.model) this.root.remove(this.model.group);
     this.model = model;
     this.root.add(model.group);
@@ -668,6 +670,14 @@ function studioEnvironment(renderer) {
 }
 
 const _m = new THREE.Vector3();
+const _armBase = new THREE.Matrix4();
+const _spinM = new THREE.Matrix4();
+// Where the forearms head, in the view's space (x right, y up, -z ahead):
+// elbows off the bottom of the screen, right and left.
+const ELBOWS = [new THREE.Vector3(0.34, -0.5, 0.04), new THREE.Vector3(-0.1, -0.55, -0.1)];
+const ELBOWS_KNIFE = [new THREE.Vector3(0.14, -0.55, 0.12), new THREE.Vector3(-0.2, -0.6, 0)];
+const GLOVE_COLOR = '#2b2d31';
+const SLEEVE_COLOR = '#3f4637';
 const _envQ = new THREE.Quaternion();
 const _camQ = new THREE.Quaternion();
 const _rc = new THREE.Raycaster();
@@ -770,6 +780,11 @@ export class Viewmodel {
     this.rig.rotation.order = 'YZX'; // roll about the barrel, then pitch, then yaw
     this.hand.add(this.rig);
     this.scene.add(this.hand);
+    // Gloved hands holding the weapon in first person.
+    this.arms = new Arms();
+    this.arms.group.visible = false;
+    this.hand.add(this.arms.group);
+    this.armsOn = true;
     this.flashMap = flashTexture();
     this.smokeMap = smokeTexture();
     this.puffs = [];
@@ -894,6 +909,14 @@ export class Viewmodel {
     if (gv.info.melee) this.buildBlur(gv);
     try {
       this.toneMapped(() => r.compile(gv.root, this.camera, this.scene));
+      if (!this.armsWarm) {
+        // The hands are hidden until a run starts; compile them now anyway.
+        const shown = this.arms.group.visible;
+        this.arms.group.visible = true;
+        this.toneMapped(() => r.compile(this.arms.group, this.camera, this.scene));
+        this.arms.group.visible = shown;
+        this.armsWarm = true;
+      }
       gv.root.traverse((o) => {
         if (!o.isMesh) return;
         for (const m of [].concat(o.material)) {
@@ -939,6 +962,8 @@ export class Viewmodel {
       this.swayY = 0;
     }
     this.hand.scale.x = w.hand === 'left' ? -1 : 1;
+    this.armsOn = w.hands !== false;
+    this.arms.setColors(w.gloveColor || GLOVE_COLOR, w.sleeveColor || SLEEVE_COLOR);
     this.fov = w.fov;
     this.detailed = w.models !== 'simple';
     for (const gv of Object.values(this.guns)) gv.useDetailed(this.detailed);
@@ -1114,6 +1139,7 @@ export class Viewmodel {
     const gun = gv.root;
     const { rear, front } = gv.model;
     this.showFlash(gv);
+    this.arms.group.visible = false;
     if (mode === 'inspect') {
       this.switching = null;
       this.hideBlur();
@@ -1158,8 +1184,9 @@ export class Viewmodel {
       this.knifeT += dt;
       if (this.knifeAnim && this.knifeT >= knifeLength(this.knifeAnim)) this.knifeAnim = null;
       const offset = { x: runX - this.swayX * 0.25, y: bob + runY + this.swayY * 0.2 - lower * 0.4, z: lower * 0.05, lower };
-      this.poseKnife(rig, this.knifeAnim, this.knifeT, offset);
+      const spin = this.poseKnife(rig, this.knifeAnim, this.knifeT, offset);
       this.knifeBlur(gv, dt, offset);
+      this.poseArms(gv, spin);
       return;
     }
     this.hideBlur();
@@ -1180,15 +1207,33 @@ export class Viewmodel {
       aim.yaw + ar[1] + this.swayX,
       aim.pitch + ar[2] - this.swayY + this.kick * 0.03 - lower * 0.7,
     );
+    this.poseArms(gv, 0);
+  }
+
+  // The hands on the held weapon, which the rig has just posed. A karambit's
+  // hand leaves out the knife's spin round the finger, and opens its other
+  // fingers while it spins.
+  poseArms(gv, spin) {
+    if (!this.armsOn) return;
+    if (!gv.grips) gv.grips = gripsFor(gv);
+    this.rig.updateMatrix();
+    gv.root.updateMatrix();
+    _armBase.multiplyMatrices(this.rig.matrix, gv.root.matrix);
+    if (spin) _armBase.multiply(_spinM.makeRotationZ(-spin));
+    const open = spin ? Math.min(1, Math.abs(Math.sin(spin / 2)) * 2.5) : 0;
+    this.arms.update(_armBase, gv.grips, this.mode === 'play' ? (gv.info.melee ? ELBOWS_KNIFE : ELBOWS) : null, open);
+    this.arms.group.visible = true;
   }
 
   // The knife's pose at animation time `t`, with sway, bob and holstering.
+  // Returns how far it has spun round the ring.
   poseKnife(obj, anim, t, off) {
-    sampleKnife(anim, t, _kp, _kq);
+    const spin = sampleKnife(anim, t, _kp, _kq);
     obj.position.set(_kp.x + off.x, _kp.y + off.y, _kp.z + off.z);
     obj.quaternion.copy(_kq);
     obj.rotateOnWorldAxis(_up, this.swayX * 0.8);
     obj.rotateOnWorldAxis(_right, -this.swayY * 0.8 - off.lower * 0.6);
+    return spin;
   }
 
   // Motion blur while the knife spins fast: faint copies posed a fraction of

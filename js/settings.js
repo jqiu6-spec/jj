@@ -43,6 +43,9 @@ export const DEFAULTS = {
     headshot: true, // CS:GO's headshot sound on hits to the head
     recoil: true, // spray patterns: AK-47 strong, M4A1-S and Phantom slight
     sway: false, // the gun trails the view when you move the mouse (off: locked to the view)
+    hands: true, // gloved hands holding the weapon in first person
+    gloveColor: '#2b2d31',
+    sleeveColor: '#3f4637',
     models: 'detailed', // 'detailed' real meshes, or 'simple' built-in models
   },
   sniper: {

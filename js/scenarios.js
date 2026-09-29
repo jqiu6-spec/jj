@@ -73,7 +73,11 @@ const FLASH_CRATES = [
   { x: 10, z: -8, w: 2, h: 2.1, d: 2 },
 ];
 const FLASH_ROOM = { w: 36, h: 12, zMin: -24, zMax: 6, covers: FLASH_CRATES };
-const PHOENIX = { shape: 'agent', color: '#ff7a2e' };
+const PHOENIX = { shape: 'agent', color: '#ff7a2e', hp: 150 };
+// The sniping playlist's guns: a full-auto rifle in hand (2, again for the
+// next), the AWP on 1 and the knife on 3. Hold mouse 1 to keep firing, the
+// AWP included (again each time its bolt is back).
+const FLASH_GUNS = { type: 'sniper', points: 100, headBonus: 50, missPenalty: 20 };
 // The Curveball pops a moment after the throw: 0.6 s on Medium, with more
 // or less time to turn on the other levels.
 const FLASH_LEVELS = {
@@ -432,7 +436,9 @@ export const SCENARIOS = [
     blurb: 'Hold the crates. Phoenix throws his Curveball round one of them: when the orb comes round the corner, turn your back on it before it pops. Look at it and you are blind for up to a second.',
     duration: 60,
     arena: FLASH_ROOM,
-    weapon: { type: 'click', points: 100, missPenalty: 20 },
+    weapon: FLASH_GUNS,
+    startSlot: 'rifle',
+    holdFire: true,
     count: 1,
     target: PHOENIX,
     respawn: 0.6,
@@ -447,7 +453,9 @@ export const SCENARIOS = [
     blurb: 'The full play: Phoenix flashes round a crate and swings out on that side right after the pop. Turn away, turn back, kill him before he gets you. Blind, you won\'t.',
     duration: 60,
     arena: FLASH_ROOM,
-    weapon: { type: 'click', points: 100, headBonus: 50, missPenalty: 20 },
+    weapon: FLASH_GUNS,
+    startSlot: 'rifle',
+    holdFire: true,
     count: 1,
     target: PHOENIX,
     respawn: 0.6,
@@ -563,7 +571,7 @@ export function describe(scn, v = defaultSetup(scn)) {
   let fire;
   let scoring;
   if (m.type === 'flash') {
-    fire = m.peek ? 'Your gun, hitscan: one hit kills Phoenix' : 'None needed: turn away from the flash';
+    fire = 'Full-auto rifle in hand (2, again for the next), the AWP on 1, the knife on 3; hold mouse 1 to keep firing';
     scoring = `+${FLASH_SCORE.dodge} per flash dodged · −${FLASH_SCORE.flashed} for a full flash (less for a glancing one)${m.peek ? ` · +${scn.weapon.points} per kill, +${scn.weapon.headBonus} headshot · −${FLASH_SCORE.lost} if he gets the peek` : ''} · −${scn.weapon.missPenalty} per miss`;
   } else if (scn.weapon.type === 'sniper') {
     fire = 'AWP (CS2 or Operator handling in Settings), or any rifle on 2; infinite rounds';
@@ -588,7 +596,7 @@ export function describe(scn, v = defaultSetup(scn)) {
       : agent ? Object.keys(m.mix).map((k) => AGENT_MOVES[k]).join(', ') : null,
     fire,
     scoring,
-    health: m.type === 'flash' ? (m.peek ? 'One hit' : 'Stays behind cover') : scn.weapon.type === 'sniper'
+    health: m.type === 'flash' && !m.peek ? 'Stays behind cover' : scn.weapon.type === 'sniper'
       ? 'AWP: one hit anywhere. Rifles: one headshot, or 5 body hits (M4A1-S), 3 (XM7), 4 (AK-47, Phantom, Vandal)'
       : scn.weapon.type === 'beam'
         ? (v.hp ? `${v.hp} HP each${scn.respawn ? `, respawn after ${scn.respawn} s` : ''}` : 'Unlimited, never dies')

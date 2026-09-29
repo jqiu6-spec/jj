@@ -448,10 +448,18 @@ body.scoped #crosshair { visibility: hidden; }
 }
 #dash-fx.on { animation: dash-rush 0.38s ease-out; }
 /* Phoenix's flash: the screen whites out (over the crosshair and HUD), then
-   clears. Its opacity is animated from main.js. */
+   clears from the middle outward: a clear patch (--clear, set each frame
+   from main.js with the opacity) spreads out through a soft warm-white
+   gradient to the corners. */
 #flash-fx {
+  --clear: 0%;
   position: fixed; inset: 0; z-index: 7; pointer-events: none; opacity: 0;
-  background: radial-gradient(ellipse at center, #fffdf6 0%, #fff7e4 55%, #ffe9c6 100%);
+  background: radial-gradient(ellipse farthest-corner at 50% 50%,
+    rgba(255, 254, 250, 0) calc(var(--clear) - 45%),
+    rgba(255, 254, 250, 0.8) calc(var(--clear) - 15%),
+    #fffefa var(--clear),
+    #fffaf1 calc(var(--clear) + 35%),
+    #fff4e4 calc(var(--clear) + 80%));
 }
 /* Phoenix won the peek: a red hit at the edges. */
 #hurt-fx {

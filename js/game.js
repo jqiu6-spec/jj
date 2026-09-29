@@ -151,8 +151,9 @@ function glowTexture() {
 // just off-screen still catches you a little), and past that you've dodged.
 const FLASH_FULL = 40;
 const FLASH_SAFE = 75;
-const FLASH_BLIND = 1.1; // s, Phoenix's longest blind
-const FLASH_FADE = 0.5; // s, clearing afterwards
+const FLASH_BLIND = 1.1; // s, Phoenix's longest blind (full white)
+const FLASH_RISE = 0.05; // s, whiting out
+const FLASH_FADE = 0.6; // s, clearing afterwards, from the middle out
 const CURVEBALL_TRAIL = 7;
 
 // ---------------------------------------------------------------- hit tests
@@ -860,7 +861,7 @@ export class Game {
 
   start() {
     this.recoverResolution();
-    this.slot = 'gun';
+    this.slot = this.scn.startSlot || 'gun';
     this.lastSlot = 'knife';
     if (!PRIMARY_GUNS.includes(this.rifleId)) this.rifleId = this.settings.weapon.primary;
     Object.assign(this.recoil, { p: 0, y: 0, index: 0, last: -9 });
@@ -1050,7 +1051,13 @@ export class Game {
     if (this.run) this.pressAt = this.run.elapsed + Math.min(0.05, Math.max(0, (performance.now() - this.last) / 1000));
     if (this.scn.weapon.type === 'click') this.shoot();
     else if (this.awpHeld) this.sniperShoot();
-    // A rifle in a sniping run fires from step(), at its own rate while held.
+    else if (this.sniper && this.slot === 'rifle' && this.run && this.run.elapsed >= this.run.nextShot) {
+      // A rifle in a sniping run: the first round leaves on the click itself
+      // (so even the quickest tap fires), the rest from step(), at its own
+      // rate while held.
+      this.run.nextShot = this.run.elapsed + (GUNS[this.gunId].fireInterval || 0.1);
+      this.rifleShot();
+    }
   }
 
   onMouseUp(e) {
@@ -1375,7 +1382,22 @@ export class Game {
   clearCurveballs() {
     for (const b of this.curveballs) this.disposeCurveball(b);
     this.curveballs = [];
-    if (this.hooks.onFlash) this.hooks.onFlash(0);
+    this.blind = null;
+  }
+
+  // How the flash looks now, or null: `a` the white's opacity and `clear`
+  // how far the clear patch has spread from the middle (0 none, 1 to the
+  // corners). Every flash plays the same way on the run clock: a fast
+  // white-out, full white while it lasts, then it clears from the middle
+  // of the screen outward as the edges fade, like Valorant's.
+  flashLook() {
+    const B = this.blind;
+    if (!B) return null;
+    if (B.t < FLASH_RISE) return { a: 1 - (1 - B.t / FLASH_RISE) ** 2, clear: 0 };
+    if (B.t < B.hold) return { a: 1, clear: 0 };
+    const u = Math.min(1, (B.t - B.hold) / FLASH_FADE);
+    const e = u * u * (3 - 2 * u);
+    return { a: 1 - u * u, clear: e * 1.35 };
   }
 
   // Phoenix throws: the orb flies a curve from p0 past p1 to p2 and pops
@@ -1414,6 +1436,10 @@ export class Game {
   }
 
   updateCurveballs(dt) {
+    if (this.blind) {
+      this.blind.t += dt;
+      if (this.blind.t >= this.blind.hold + FLASH_FADE) this.blind = null;
+    }
     for (let i = this.curveballs.length - 1; i >= 0; i--) {
       const b = this.curveballs[i];
       b.age += dt;
@@ -1468,7 +1494,8 @@ export class Game {
     r.flashed++;
     r.score = Math.max(0, r.score - FLASH_SCORE.flashed * strength);
     sfx.flashed(strength);
-    if (this.hooks.onFlash) this.hooks.onFlash(strength, FLASH_BLIND * strength, FLASH_FADE);
+    // A glancing flash looks the same, only shorter.
+    this.blind = { t: 0, hold: Math.max(0.2, FLASH_BLIND * strength) };
   }
 
   // Phoenix held his peek and you didn't kill him: he has you.
@@ -1696,6 +1723,9 @@ export class Game {
         this.rifleShot();
       }
     }
+    // Where the scenario allows it (dodge flash), the AWP fires again while
+    // held, as soon as its bolt is back.
+    if (this.scn.holdFire && this.awpHeld && this.firing && r.elapsed - r.lastShot >= this.sniperSpec.fireInterval) this.sniperShoot();
     this.settleRecoil(dt);
     this.wasFiring = (w.type === 'beam' && firing) || spraying;
     if (!firing) this.pressAt = null;
@@ -2026,6 +2056,7 @@ export class Game {
       kills: r.kills,
       fps: this.fps,
       late: this.pacing ? this.pacing.late : 0, // share of frames that missed the display's refresh
+      flash: this.flashLook(), // Phoenix's flash on screen, or null
       ammo: this.sniper ? Infinity : null, // guns in sniping runs never run dry
       awp: this.awpHeld,
       gunName: (GUNS[this.heldId] || {}).name || '',

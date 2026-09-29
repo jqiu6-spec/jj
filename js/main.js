@@ -53,20 +53,6 @@ const game = new Game(canvas, settings, {
   onHud: renderHud,
   onDash: windRush,
   onUpdraft: windRush,
-  // Phoenix's flash: white for `hold` seconds, clearing over `fade`; a
-  // glancing one never goes fully white. 0 clears it at once.
-  onFlash: (strength, hold = 0, fade = 0.5) => {
-    const fx = $('flash-fx');
-    for (const a of fx.getAnimations()) a.cancel();
-    if (!strength) return;
-    const peak = 0.55 + 0.45 * strength;
-    const total = (hold + fade) * 1000;
-    fx.animate([
-      { opacity: peak },
-      { opacity: peak, offset: hold / (hold + fade) },
-      { opacity: 0 },
-    ], { duration: total, easing: 'ease-in' });
-  },
   onHurt: () => {
     const fx = $('hurt-fx');
     for (const a of fx.getAnimations()) a.cancel();
@@ -165,11 +151,8 @@ function onGameState(s) {
   $('hud-moves').hidden = !(inGame || s === 'paused');
   $('btn-end').hidden = !(s === 'paused' && game.run && game.run.free);
   if (s === 'results' && document.pointerLockElement === canvas) document.exitPointerLock();
-  // A flash in progress freezes with the run.
-  for (const a of $('flash-fx').getAnimations()) {
-    if (s === 'paused') a.pause();
-    else if (s === 'running') a.play();
-  }
+  // A flash on screen freezes with a paused run and goes with the run.
+  if (s === 'menu' || s === 'results' || s === 'countdown') setFlash(null);
   if (s === 'paused') {
     pausedAt = performance.now();
     $('pause-name').textContent = game.scn.name;
@@ -198,6 +181,7 @@ function onGameState(s) {
       hint = game.eff.motion.peek
         ? 'Hold the crates. When the Curveball comes round a corner, turn away before it pops, then turn back and kill Phoenix as he swings out.'
         : 'Hold the crates. When the Curveball comes round a corner, turn your back on it before it pops.';
+      hint += ' Hold mouse 1 to keep firing: 2 is the rifle (again for the next), 1 the AWP (right click scopes), 3 the knife.';
     }
     if (game.run && game.run.free) hint = `${hint.replace(/\.$/, '')}. No time limit: Esc, then Finish run, when you're done.`;
     $('countdown-hint').textContent = hint;
@@ -212,7 +196,21 @@ function onGameState(s) {
 }
 
 let hudFpsTimer = 0;
+// Phoenix's flash, as the game says it looks this frame (see
+// Game.flashLook): the white's opacity, and the clear patch spreading from
+// the middle of the screen.
+function setFlash(f) {
+  const fx = $('flash-fx');
+  if (!f) {
+    if (fx.style.opacity && fx.style.opacity !== '0') fx.style.opacity = '0';
+    return;
+  }
+  fx.style.opacity = f.a.toFixed(3);
+  fx.style.setProperty('--clear', `${(f.clear * 100).toFixed(1)}%`);
+}
+
 function renderHud(h) {
+  setFlash(h.flash);
   if (!h) return;
   $('hud-time').textContent = h.free ? clock(h.time) : h.time.toFixed(1);
   $('hud-score').textContent = fmt(h.score);

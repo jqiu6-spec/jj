@@ -8,6 +8,7 @@ export const CATEGORIES = [
   { id: 'clicking', name: 'Clicking', blurb: 'One click per target. Speed matters, misses cost points.' },
   { id: 'valorant', name: 'Valorant movement', blurb: 'Agent-sized bots that run, counter-strafe, crouch and jump like Valorant players.' },
   { id: 'sniping', name: 'Sniping', blurb: 'AWP flicks with CS2 handling (or the Valorant Operator, in Settings): scope with right click, flick, fire.' },
+  { id: 'flash', name: 'Dodge flash', blurb: 'Phoenix curves his flash round a corner. Turn away before it pops, then turn back for the peek.' },
 ];
 
 // Sniper handling for the sniping scenarios, chosen in Settings.
@@ -62,6 +63,24 @@ const FIELD = { w: 50, h: 16, zMin: -70, zMax: 4 };
 const OP = { type: 'sniper', points: 100, headBonus: 50, missPenalty: 20 };
 
 const HALL = { w: 40, h: 14, zMin: -34, zMax: 4 };
+
+// Dodge flash: four crates spread across your front, 12–14 m out, for
+// Phoenix to throw his Curveball round.
+const FLASH_CRATES = [
+  { x: -8, z: -9, w: 2, h: 2.1, d: 2 },
+  { x: -2.5, z: -14, w: 2.2, h: 2.1, d: 2.2 },
+  { x: 4, z: -11, w: 2, h: 2.1, d: 2 },
+  { x: 10, z: -8, w: 2, h: 2.1, d: 2 },
+];
+const FLASH_ROOM = { w: 36, h: 12, zMin: -24, zMax: 6, covers: FLASH_CRATES };
+const PHOENIX = { shape: 'agent', color: '#ff7a2e' };
+// The Curveball pops a moment after the throw: 0.6 s on Medium, with more
+// or less time to turn on the other levels.
+const FLASH_LEVELS = {
+  easy: { hint: 'The flash pops 0.85 s after the throw', motion: { fuse: 0.85, hold: [1.3, 1.8] } },
+  medium: { hint: 'The flash pops 0.6 s after the throw', motion: {} },
+  hard: { hint: 'The flash pops 0.45 s after the throw and he peeks quicker', motion: { fuse: 0.45, hold: [0.7, 1] } },
+};
 const ROOM = { w: 30, h: 12, zMin: -22, zMax: 4 };
 
 // Every behaviour in the agent model, weighted like a mid-duel player.
@@ -404,7 +423,43 @@ export const SCENARIOS = [
     respawn: 0.6,
     motion: { type: 'peek', peekDist: [2, 4], wait: [0.5, 1.6], hold: [0.15, 0.4], jiggle: 0.05, cross: 0.8 },
   },
+
+  // ------------------------------------------------------------ dodge flash
+  {
+    id: 'flash-dodge',
+    name: 'Curveball Dodge',
+    category: 'flash',
+    blurb: 'Hold the crates. Phoenix throws his Curveball round one of them: when the orb comes round the corner, turn your back on it before it pops. Look at it and you are blind for up to a second.',
+    duration: 60,
+    arena: FLASH_ROOM,
+    weapon: { type: 'click', points: 100, missPenalty: 20 },
+    count: 1,
+    target: PHOENIX,
+    respawn: 0.6,
+    motion: { type: 'flash', peek: false, fuse: 0.6, wait: [0.8, 2.2], hold: [0.9, 1.3] },
+    levels: FLASH_LEVELS,
+    defaultLevel: 'medium',
+  },
+  {
+    id: 'flash-peek',
+    name: 'Dodge & Peek',
+    category: 'flash',
+    blurb: 'The full play: Phoenix flashes round a crate and swings out on that side right after the pop. Turn away, turn back, kill him before he gets you. Blind, you won\'t.',
+    duration: 60,
+    arena: FLASH_ROOM,
+    weapon: { type: 'click', points: 100, headBonus: 50, missPenalty: 20 },
+    count: 1,
+    target: PHOENIX,
+    respawn: 0.6,
+    motion: { type: 'flash', peek: true, fuse: 0.6, wait: [0.8, 2.2], hold: [0.9, 1.3] },
+    levels: FLASH_LEVELS,
+    defaultLevel: 'medium',
+  },
 ];
+
+// Dodge flash scoring: a dodged flash, a full-on flash (a glancing one
+// costs less) and a peek he wins.
+export const FLASH_SCORE = { dodge: 100, flashed: 50, lost: 50 };
 
 export function eyeOf(scn) {
   return scn.arena.eye || [0, 1.7, 0];
@@ -416,6 +471,7 @@ export function eyeOf(scn) {
 export const HP_CHOICES = [0, 50, 100, 150, 250, 500]; // 0 = unlimited
 
 export function countLimit(scn) {
+  if (scn.motion.type === 'flash') return 1;
   if (scn.weapon.type === 'sniper') return scn.arena.covers ? scn.arena.covers.length : 6;
   return scn.weapon.type === 'click' ? 12 : 10;
 }
@@ -468,7 +524,7 @@ export function describe(scn, v = defaultSetup(scn)) {
   let dist;
   if (m.type === 'orbit') {
     dist = (m.dist[0] + m.dist[1]) / 2;
-  } else if (m.type === 'peek') {
+  } else if (m.type === 'peek' || m.type === 'flash') {
     const cs = scn.arena.covers;
     dist = cs.reduce((a, c) => a + Math.hypot(c.x - ex, headY - ey, c.z - ez), 0) / cs.length;
   } else if (agent) {
@@ -487,7 +543,9 @@ export function describe(scn, v = defaultSetup(scn)) {
 
   let speed = 'Static';
   const strafeOnly = agent && m.mix && Object.keys(m.mix).every((k) => ['strafe', 'swing', 'stop'].includes(k));
-  if (m.type === 'peek') {
+  if (m.type === 'flash') {
+    speed = `The flash pops ${m.fuse} s after the throw${m.peek ? `; he holds the peek ${m.hold[0]}–${m.hold[1]} s` : ''}`;
+  } else if (m.type === 'peek') {
     speed = `${AGENT.run} m/s swings and runs`;
   } else if (strafeOnly) {
     const gait = m.gait === 'walk' ? `${AGENT.walk} m/s shift-walk` : `${AGENT.run} m/s run`;
@@ -504,7 +562,10 @@ export function describe(scn, v = defaultSetup(scn)) {
 
   let fire;
   let scoring;
-  if (scn.weapon.type === 'sniper') {
+  if (m.type === 'flash') {
+    fire = m.peek ? 'Your gun, hitscan: one hit kills Phoenix' : 'None needed: turn away from the flash';
+    scoring = `+${FLASH_SCORE.dodge} per flash dodged · −${FLASH_SCORE.flashed} for a full flash (less for a glancing one)${m.peek ? ` · +${scn.weapon.points} per kill, +${scn.weapon.headBonus} headshot · −${FLASH_SCORE.lost} if he gets the peek` : ''} · −${scn.weapon.missPenalty} per miss`;
+  } else if (scn.weapon.type === 'sniper') {
     fire = 'AWP (CS2 or Operator handling in Settings), or any rifle on 2; infinite rounds';
     scoring = `+${scn.weapon.points} per kill, +${scn.weapon.headBonus} headshot, −${scn.weapon.missPenalty} per miss`;
   } else if (scn.weapon.type === 'beam') {
@@ -520,12 +581,14 @@ export function describe(scn, v = defaultSetup(scn)) {
     angular: agent ? `head spans ${angular.toFixed(2)}°` : `${angular.toFixed(2)}° wide`,
     size,
     speed,
-    moves: m.type === 'peek'
+    moves: m.type === 'flash'
+      ? `Curveball round a crate, left or right${m.peek ? ', then a swing out on that side' : ''}`
+      : m.type === 'peek'
       ? ['wide swings from behind crates', m.jiggle ? 'jiggle peeks' : null, m.cross ? 'crate-to-crate runs' : null, m.crouchOnHold ? 'crouched holds' : null].filter(Boolean).join(', ')
       : agent ? Object.keys(m.mix).map((k) => AGENT_MOVES[k]).join(', ') : null,
     fire,
     scoring,
-    health: scn.weapon.type === 'sniper'
+    health: m.type === 'flash' ? (m.peek ? 'One hit' : 'Stays behind cover') : scn.weapon.type === 'sniper'
       ? 'AWP: one hit anywhere. Rifles: one headshot, or 5 body hits (M4A1-S), 3 (XM7), 4 (AK-47, Phantom, Vandal)'
       : scn.weapon.type === 'beam'
         ? (v.hp ? `${v.hp} HP each${scn.respawn ? `, respawn after ${scn.respawn} s` : ''}` : 'Unlimited, never dies')

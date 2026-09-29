@@ -18,6 +18,8 @@
   --cat-switching: #baa3ff;
   --cat-clicking: #ff9f6b;
   --cat-valorant: #ff7d96;
+  --cat-sniping: #9fe27a;
+  --cat-flash: #ffc766;
   --good: #7fe0a3;
   --bad: #ff8585;
   --font-display: 'Saira Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
@@ -65,6 +67,8 @@ kbd {
 .eyebrow[data-cat='switching'] { color: var(--cat-switching); }
 .eyebrow[data-cat='valorant'] { color: var(--cat-valorant); }
 .eyebrow[data-cat='clicking'] { color: var(--cat-clicking); }
+.eyebrow[data-cat='sniping'] { color: var(--cat-sniping); }
+.eyebrow[data-cat='flash'] { color: var(--cat-flash); }
 .hint { color: var(--muted); font-size: 13px; margin: 0; }
 .glass {
   background: var(--glass);
@@ -430,19 +434,30 @@ body.scoped #crosshair { visibility: hidden; }
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 #hud-moves .key { border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 4px; padding: 3px 5px; color: var(--text); }
-#hud-dash { display: inline-flex; gap: 4px; margin-right: 10px; }
-#hud-dash i {
+#hud-moves .pips { display: inline-flex; gap: 4px; margin-right: 10px; }
+#hud-moves .pips i {
   width: 18px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.18); overflow: hidden; position: relative;
 }
-#hud-dash i::after {
+#hud-moves .pips i::after {
   content: ''; position: absolute; inset: 0; background: #8fe6ff; transform-origin: left; transform: scaleX(var(--fill, 1));
 }
-#hud-dash i:not(.on)::after { opacity: 0.45; }
+#hud-moves .pips i:not(.on)::after { opacity: 0.45; }
 #dash-fx {
   position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
   background: radial-gradient(ellipse at center, transparent 45%, rgba(190, 235, 255, 0.22) 75%, rgba(220, 245, 255, 0.4) 100%);
 }
 #dash-fx.on { animation: dash-rush 0.38s ease-out; }
+/* Phoenix's flash: the screen whites out (over the crosshair and HUD), then
+   clears. Its opacity is animated from main.js. */
+#flash-fx {
+  position: fixed; inset: 0; z-index: 7; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse at center, #fffdf6 0%, #fff7e4 55%, #ffe9c6 100%);
+}
+/* Phoenix won the peek: a red hit at the edges. */
+#hurt-fx {
+  position: fixed; inset: 0; z-index: 6; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(220, 30, 40, 0.35) 75%, rgba(200, 20, 30, 0.7) 100%);
+}
 @keyframes dash-rush { 0% { opacity: 0; transform: scale(1.06); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { #dash-fx.on { animation: none; } }
 

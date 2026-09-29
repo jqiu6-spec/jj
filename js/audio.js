@@ -403,10 +403,10 @@ export const sfx = {
   // Knife, timed to the animations in knife.js: CS2's recorded flip as it's
   // drawn and in the inspect, and whooshes for the slashes and the heavy.
   knifeDraw() {
-    if (playSample('knifeDraw', { delay: 0.05, pitch: 0.02 })) return;
+    if (playSample('knifeDraw', { delay: 0.035, pitch: 0.02 })) return;
     sweep(0.24, 2600, 7800, { gain: 0.12, q: 2.2 });
-    tone(2950, 0.4, { type: 'sine', gain: 0.035, delay: 0.06 });
-    tone(4420, 0.28, { type: 'sine', gain: 0.018, delay: 0.06 });
+    tone(2950, 0.4, { type: 'sine', gain: 0.035, delay: 0.045 });
+    tone(4420, 0.28, { type: 'sine', gain: 0.018, delay: 0.045 });
   },
   slash() { sweep(0.22, 520, 2600, { gain: 0.22, q: 1.2, delay: 0.03 }); },
   stab() {
@@ -446,6 +446,37 @@ export const sfx = {
     sweep(0.34, 500, 3400, { gain: 0.26, q: 0.8 });
     sweep(0.26, 1800, 6200, { gain: 0.08, q: 2, delay: 0.03 });
     tone(160, 0.22, { type: 'sine', gain: 0.06, slide: 220 });
+  },
+  // An updraft: wind gathering under you through the windup, then a gust
+  // that carries you up.
+  updraft() {
+    noise(0.24, { freq: 650, q: 0.7, gain: 0.07 });
+    sweep(0.5, 280, 2600, { gain: 0.26, q: 0.7, delay: 0.17 });
+    sweep(0.4, 1200, 5200, { gain: 0.07, q: 2, delay: 0.21 });
+    tone(110, 0.35, { type: 'sine', gain: 0.07, slide: 240, delay: 0.18 });
+  },
+  // Phoenix's Curveball: a crackle as it lights and a whoosh as it curves
+  // away round the corner.
+  curveball() {
+    noise(0.35, { freq: 2600, q: 0.9, gain: 0.09 });
+    sweep(0.45, 700, 2200, { gain: 0.14, q: 1.1 });
+    tone(240, 0.3, { type: 'sawtooth', gain: 0.018, slide: 360 });
+  },
+  // It pops: a bright, hollow burst.
+  flashPop() {
+    noise(0.14, { freq: 3200, q: 0.6, gain: 0.22 });
+    sweep(0.3, 4200, 900, { gain: 0.1, q: 1.4 });
+    tone(1900, 0.22, { type: 'sine', gain: 0.04, slide: -700 });
+  },
+  // Caught by it: the ears ring for as long as you're blind.
+  flashed(strength = 1) {
+    tone(3150, 0.4 + 1.1 * strength, { type: 'sine', gain: 0.05 * strength });
+    tone(3900, 0.3 + 0.8 * strength, { type: 'sine', gain: 0.02 * strength, delay: 0.05 });
+  },
+  // Phoenix won the peek: his shots, and the hit.
+  peekLost() {
+    for (let i = 0; i < 3; i++) noise(0.07, { freq: 1300, q: 0.7, gain: 0.26, delay: i * 0.1 });
+    tone(95, 0.25, { type: 'sine', gain: 0.18, slide: -40, delay: 0.05 });
   },
   scope() { noise(0.05, { freq: 5200, q: 4, gain: 0.04 }); },
   reload() {

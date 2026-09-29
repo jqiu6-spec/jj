@@ -57,15 +57,16 @@ const DRIVEN = { blade: [-0.5, -0.85, -0.3], face: [0.2, 0.3, 0.9] };
 export const KNIFE_ANIMS = {
   // Drawn: the hand comes up on the right with the knife flipping round the
   // finger, then drops into the grip; the free hand comes in at the end.
+  // A quick 0.61 s (40% faster than CS2's).
   draw: {
     spinFrom: -TAU,
-    spins: [{ from: 0.03, to: 0.55, turns: 1 }],
-    away: [-1, 0, 0.55, 0.8],
+    spins: [{ from: 0.02, to: 0.39, turns: 1 }],
+    away: [-1, 0, 0.39, 0.57],
     keys: [
       { t: 0, p: at(0.08, -0.2, 0.05), turn: [0.3, 0, -0.6] },
-      { t: 0.25, p: at(0.03, 0.035, 0), grip: HANG },
-      { t: 0.45, p: at(0.02, 0.03, 0), grip: HANG },
-      idle(0.85),
+      { t: 0.18, p: at(0.03, 0.035, 0), grip: HANG },
+      { t: 0.32, p: at(0.02, 0.03, 0), grip: HANG },
+      idle(0.61),
     ],
   },
   // Backhand: dip to the lower left, whip across the screen to the right.

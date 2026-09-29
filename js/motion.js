@@ -371,6 +371,95 @@ const peek = {
   },
 };
 
+// Phoenix and his Curveball, for the dodge-flash drills. He waits behind a
+// crate until you're holding his angle (ctx.facing), then throws the flash
+// round one side of it: it comes out sideways past the edge, curves toward
+// you and pops `fuse` seconds after the throw (the game flies it, see
+// Game.throwCurveball). With `peek`, he swings out on that side just after
+// the pop and holds for `hold` seconds; if you haven't killed him by then he
+// has you (ctx.peekLost), and he ducks back. Then he moves to another crate.
+const flash = {
+  // Where crate `c` sits as seen from the eye: `u` points from the eye
+  // through its centre, `p` across to its right; `depth` and `half` are the
+  // crate's extent along each (it's an axis-aligned box).
+  geom(c, eye) {
+    const dx = c.x - eye.x;
+    const dz = c.z - eye.z;
+    const dist = Math.hypot(dx, dz);
+    const u = [dx / dist, dz / dist];
+    const p = [-u[1], u[0]];
+    const depth = Math.abs(u[0]) * c.w / 2 + Math.abs(u[1]) * c.d / 2;
+    const half = Math.abs(p[0]) * c.w / 2 + Math.abs(p[1]) * c.d / 2;
+    return { u, p, depth, half, dist };
+  },
+  // Out of sight: on the line from the eye through the crate, just behind it.
+  hiddenAt(c, eye) {
+    const g = this.geom(c, eye);
+    const k = g.depth + 0.55;
+    return [c.x + g.u[0] * k, c.z + g.u[1] * k];
+  },
+  spawn(t, ctx) {
+    const covers = ctx.scn.arena.covers;
+    let ci = Math.floor(Math.random() * covers.length);
+    for (let i = 0; i < 12 && ci === t.m.cover; i++) ci = Math.floor(Math.random() * covers.length);
+    const [hx, hz] = this.hiddenAt(covers[ci], ctx.eye);
+    t.pos.set(hx, 0, hz);
+    t.vel.set(0, 0, 0);
+    Object.assign(t.m, {
+      cover: ci, state: 'wait', timer: randIn(ctx.scn.motion.wait), tx: hx, tz: hz,
+      side: 1, crouch: 0, crouchWant: false, grounded: true,
+    });
+  },
+  update(t, dt, ctx) {
+    const m = ctx.scn.motion;
+    const s = t.m;
+    const c = ctx.scn.arena.covers[s.cover];
+    s.timer -= dt;
+    // Hidden, he keeps the crate between you (you may have moved).
+    if (s.state === 'wait' || s.state === 'cast') [s.tx, s.tz] = this.hiddenAt(c, ctx.eye);
+    const arrived = runToward(t, dt, s.tx, s.tz, AGENT.run);
+    if (s.state === 'wait') {
+      if (s.timer > 0 || !ctx.facing(t)) return;
+      // Throw: from his hand behind the crate, out past the edge on one
+      // side, curving in to pop in front of the crate, above head height.
+      const g = this.geom(c, ctx.eye);
+      const side = sign();
+      const at = (along, across, y) => [
+        c.x + g.u[0] * along + g.p[0] * side * across,
+        y,
+        c.z + g.u[1] * along + g.p[1] * side * across,
+      ];
+      ctx.curveball(t, {
+        p0: at(g.depth + 0.4, 0.35, 1.35),
+        p1: at(g.depth * 0.2, g.half + 2.4, 1.9),
+        p2: at(-(g.depth + 1.9), g.half + 0.7, 2.3),
+        fuse: m.fuse,
+      });
+      s.side = side;
+      s.state = 'cast';
+      s.timer = m.fuse + (m.peek ? 0.12 : 0.6);
+    } else if (s.state === 'cast' && s.timer <= 0) {
+      if (!m.peek) { this.spawn(t, ctx); return; }
+      // Swing out far enough past the edge to be seen from the eye.
+      const g = this.geom(c, ctx.eye);
+      const behind = g.dist + g.depth + 0.55;
+      const across = (g.half + 0.35) * behind / (g.dist - g.depth) + rand(0.35, 0.9);
+      s.tx += g.p[0] * s.side * across;
+      s.tz += g.p[1] * s.side * across;
+      s.state = 'out';
+    } else if (s.state === 'out' && arrived) {
+      s.state = 'hold';
+      s.timer = randIn(m.hold);
+    } else if (s.state === 'hold' && s.timer <= 0) {
+      ctx.peekLost(t);
+      [s.tx, s.tz] = this.hiddenAt(c, ctx.eye);
+      s.state = 'back';
+    } else if (s.state === 'back' && arrived) {
+      this.spawn(t, ctx);
+    }
+  },
+};
+
 // Ballistic hops with mid-air direction changes.
 const air = {
   spawn(t, ctx) {
@@ -483,4 +572,4 @@ const still = {
   update() {},
 };
 
-export const MOTIONS = { wander, strafe, agent, peek, air, orbit, bounce, static: still };
+export const MOTIONS = { wander, strafe, agent, peek, flash, air, orbit, bounce, static: still };

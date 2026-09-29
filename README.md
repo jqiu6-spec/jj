@@ -43,10 +43,12 @@ To rebuild the single file after changing the source: `npm install && npm run bu
   precision". The Settings tab tells you which mode you got.
 - **Scoping on a Mac trackpad**: right-click is a two-finger click. Ctrl+click
   also scopes, and never fires the gun. (Shift crouches.)
-- **Retina and slow laptops**: the render scale defaults to **Auto**: if a run
-  drops under 50 fps, the resolution steps down (at most once every 2 s, since
-  each change resizes the drawing buffer), and it steps back up between runs
-  when the last one held 58 fps. Settings also has fixed Full, 75% and 50%.
+- **Retina and slow laptops**: the render scale defaults to **Auto**: if frames
+  come late for your screen's refresh rate (more than one in ten over a
+  second) or the rate drops under 50 fps, the resolution steps down (at most
+  once a second, since each change resizes the drawing buffer), and it steps
+  back up between runs when the last one kept pace. Settings also has fixed
+  Full, 75% and 50%.
 - Keys use the physical position (R, Space, Esc, Shift), so any keyboard layout
   works, and Cmd/Ctrl shortcuts are left to the browser.
 
@@ -75,6 +77,30 @@ To rebuild the single file after changing the source: `npm install && npm run bu
 | Sniping | Op Angles | Agents wide-swing, jiggle and swap crates 26–46 m out |
 | Sniping | Op Flicks | Agents appear anywhere on an open field at 18–42 m |
 | Sniping | Op Crossing | Agents sprint across the gaps between crates |
+| Dodge flash | Curveball Dodge | Turn away from Phoenix's flash before it pops; Easy / Medium / Hard |
+| Dodge flash | Dodge & Peek | Dodge the flash, then turn back and kill Phoenix as he swings out |
+
+### Dodge flash
+
+Phoenix's Curveball, as in Valorant: he hides behind one of four crates
+spread across your front and, once you're holding his angle, throws the flash
+round one side of it. The orb comes out past the edge, curves toward you and
+pops 0.6 s after the throw (0.85 s on Easy, 0.45 s on Hard); you hear it lit
+as it's thrown. Look at it when it pops and the screen whites out for up to
+1.1 s, then clears; a flash just off the edge of the screen still catches you
+a little, and past 75° from it, or with a crate in the way, you've dodged it.
+
+- **Curveball Dodge**: dodging is the whole drill. +100 per flash dodged,
+  −50 for a full flash (less for a glancing one). Phoenix only throws while
+  you're looking his way, so facing the back wall scores nothing.
+- **Dodge & Peek**: right after the pop he swings out on the side the flash
+  came from and holds the peek for about a second. Turn back and kill him
+  (+100, +50 for the head); if he's still standing when his hold is up, he
+  wins the peek (−50, and a red hit at the screen's edges).
+
+The results show how many you dodged, how many caught you, how long after the
+throw you turned your back on it, and (with the peek) your kills and the
+peeks he won.
 
 ### Valorant movement bots
 
@@ -190,21 +216,26 @@ gun rolling over and back in time with the recorded bolt sounds. The keyframes
 are `GUN_ANIMS` in `js/weapon.js`.
 
 **Moving.** Hold **W A S D** to run around the arena during a run. Speeds are
-CS2's (250 units/s with the knife, 225 with the M4A1-S, 215 with the AK-47, 200
-with the AWP and half that scoped; Valorant's 5.4 m/s for the Phantom and
-Vandal), with quick starts and stops so counter-strafing works. **Space**
-jumps, CS2's jump: 1.42 m up and 0.74 s in the air, keeping your momentum
-with only a little steering. Hold **Shift** to crouch: the eye drops 0.46 m
-and you move at a third of your speed. Walls and crates stop you (the crates
-are too tall to jump onto), the gun bobs as you run, and every run starts
+half as fast again as CS2's (so 375 units/s, 9.5 m/s, with the knife; 8.6 m/s
+with the M4A1-S, 8.2 with the AK-47, 7.6 with the AWP and half that scoped;
+8.1 m/s for the Phantom and Vandal, from Valorant's 5.4), and you speed up and
+slow down exactly as in CS2, with its acceleration and friction
+(sv_accelerate 5.5, sv_friction 5.2, sv_stopspeed 80): full speed in about
+0.45 s, a stop about 0.5 s after letting go, and a counter-strafe (tapping the
+opposite key) stops you in about 0.13 s. **Space** jumps, CS2's jump: 1.42 m
+up and 0.74 s in the air, keeping your momentum; in the air the keys only
+nudge you, as in CS2. Hold **Shift** to crouch: the eye drops 0.46 m and you
+move at a third of your speed. Walls stop you, and crates too, unless you
+get on top of one (an updraft does it): you can stand, run and slide up
+there and drop off the edge. The gun bobs as you run, and every run starts
 from the scenario's spot. Moving doesn't cost accuracy.
 
 **Slide.** Press **Shift** while running, as in Apex Legends: you drop low and
-slide at about one and a half times your run speed, the way your movement keys
+slide off at 1.8 times your run speed (about 15 m/s), the way your movement keys
 point, so a slide can go forward, sideways, diagonally or backwards (hold W+A,
 D, S and so on as you press Shift). The view tilts a little toward the side
 you're sliding and the gun leans in, and friction bleeds the speed off over
-about a second (about 6 m). A tap is enough; keep holding it and you're
+about a second (about 10 m). A tap is enough; keep holding it and you're
 crouched when the slide ends. You can aim and shoot the whole way. Jump out of
 it to carry the speed into the air; press Shift again to stand up early. Only
 a run slides: standing or walking, Shift just crouches. The burst comes back
@@ -217,13 +248,22 @@ You come out of it at a run. There are two charges, each back three seconds
 after it's used; the pips at the bottom left show them. The view widens for
 an instant with a rush of wind.
 
-**Recoil.** The AK-47 kicks like CS2's: each round of a spray climbs the view,
+**Updraft.** Press **Q** for Jett's Updraft: after a 0.2 s windup with the
+wind gathering under you, it launches you about 4 m straight up, keeping your
+momentum, from the ground or in mid-air. Two charges, each back four seconds
+after it's used (the second set of pips). **Drift**: hold **Space** while
+falling, as Jett, and you float down at 1.8 m/s instead of dropping, with
+more say over where you land.
+
+**Recoil** (clicking and sniping scenarios). The AK-47 kicks like CS2's: each round of a spray climbs the view,
 about 3.5° over the first second of full auto, and wanders left and right
 after the first ten rounds; the M4A1-S and Phantom climb about a third as much
 and barely wander. The first shot goes where you aim, the view itself moves
 (so shots land on the crosshair and you pull down against it), and it settles
-back within half a second of letting go. The other guns have none. Turn it off
-under First-person view in the Weapon tab.
+back within half a second of letting go. The other guns have none, and in
+tracking scenarios the view never kicks (the gun still does), since it would
+shake the aim under every small correction. Turn it off under First-person
+view in the Weapon tab.
 
 ### Skins
 
@@ -481,12 +521,14 @@ texture set, and `--help` for the rest. Then add an entry to `MODEL_INFO` in
 ### Karambit
 
 Every scenario has a knife as well as the gun. In a run, **scroll the mouse
-wheel** to swap between them (or press **3** for the knife, **1** for the gun,
-**Q** to swap). The animations follow CS2's karambit, keyframed from a
+wheel** to swap between them (or press **3** for the knife, **1** for the
+gun). The animations follow CS2's karambit, keyframed from a
 recording of it in game. At rest the fist sits low in the middle, palm down on
 the knife's flat, the ring and index finger on the left and the blade lying
-out to the right, with the free hand relaxed at the bottom left. Drawn, it comes up on the right, flipping round the finger in one smooth
-spin, and drops into the grip as the free hand comes in. **F** inspects (4.7 s): the free hand drops away, the knife hand
+out to the right, with the free hand relaxed at the bottom left. Drawn, it
+comes up on the right, flipping round the finger in one smooth spin, and
+drops into the grip as the free hand comes in, in 0.61 s (40% quicker than
+CS2's). **F** inspects (4.7 s): the free hand drops away, the knife hand
 dips and twists and flips the knife up into an upright hold at the right of
 the middle, fingers curled round the handle toward you and the blade hanging
 down with its flat toward you; it rocks it a little to catch the light,
@@ -557,8 +599,8 @@ before the scope settled.
 
 - **Mouse 1**: fire (hold it in tracking scenarios, or turn on auto-fire in Settings); slash with the knife
 - **Mouse 2**, or **Ctrl+click** on a Mac: scope with the AWP in sniping scenarios (CS2 or Operator handling); stab with the knife
-- **W A S D**: move; **Space**: jump; **Shift** (held): crouch, or slide while running; **E**: dash the way you're moving
-- **Mouse wheel**, **1**, **3**, **Q**: swap between the gun and the knife; in sniping scenarios **1** is the AWP, **2** a rifle (again for the next) and **3** the knife
+- **W A S D**: move; **Space**: jump (hold it while falling to drift down); **Shift** (held): crouch, or slide while running; **E**: dash the way you're moving; **Q**: updraft
+- **Mouse wheel**, **1**, **3**: swap between the gun and the knife; in sniping scenarios **1** is the AWP, **2** a rifle (again for the next) and **3** the knife
 - **F**: inspect the knife
 - **Esc**: pause. Press Esc again to go back to the scenario list; in a run with no time limit, **Finish run** ends it and shows your results
 - **R**: restart the current run
@@ -572,7 +614,9 @@ before the scope settled.
 - **Horizontal FOV**: 60–130°, converted to vertical FOV for your aspect ratio.
 - **Crosshair**: style, colour, length, thickness, gap, dot size and outline, with
   a live preview.
-- **Target and on-hit colours**, volume, auto-fire, and an FPS counter.
+- **Target and on-hit colours**, volume, auto-fire, and an FPS counter. The
+  counter also shows the share of frames that came late for your screen's
+  refresh ("12% late"), which is what makes slow aiming judder.
 - **Low-latency rendering** (on by default): the game draws straight to the
   screen (a desynchronized canvas) instead of waiting a frame for the page
   compositor, so the view keeps up with the mouse. Chrome and Edge honour it;
@@ -580,12 +624,21 @@ before the scope settled.
 
 **Mouse input.** Trackline adds no acceleration or smoothing of its own: the
 view turns by exactly the mouse counts times your sensitivity, applied the
-moment they arrive. It also asks the browser for raw input, which bypasses
-the system's pointer acceleration (Chrome and Edge give it). When a browser
-can't (Safari, Firefox), the countdown says so and how to turn acceleration
-off in the system settings. The first-person gun no longer trails the view by
-default (**Gun sway** in the Weapon tab brings a gentle sway back), so small
-hand movements don't set it wobbling.
+moment they arrive, and nothing else moves it (no recoil while tracking, no
+gun sway by default). It also asks the browser for raw input, which bypasses
+the system's pointer acceleration. Only Chromium browsers (Chrome, Edge, Brave,
+Arc) honour that; Safari and Firefox lock the mouse but keep the system's
+acceleration, and the countdown and Settings now say so, with how to turn
+acceleration off. The first-person gun doesn't trail the view by default
+(**Gun sway** in the Weapon tab brings a gentle sway back), so small hand
+movements don't set it wobbling.
+
+Small aiming movements show up any unevenness in the frame rate, and a game
+that can't keep up with the screen shows frames for one refresh, then two,
+which judders and adds lag (so small corrections overshoot). The **Auto**
+render scale now holds your screen's own refresh rate, not just 50 fps: it
+works out the refresh from the quickest frames and steps the resolution down
+whenever more than one frame in ten comes late.
 
 Settings and run history are saved in `localStorage`.
 
@@ -596,7 +649,7 @@ index.html            page shell, HUD and menus
 css/style.css         styles
 js/main.js            UI wiring: menus, settings, results
 js/game.js            renderer, arena, camera, weapons, run state machine
-js/motion.js          target movement models (wander, strafe, Valorant agent, air, orbit, bounce)
+js/motion.js          target movement models (wander, strafe, Valorant agent, crate peeks, Phoenix's flash, air, orbit, bounce)
 js/scenarios.js       scenario definitions
 js/settings.js        settings storage and sensitivity maths
 js/stats.js           run history

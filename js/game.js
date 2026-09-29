@@ -1,7 +1,7 @@
 // 3D arena, first-person camera, targets, weapons and the run state machine.
 import * as THREE from '../vendor/three.module.min.js';
 import { MOTIONS, AGENT, agentDims } from './motion.js';
-import { eyeOf, defaultSetup, setupKey, effectiveScenario, SNIPERS } from './scenarios.js';
+import { eyeOf, defaultSetup, setupKey, effectiveScenario, SNIPERS, FLASH_SCORE } from './scenarios.js';
 import { degPerCount, verticalFov } from './settings.js';
 import { sfx } from './audio.js';
 import { Viewmodel } from './weapon.js';
@@ -19,14 +19,29 @@ const MAX_PITCH = 89 * DEG;
 const JUMP_SPEED = 301.993 * 0.0254;
 const GRAVITY = 800 * 0.0254;
 const CROUCH_DROP = 18 * 0.0254;
-// Apex's slide: Shift from a run for a burst of speed that friction bleeds
-// off over about a second, low to the ground (the burst again only after
-// 0.8 s). Jump out of it to keep the speed.
-const SLIDE_BOOST = 1.45; // start speed, times the run speed
-const SLIDE_END = 0.5; // ends below this share of the run speed
-const SLIDE_DRAG = 0.55; // exponential slowdown per second
-const SLIDE_FRICTION = 1.9; // and linear, m/s²
-const SLIDE_MAX = 1.3; // seconds
+// Running: each gun's CS2 (or Valorant) speed, half as fast again, with
+// CS2's own acceleration and friction (Source movement): on the ground,
+// friction takes sv_friction of your speed off each second (or of
+// sv_stopspeed, when slower), and the keys add up to sv_accelerate times
+// the run speed per second toward where they point, never past the run
+// speed. So you reach full speed in about 0.45 s, stop about 0.5 s after
+// letting go, and in about 0.13 s by counter-strafing. In the air the
+// keys can only add 30 units/s along where they point (sv_airaccelerate).
+const RUN_SCALE = 1.5;
+const SV_ACCELERATE = 5.5;
+const SV_FRICTION = 5.2;
+const SV_STOPSPEED = 80 * 0.0254;
+const SV_AIRACCELERATE = 12;
+const AIR_WISH_CAP = 30 * 0.0254;
+// Apex's slide: Shift from a run for a burst of speed, 1.8 times the run
+// speed (about 15 m/s), that friction bleeds off over about a second, low
+// to the ground (the burst again only after 0.8 s). Jump out of it to keep
+// the speed.
+const SLIDE_BOOST = 1.8; // start speed, times the run speed
+const SLIDE_END = 0.7; // ends below this share of the run speed
+const SLIDE_DRAG = 0.6; // exponential slowdown per second
+const SLIDE_FRICTION = 3; // and linear, m/s²
+const SLIDE_MAX = 1.1; // seconds
 // Jett's Tailwind: E dashes about 6.5 m in 0.2 s the way you're moving
 // (forward if you aren't), even in the air. Two charges, each back 3 s
 // after it's used.
@@ -34,7 +49,28 @@ const DASH_DIST = 6.5;
 const DASH_TIME = 0.2;
 const DASH_CHARGES = 2;
 const DASH_RECHARGE = 3;
+// Jett's Updraft: Q launches you about 4 m straight up after a 0.2 s
+// windup, keeping your momentum, on the ground or in the air. Two charges,
+// each back 4 s after it's used. Her Drift: hold Space while falling to
+// float down slowly and steer more freely.
+const UPDRAFT_HEIGHT = 4;
+const UPDRAFT_WINDUP = 0.2;
+const UPDRAFT_CHARGES = 2;
+const UPDRAFT_RECHARGE = 4;
+const DRIFT_FALL = 1.8; // m/s: the fastest you fall while drifting
 const COUNTDOWN = 3;
+
+// Share of frame intervals (seconds) that missed the display's refresh:
+// the refresh interval is taken from the quickest fifth of the frames, and a
+// frame half again as long as that came a refresh late.
+function lateShare(ints) {
+  if (ints.length < 10) return 0;
+  const sorted = ints.slice().sort((a, b) => a - b);
+  const vsync = sorted[Math.floor(sorted.length * 0.2)];
+  let late = 0;
+  for (const d of ints) if (d > vsync * 1.5) late++;
+  return late / ints.length;
+}
 
 // ------------------------------------------------------------------ textures
 function gridTexture(base, line, major) {
@@ -91,6 +127,33 @@ function crateTexture() {
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
+
+// A soft round glow, for Phoenix's Curveball and its pop.
+function glowTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.22, 'rgba(255,238,200,0.95)');
+  grad.addColorStop(0.55, 'rgba(255,150,60,0.4)');
+  grad.addColorStop(1, 'rgba(255,110,30,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// Dodge flash: how far you must look away from the Curveball when it pops.
+// Within FULL degrees of it you're blind for the whole FLASH_BLIND seconds;
+// the flash weakens out to SAFE degrees (a 103° view ends 51.5° out, so one
+// just off-screen still catches you a little), and past that you've dodged.
+const FLASH_FULL = 40;
+const FLASH_SAFE = 75;
+const FLASH_BLIND = 1.1; // s, Phoenix's longest blind
+const FLASH_FADE = 0.5; // s, clearing afterwards
+const CURVEBALL_TRAIL = 7;
 
 // ---------------------------------------------------------------- hit tests
 const _w = new THREE.Vector3();
@@ -162,20 +225,25 @@ export class Game {
     this.vel = new THREE.Vector3(); // on the ground, m/s (WASD)
     this.keys = new Set(); // movement keys held
     this.baseEye = 1.7; // eye height standing on the floor
-    this.jumpY = 0; // feet above the floor while jumping, m
+    this.jumpY = 0; // feet above the floor, m (in the air, or on a crate)
     this.vy = 0;
+    this.grounded = true; // on the floor or a crate top
     this.crouching = false; // Shift held
     this.crouchT = 0; // 0 standing .. 1 crouched
     this.sliding = null; // { t, dir, speed } while sliding
     this.dashing = null; // { t, dir } while dashing
     this.dashCharges = DASH_CHARGES;
     this.dashRecharge = 0; // seconds until the next charge is back
+    this.updraftCharges = UPDRAFT_CHARGES;
+    this.updraftRecharge = 0;
+    this.updraftWind = null; // seconds of windup left before an updraft lifts you
+    this.drifting = false; // Space held: fall slowly
     this.moveClock = 0; // seconds of movement, for the slide's cooldown
     this.lastSlide = -9;
     this.viewRoll = 0; // the view tilts a little in a slide
     this.fovKick = 0; // degrees, wider for a moment in a dash
     this.rifleId = null; // the rifle in slot 2 of a sniping run
-    this.lastSlot = 'knife'; // where Q goes back to
+    this.lastSlot = 'knife'; // where 'toggle' goes back to
     this.recoil = { p: 0, y: 0, index: 0, last: -9 }; // view kick (radians) and place in the spray
     this.fwd = new THREE.Vector3(0, 0, -1);
 
@@ -191,7 +259,9 @@ export class Game {
       ceil: gridTexture('#343c49', '#3e4755', '#4a5566'),
       blob: blobTexture(),
       crate: crateTexture(),
+      glow: glowTexture(),
     };
+    this.curveballs = []; // Phoenix's flashes in flight (or popping)
     const aniso = this.renderer.capabilities.getMaxAnisotropy();
     for (const k of ['wall', 'floor', 'ceil']) this.tex[k].anisotropy = aniso;
 
@@ -302,38 +372,53 @@ export class Game {
     }
   }
 
-  // Automatic resolution. Changing it resizes the drawing buffer, which can
-  // hitch a frame, so it changes rarely: during a run it only steps down
-  // (once per 2 s at most, while the frame rate stays under 50), and it steps
-  // back up between runs when the last run held 58 fps or better.
+  // Automatic resolution. It keeps frames coming at the display's refresh
+  // rate, not just above some fixed rate: a game that can't keep up with the
+  // screen shows each frame for one refresh or two in turn, which judders on
+  // slow, small aiming movements and adds lag (so small corrections
+  // overshoot). The display's frame interval is read from the quickest
+  // frames; when more than one frame in ten over a second comes late (or
+  // the rate falls under 50 fps), the resolution steps down. Changing it
+  // resizes the drawing buffer, which can hitch a frame, so during a run it
+  // only steps down (at most once a second) and steps back up between runs
+  // when the last one kept pace.
   adaptResolution(rawDt) {
     const render = this.settings.render || {};
     if (render.auto === false) return;
     const p = this.perf;
-    if (rawDt > 0.25) { p.frames = 0; p.time = 0; return; } // a stall or a hidden tab, not load
+    if (rawDt > 0.25) { p.frames = 0; p.time = 0; p.ints = []; return; } // a stall or a hidden tab, not load
+    if (!p.ints) p.ints = [];
+    p.ints.push(rawDt);
     p.frames++;
     p.time += rawDt;
     p.runFrames = (p.runFrames || 0) + 1;
     p.runTime = (p.runTime || 0) + rawDt;
-    if (p.time < 2) return;
+    if (p.time < 1) return;
+    const late = lateShare(p.ints);
     const fps = p.frames / p.time;
+    p.runLate = (p.runLate || 0) + late * p.frames;
     p.frames = 0;
     p.time = 0;
-    if (fps < 50 && this.dynScale > 0.5) {
-      this.dynScale = Math.max(0.5, this.dynScale - (fps < 35 ? 0.2 : 0.1));
+    p.ints = [];
+    this.pacing = { fps, late };
+    if ((fps < 50 || late > 0.1) && this.dynScale > 0.5) {
+      this.dynScale = Math.max(0.5, this.dynScale - (fps < 35 || late > 0.3 ? 0.2 : 0.1));
       this.applyResolution();
     }
   }
 
-  // Between runs: give resolution back if the last run ran smoothly.
+  // Between runs: give resolution back if the last run kept pace.
   recoverResolution() {
     const p = this.perf;
     const fps = p.runTime > 3 ? p.runFrames / p.runTime : 0;
+    const late = p.runFrames ? (p.runLate || 0) / p.runFrames : 1;
     p.runFrames = 0;
     p.runTime = 0;
+    p.runLate = 0;
     p.frames = 0;
     p.time = 0;
-    if (fps >= 58 && this.dynScale < 1) {
+    p.ints = [];
+    if (fps >= 50 && late < 0.03 && this.dynScale < 1) {
       this.dynScale = Math.min(1, this.dynScale + 0.1);
       this.applyResolution();
     }
@@ -479,9 +564,17 @@ export class Game {
     for (const t of this.targets) this.disposeTarget(t);
     this.targets = [];
     for (let i = 0; i < setup.count; i++) this.targets.push(this.makeTarget(scn.target, setup.hp));
+    this.clearCurveballs();
     this.resetTargets();
     this.lookAtTargets(true);
     this.captureReflections();
+    // Compile the Curveball's shaders now, not on the first throw.
+    if (scn.motion.type === 'flash') {
+      const probe = this.makeCurveball();
+      this.scene.add(probe.group);
+      try { this.renderer.compile(this.scene, this.camera); } catch (e) { /* only an optimisation */ }
+      this.disposeCurveball(probe);
+    }
   }
 
   makeTarget(spec, hp) {
@@ -491,6 +584,7 @@ export class Game {
     });
     const t = {
       shape: spec.shape,
+      color: spec.color ? new THREE.Color(spec.color) : null, // its own colour (Phoenix), else the setting
       radius: spec.shape === 'agent' ? AGENT.radius : spec.radius,
       half: spec.shape === 'capsule' ? spec.height / 2 - spec.radius : 0, // capsule core half-length
       hp: hp || Infinity,
@@ -677,7 +771,15 @@ export class Game {
   }
 
   ctx() {
-    return { scn: this.eff, eye: this.eye, targets: this.targets, aimPoint: this.aimPoint };
+    if (!this.flashCtx) {
+      // Phoenix's hooks into the game (the dodge-flash motion).
+      this.flashCtx = {
+        facing: (t) => this.facing(t, 50),
+        curveball: (t, path) => this.throwCurveball(t, path),
+        peekLost: (t) => this.peekLost(t),
+      };
+    }
+    return { scn: this.eff, eye: this.eye, targets: this.targets, aimPoint: this.aimPoint, ...this.flashCtx };
   }
 
   spawn(t) {
@@ -717,8 +819,8 @@ export class Game {
   // ------------------------------------------------------------ run flow
   // Change what the player holds: 'gun' (1: the scenario's gun, the AWP
   // when sniping), 'rifle' (2, sniping runs: a rifle, and pressed again the
-  // next one, so every gun is on hand), 'knife' (3), 'toggle' (Q: back to
-  // the last one), or 'next' / 'prev' (the mouse wheel, round the slots).
+  // next one, so every gun is on hand), 'knife' (3), 'toggle' (back to the
+  // last one), or 'next' / 'prev' (the mouse wheel, round the slots).
   switchWeapon(slot) {
     const live = this.state === 'running' || this.state === 'countdown';
     if (!live) return;
@@ -783,6 +885,12 @@ export class Game {
       reactSum: 0,
       reactCount: 0,
       unscoped: 0,
+      throws: 0, // dodge flash: Curveballs thrown, dodged, and those that caught you
+      dodges: 0,
+      flashed: 0,
+      turnSum: 0, // seconds from a throw to turning your back on it, for the dodged ones
+      turnCount: 0,
+      lost: 0, // peeks Phoenix won
       lastShot: -99,
       nextShot: 0, // run time the gun may fire its next round (held fire)
       timeline: [],
@@ -798,6 +906,7 @@ export class Game {
     this.baseEye = ey;
     this.jumpY = 0;
     this.vy = 0;
+    this.grounded = true;
     this.crouchT = 0;
     this.vel.set(0, 0, 0);
     this.vm.moving = 0;
@@ -806,10 +915,14 @@ export class Game {
     this.dashing = null;
     this.dashCharges = DASH_CHARGES;
     this.dashRecharge = 0;
+    this.updraftCharges = UPDRAFT_CHARGES;
+    this.updraftRecharge = 0;
+    this.updraftWind = null;
     this.lastSlide = -9;
     this.viewRoll = 0;
     this.fovKick = 0;
     this.applyZoom();
+    this.clearCurveballs();
     this.resetTargets();
     this.lookAtTargets(true);
     this.pitch = Math.max(-0.35, Math.min(0.35, this.pitch));
@@ -848,6 +961,7 @@ export class Game {
   toMenu() {
     this.firing = false;
     this.setZoom(0);
+    this.clearCurveballs();
     this.run = null;
     this.setState('menu');
     this.resetTargets();
@@ -877,6 +991,14 @@ export class Game {
       headshots: r.headshots,
       react: r.reactCount ? r.reactSum / r.reactCount : null,
       unscoped: r.unscoped,
+      flash: this.scn.motion.type === 'flash' ? {
+        peek: !!this.eff.motion.peek,
+        throws: r.throws,
+        dodges: r.dodges,
+        flashed: r.flashed,
+        turn: r.turnCount ? r.turnSum / r.turnCount : null,
+        lost: r.lost,
+      } : null,
       gun: this.gunId,
       timeline: r.timeline,
       free: r.free, // no time limit: shown, not saved
@@ -884,6 +1006,7 @@ export class Game {
       fps: Math.round(this.fps),
     };
     this.firing = false;
+    this.clearCurveballs();
     this.setState('results');
     sfx.end();
     this.hooks.onFinish(result);
@@ -1042,6 +1165,10 @@ export class Game {
     if (t) {
       r.hits++;
       r.score += w.points;
+      if (w.headBonus && this.pickPart === 'head' && t.shape === 'agent') {
+        r.score += w.headBonus;
+        r.headshots++;
+      }
       this.kill(t);
     } else {
       r.score = Math.max(0, r.score - w.missPenalty);
@@ -1170,10 +1297,10 @@ export class Game {
     }
   }
 
-  // Recoil: each round of a spray kicks the view by the gun's pattern
-  // (RECOIL in guns.js), and the kick settles back once you stop firing,
-  // as in CS2. The view itself moves, so shots land on the crosshair and
-  // you pull down against the climb.
+  // Recoil (clicking and sniping scenarios): each round of a spray kicks
+  // the view by the gun's pattern (RECOIL in guns.js), and the kick settles
+  // back once you stop firing, as in CS2. The view itself moves, so shots
+  // land on the crosshair and you pull down against the climb.
   kickRecoil() {
     const kind = GUNS[this.gunId] && GUNS[this.gunId].recoil;
     if (!kind || this.knifeOut || this.settings.weapon.recoil === false || !this.run) return;
@@ -1206,6 +1333,152 @@ export class Game {
     this.pitch -= dp;
     this.yaw -= dy;
     if (Math.abs(R.p) < 1e-5 && Math.abs(R.y) < 1e-5) { R.p = 0; R.y = 0; }
+  }
+
+  // ------------------------------------------------------------ dodge flash
+  // Whether the view points within `deg` degrees of target t's head.
+  facing(t, deg) {
+    this.updateForward();
+    _v.set(t.pos.x, t.pos.y + agentDims(t).headY, t.pos.z).sub(this.eye).normalize();
+    return this.fwd.dot(_v) > Math.cos(deg * DEG);
+  }
+
+  // The orb: a white-hot core in an orange glow, with a fading trail.
+  makeCurveball() {
+    if (!this.orbGeo) this.orbGeo = new THREE.SphereGeometry(0.11, 16, 10);
+    const group = new THREE.Group();
+    const core = new THREE.Mesh(this.orbGeo, new THREE.MeshBasicMaterial({ color: 0xfff6e0 }));
+    const glowMat = (opacity) => new THREE.SpriteMaterial({
+      map: this.tex.glow, color: 0xffa24c, transparent: true, opacity,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    const glow = new THREE.Sprite(glowMat(1));
+    glow.scale.setScalar(0.9);
+    const trail = [];
+    for (let i = 0; i < CURVEBALL_TRAIL; i++) {
+      const sp = new THREE.Sprite(glowMat(0.5 * (1 - i / CURVEBALL_TRAIL)));
+      sp.scale.setScalar(0.8 * (1 - i / (CURVEBALL_TRAIL + 2)));
+      trail.push(sp);
+      group.add(sp);
+    }
+    group.add(core, glow);
+    return { group, core, glow, trail, hist: [] };
+  }
+
+  disposeCurveball(b) {
+    this.scene.remove(b.group);
+    b.core.material.dispose();
+    b.glow.material.dispose();
+    for (const sp of b.trail) sp.material.dispose();
+  }
+
+  clearCurveballs() {
+    for (const b of this.curveballs) this.disposeCurveball(b);
+    this.curveballs = [];
+    if (this.hooks.onFlash) this.hooks.onFlash(0);
+  }
+
+  // Phoenix throws: the orb flies a curve from p0 past p1 to p2 and pops
+  // there `fuse` seconds after the throw.
+  throwCurveball(t, path) {
+    if (this.state !== 'running') return;
+    const b = this.makeCurveball();
+    b.p0 = new THREE.Vector3().fromArray(path.p0);
+    b.p1 = new THREE.Vector3().fromArray(path.p1);
+    b.p2 = new THREE.Vector3().fromArray(path.p2);
+    b.fuse = path.fuse;
+    b.age = 0;
+    b.turned = null; // seconds after the throw you looked FLASH_SAFE° away
+    b.popped = false;
+    this.curveballs.push(b);
+    this.scene.add(b.group);
+    sfx.curveball();
+    this.placeCurveball(b, 0);
+  }
+
+  // Place the orb (and its trail) at u (0..1) along its curve.
+  placeCurveball(b, u) {
+    const k = 1 - u;
+    _c.copy(b.p0).multiplyScalar(k * k).addScaledVector(b.p1, 2 * k * u).addScaledVector(b.p2, u * u);
+    b.core.position.copy(_c);
+    b.glow.position.copy(_c);
+    b.glow.scale.setScalar(1.25 + 0.25 * Math.sin(b.age * 55));
+    b.hist.unshift(_c.clone());
+    if (b.hist.length > CURVEBALL_TRAIL) b.hist.pop();
+    b.trail.forEach((sp, i) => {
+      const h = b.hist[Math.min(i + 1, b.hist.length - 1)];
+      sp.position.copy(h);
+      sp.visible = i + 1 < b.hist.length;
+    });
+    return _c;
+  }
+
+  updateCurveballs(dt) {
+    for (let i = this.curveballs.length - 1; i >= 0; i--) {
+      const b = this.curveballs[i];
+      b.age += dt;
+      if (!b.popped) {
+        const pos = this.placeCurveball(b, Math.min(1, b.age / b.fuse));
+        // Reaction: the moment you turned your back on the orb.
+        if (b.turned === null) {
+          this.updateForward();
+          _v.copy(pos).sub(this.eye).normalize();
+          if (this.fwd.dot(_v) < Math.cos(FLASH_SAFE * DEG)) b.turned = b.age;
+        }
+        if (b.age >= b.fuse) this.popCurveball(b, pos.clone());
+      } else {
+        // The pop: a burst of light that swells and fades.
+        const k = (b.age - b.fuse) / 0.35;
+        b.glow.scale.setScalar(1 + 9 * Math.min(1, k * 3));
+        b.glow.material.opacity = Math.max(0, 1 - k);
+        if (k >= 1) {
+          this.disposeCurveball(b);
+          this.curveballs.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  // The flash goes off: blind if you're looking at it (in the open),
+  // partly if it's off to the side, not at all once you've turned away.
+  popCurveball(b, pos) {
+    const r = this.run;
+    b.popped = true;
+    b.core.visible = false;
+    for (const sp of b.trail) sp.visible = false;
+    b.glow.position.copy(pos);
+    this.updateForward();
+    _v.copy(pos).sub(this.eye);
+    const dist = _v.length();
+    _v.divideScalar(dist);
+    const blocked = this.coverHit(this.eye, _v) < dist - 0.1;
+    const angle = Math.acos(Math.max(-1, Math.min(1, this.fwd.dot(_v)))) / DEG;
+    const strength = blocked ? 0 : Math.max(0, Math.min(1, (FLASH_SAFE - angle) / (FLASH_SAFE - FLASH_FULL)));
+    r.throws++; // counted as it pops, so one still in the air at the end doesn't count
+    sfx.flashPop();
+    if (strength < 0.15) {
+      r.dodges++;
+      r.score += FLASH_SCORE.dodge;
+      if (b.turned !== null) {
+        r.turnSum += b.turned;
+        r.turnCount++;
+      }
+      return;
+    }
+    r.flashed++;
+    r.score = Math.max(0, r.score - FLASH_SCORE.flashed * strength);
+    sfx.flashed(strength);
+    if (this.hooks.onFlash) this.hooks.onFlash(strength, FLASH_BLIND * strength, FLASH_FADE);
+  }
+
+  // Phoenix held his peek and you didn't kill him: he has you.
+  peekLost() {
+    if (this.state !== 'running') return;
+    const r = this.run;
+    r.lost++;
+    r.score = Math.max(0, r.score - FLASH_SCORE.lost);
+    sfx.peekLost();
+    if (this.hooks.onHurt) this.hooks.onHurt();
   }
 
   // ------------------------------------------------------------- effects
@@ -1318,8 +1591,9 @@ export class Game {
     for (const t of this.targets) {
       t.flash = Math.max(0, t.flash - dt * 6);
       const hpK = t.maxHp === Infinity ? 1 : 0.45 + 0.55 * (t.hp / t.maxHp);
+      const base = t.color || this.targetColor;
       const paint = (m, k, f) => {
-        m.color.copy(this.targetColor).multiplyScalar(hpK * k).lerp(this.hitColor, f);
+        m.color.copy(base).multiplyScalar(hpK * k).lerp(this.hitColor, f);
         m.emissive.copy(m.color);
         m.emissiveIntensity = 0.22 + f * 0.5;
       };
@@ -1368,6 +1642,7 @@ export class Game {
       else if (t.respawnAt !== null && r.elapsed >= t.respawnAt) this.spawn(t);
     }
     this.trackVisibility(dt);
+    this.updateCurveballs(dt);
 
     if (this.knifeOut && this.firing && this.vm.knifeAttack('slash')) sfx.slash();
     const firing = !this.knifeOut && (this.firing || (w.type === 'beam' && this.settings.autoFire));
@@ -1390,7 +1665,8 @@ export class Game {
         this.vm.shot();
         this.fireSound();
         this.tracer(this.fwd, t ? this.pickDist : 0);
-        this.kickRecoil();
+        // No view kick while tracking: it would shake the aim under every
+        // small correction. The gun still kicks in your hands.
       }
       if (t) {
         r.onTime += dt;
@@ -1430,6 +1706,11 @@ export class Game {
     if (!r.free && r.elapsed >= this.scn.duration) this.finish();
   }
 
+  // Full running speed with the held weapon, m/s.
+  get runSpeed() {
+    return ((GUNS[this.heldId] || {}).run || 5.4) * RUN_SCALE;
+  }
+
   // WASD held (KeyW, KeyA, KeyS, KeyD) or let go.
   moveKey(code, down) {
     if (down) this.keys.add(code);
@@ -1439,8 +1720,37 @@ export class Game {
   // Space: jump, if standing on the floor (CS2's jump: 1.45 m up, 0.75 s in
   // the air).
   jump() {
-    if (this.state !== 'running' || this.jumpY > 0 || this.vy !== 0) return;
+    if (this.state !== 'running' || !this.grounded) return;
     this.vy = JUMP_SPEED;
+  }
+
+  // Space held or let go: Jett's Drift while falling.
+  drift(on) {
+    this.drifting = !!on;
+  }
+
+  // Q: Jett's Updraft, if a charge is left. The lift comes after the
+  // windup (see move).
+  updraft() {
+    if (this.state !== 'running' || this.dashing || this.updraftWind !== null || this.updraftCharges < 1) return;
+    this.updraftCharges--;
+    if (!this.updraftRecharge) this.updraftRecharge = UPDRAFT_RECHARGE;
+    this.updraftWind = UPDRAFT_WINDUP;
+    this.sliding = null;
+    sfx.updraft();
+    if (this.hooks.onUpdraft) this.hooks.onUpdraft();
+  }
+
+  // Height of the ground under (x, z) for feet at height `feet`: the floor,
+  // or the top of a crate you're over and not below.
+  groundAt(x, z, feet) {
+    const R = 0.3;
+    let g = 0;
+    for (const b of this.covers) {
+      if (x < b.min.x - R || x > b.max.x + R || z < b.min.z - R || z > b.max.z + R) continue;
+      if (feet >= b.max.y - 0.05 && b.max.y > g) g = b.max.y;
+    }
+    return g;
   }
 
   // Shift held: crouch.
@@ -1459,10 +1769,9 @@ export class Game {
       this.sliding = null;
       return;
     }
-    const run = (GUNS[this.heldId] || {}).run || 5.4;
+    const run = this.runSpeed;
     const v = Math.hypot(this.vel.x, this.vel.z);
-    const grounded = this.jumpY === 0 && this.vy === 0;
-    if (!grounded || v < run * 0.6) return;
+    if (!this.grounded || v < run * 0.6) return;
     const burst = this.moveClock - this.lastSlide > 0.8;
     const dir = this.wishDir(new THREE.Vector3());
     if (!dir.lengthSq()) dir.set(this.vel.x, 0, this.vel.z);
@@ -1498,9 +1807,9 @@ export class Game {
   }
 
   // WASD: run around the arena at the held weapon's speed (CS2's, or
-  // Valorant's for the Riot guns; half with the AWP scoped). Speeding up
-  // and stopping are quick, so counter-strafing works. Walls and crates
-  // stop you.
+  // Valorant's for the Riot guns, half as fast again; half that with the
+  // AWP scoped), speeding up and stopping as in CS2 (see RUN_SCALE), so
+  // counter-strafing works. Walls and crates stop you.
   move(dt) {
     this.moveClock += dt;
     // Dash charges come back one at a time.
@@ -1511,21 +1820,49 @@ export class Game {
         this.dashRecharge = this.dashCharges < DASH_CHARGES ? DASH_RECHARGE : 0;
       }
     }
-    const run = (GUNS[this.heldId] || {}).run || 5.4;
+    if (this.updraftCharges < UPDRAFT_CHARGES) {
+      this.updraftRecharge -= dt;
+      if (this.updraftRecharge <= 0) {
+        this.updraftCharges++;
+        this.updraftRecharge = this.updraftCharges < UPDRAFT_CHARGES ? UPDRAFT_RECHARGE : 0;
+      }
+    }
+    // Updraft: after the windup, straight up at the speed that rises
+    // UPDRAFT_HEIGHT under gravity.
+    if (this.updraftWind !== null) {
+      this.updraftWind -= dt;
+      if (this.updraftWind <= 0) {
+        this.updraftWind = null;
+        this.dashing = null;
+        this.vy = Math.sqrt(2 * GRAVITY * UPDRAFT_HEIGHT);
+        this.fovKick = Math.max(this.fovKick, 4);
+      }
+    }
+    const run = this.runSpeed;
     // Crouching lowers the eye 0.46 m (CS2's 64 to 46 units) in 0.12 s, as
     // does a slide; a jump rises and falls under CS2's gravity (not during
     // a dash).
     const low = this.crouching || !!this.sliding;
     this.crouchT = Math.max(0, Math.min(1, this.crouchT + (low ? dt : -dt) / 0.12));
-    if ((this.jumpY > 0 || this.vy > 0) && !this.dashing) {
-      this.vy -= GRAVITY * dt;
+    // You land on the floor or on top of a crate.
+    const ground = this.groundAt(this.eye.x, this.eye.z, this.jumpY);
+    if ((this.jumpY > ground || this.vy > 0) && !this.dashing) {
+      if (this.drifting && this.vy <= 0) {
+        // Drift: holding Space, the fall speeds up only to a float (and a
+        // faster one eases off to it).
+        if (this.vy > -DRIFT_FALL) this.vy = Math.max(-DRIFT_FALL, this.vy - GRAVITY * dt);
+        else this.vy += (-DRIFT_FALL - this.vy) * (1 - Math.exp(-dt * 8));
+      } else {
+        this.vy -= GRAVITY * dt;
+      }
       this.jumpY += this.vy * dt;
-      if (this.jumpY <= 0 && this.vy <= 0) { // landed (not the frame it left)
-        this.jumpY = 0;
+      if (this.jumpY <= ground && this.vy <= 0) { // landed (not the frame it left)
+        this.jumpY = ground;
         this.vy = 0;
       }
     }
-    const grounded = this.jumpY === 0 && this.vy === 0;
+    const grounded = this.jumpY === ground && this.vy === 0;
+    this.grounded = grounded;
     const c = this.crouchT;
     this.eye.y = this.baseEye + this.jumpY - CROUCH_DROP * c * c * (3 - 2 * c);
     this.wishDir(_v);
@@ -1556,10 +1893,32 @@ export class Game {
       let speed = run;
       if (this.zoomLevel) speed *= 0.5;
       if (this.crouching) speed *= 0.34; // CS2 crouch-walks at a third of a run
-      if (wish > 0) _v.multiplyScalar(speed / wish);
-      // In the air you keep your momentum and steer only a little.
-      const rate = !grounded ? 1.5 : wish > 0 ? 12 : 16;
-      this.vel.lerp(_v, 1 - Math.exp(-dt * rate));
+      if (wish > 0) _v.divideScalar(wish); // where the keys point
+      // Source movement, in small fixed steps so it plays the same at any
+      // frame rate. In the air there's no friction and the keys add little
+      // (more while drifting down, as Jett).
+      const cap = grounded ? speed : this.drifting && this.vy < 0 ? Math.min(speed, 2) : Math.min(speed, AIR_WISH_CAP);
+      const accel = grounded ? SV_ACCELERATE : SV_AIRACCELERATE;
+      const n = Math.max(1, Math.ceil(dt * 128));
+      const h = dt / n;
+      for (let i = 0; i < n; i++) {
+        if (grounded) {
+          const sp = Math.hypot(this.vel.x, this.vel.z);
+          if (sp > 0) {
+            const k = Math.max(0, sp - Math.max(sp, SV_STOPSPEED) * SV_FRICTION * h) / sp;
+            this.vel.x *= k;
+            this.vel.z *= k;
+          }
+        }
+        if (wish > 0) {
+          const add = cap - (this.vel.x * _v.x + this.vel.z * _v.z);
+          if (add > 0) {
+            const a = Math.min(accel * speed * h, add);
+            this.vel.x += _v.x * a;
+            this.vel.z += _v.z * a;
+          }
+        }
+      }
       if (wish === 0 && this.vel.lengthSq() < 1e-4) this.vel.set(0, 0, 0);
     }
     if (!this.dashing) this.fovKick *= Math.exp(-dt * 12);
@@ -1578,7 +1937,7 @@ export class Game {
     }
     this.viewRoll += (lean * tip * -0.045 - this.viewRoll) * (1 - Math.exp(-dt * 10));
     this.vm.lean += (lean - this.vm.lean) * (1 - Math.exp(-dt * 10));
-    this.vm.moving = this.sliding || this.dashing ? 0 : Math.min(1, this.vel.length() / 5.4);
+    this.vm.moving = this.sliding || this.dashing ? 0 : Math.min(1, this.vel.length() / run);
     if (!this.vel.x && !this.vel.z) return;
     const e = this.eye;
     e.x += this.vel.x * dt;
@@ -1586,7 +1945,7 @@ export class Game {
     // Crates: step back out along the shallower side.
     const R = 0.3;
     for (const b of this.covers) {
-      if (this.jumpY >= b.max.y) continue; // over the top (none are that low)
+      if (this.jumpY >= b.max.y - 0.05) continue; // over the top, or standing on it
       const ox = Math.min(e.x - (b.min.x - R), b.max.x + R - e.x);
       const oz = Math.min(e.z - (b.min.z - R), b.max.z + R - e.z);
       if (ox <= 0 || oz <= 0) continue;
@@ -1666,10 +2025,12 @@ export class Game {
       acc,
       kills: r.kills,
       fps: this.fps,
+      late: this.pacing ? this.pacing.late : 0, // share of frames that missed the display's refresh
       ammo: this.sniper ? Infinity : null, // guns in sniping runs never run dry
       awp: this.awpHeld,
       gunName: (GUNS[this.heldId] || {}).name || '',
       dash: { charges: this.dashCharges, max: DASH_CHARGES, back: this.dashCharges < DASH_CHARGES ? 1 - this.dashRecharge / DASH_RECHARGE : 1 },
+      updraft: { charges: this.updraftCharges, max: UPDRAFT_CHARGES, back: this.updraftCharges < UPDRAFT_CHARGES ? 1 - this.updraftRecharge / UPDRAFT_RECHARGE : 1 },
       zoom: this.zoomLevel ? this.zoomMag(this.zoomLevel) : 0,
       onTarget: beam && this.targets.some((t) => t.flash > 0.9),
     };

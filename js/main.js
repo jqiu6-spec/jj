@@ -21,6 +21,11 @@ import { FX_TYPES } from './effects.js';
 
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || '') || /Macintosh/.test(navigator.userAgent || '');
 const IS_SAFARI = /^((?!chrome|chromium|crios|fxios|edg|android).)*safari/i.test(navigator.userAgent || '');
+// Chrome, Edge and other Chromium browsers honour raw input; Firefox and
+// Safari take the lock but ignore the request, so their movement stays
+// accelerated.
+const IS_CHROMIUM = !!(navigator.userAgentData && navigator.userAgentData.brands && navigator.userAgentData.brands.some((b) => /Chromium/.test(b.brand)))
+  || (/(Chrome|Chromium|Edg)\//.test(navigator.userAgent || '') && !/Firefox|FxiOS/.test(navigator.userAgent || '') && !IS_SAFARI);
 import { runsFor, bestRun, addRun, clearRuns, average } from './stats.js';
 import { paceChart, sparkline } from './chart.js';
 
@@ -46,12 +51,26 @@ const xhair = $('crosshair');
 const game = new Game(canvas, settings, {
   onState: onGameState,
   onHud: renderHud,
-  onDash: () => {
-    // A rush of wind at the screen's edges.
-    const fx = $('dash-fx');
-    fx.classList.remove('on');
-    void fx.offsetWidth;
-    fx.classList.add('on');
+  onDash: windRush,
+  onUpdraft: windRush,
+  // Phoenix's flash: white for `hold` seconds, clearing over `fade`; a
+  // glancing one never goes fully white. 0 clears it at once.
+  onFlash: (strength, hold = 0, fade = 0.5) => {
+    const fx = $('flash-fx');
+    for (const a of fx.getAnimations()) a.cancel();
+    if (!strength) return;
+    const peak = 0.55 + 0.45 * strength;
+    const total = (hold + fade) * 1000;
+    fx.animate([
+      { opacity: peak },
+      { opacity: peak, offset: hold / (hold + fade) },
+      { opacity: 0 },
+    ], { duration: total, easing: 'ease-in' });
+  },
+  onHurt: () => {
+    const fx = $('hurt-fx');
+    for (const a of fx.getAnimations()) a.cancel();
+    fx.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 600, easing: 'ease-out' });
   },
   onFinish: showResults,
   onHit: flashHitmarker,
@@ -91,8 +110,8 @@ async function lockPointer() {
   try {
     const p = canvas.requestPointerLock({ unadjustedMovement: true });
     if (p && p.then) await p;
-    // Safari returns a promise but ignores the request for raw input.
-    rawInput = !!(p && p.then) && !IS_SAFARI;
+    // Only Chromium browsers honour the request for raw input.
+    rawInput = !!(p && p.then) && IS_CHROMIUM;
   } catch (err) {
     if (err && err.name === 'NotSupportedError') {
       const p = canvas.requestPointerLock();
@@ -146,6 +165,11 @@ function onGameState(s) {
   $('hud-moves').hidden = !(inGame || s === 'paused');
   $('btn-end').hidden = !(s === 'paused' && game.run && game.run.free);
   if (s === 'results' && document.pointerLockElement === canvas) document.exitPointerLock();
+  // A flash in progress freezes with the run.
+  for (const a of $('flash-fx').getAnimations()) {
+    if (s === 'paused') a.pause();
+    else if (s === 'running') a.play();
+  }
   if (s === 'paused') {
     pausedAt = performance.now();
     $('pause-name').textContent = game.scn.name;
@@ -169,6 +193,11 @@ function onGameState(s) {
       hint = settings.sniper.scopeMode === 'hold'
         ? `Hold right click to scope (${z1}). Left click fires. 2 for a rifle (again for the next), 1 the AWP.`
         : `Right click scopes to ${z1}, again for ${z2}. Left click fires. 2 for a rifle (again for the next), 1 the AWP.`;
+    }
+    if (game.scn.motion.type === 'flash') {
+      hint = game.eff.motion.peek
+        ? 'Hold the crates. When the Curveball comes round a corner, turn away before it pops, then turn back and kill Phoenix as he swings out.'
+        : 'Hold the crates. When the Curveball comes round a corner, turn your back on it before it pops.';
     }
     if (game.run && game.run.free) hint = `${hint.replace(/\.$/, '')}. No time limit: Esc, then Finish run, when you're done.`;
     $('countdown-hint').textContent = hint;
@@ -196,19 +225,22 @@ function renderHud(h) {
     $('hud-ammo-info').textContent = `${held} · INFINITE ROUNDS`;
   }
 
-  if (h.dash) {
-    // Dash charges: a pip each, the next one filling as it comes back.
-    const pips = $('hud-dash').children;
+  // Dash and updraft charges: a pip each, the next one filling as it
+  // comes back.
+  for (const [id, c] of [['hud-dash', h.dash], ['hud-updraft', h.updraft]]) {
+    if (!c) continue;
+    const pips = $(id).children;
     for (let i = 0; i < pips.length; i++) {
-      const full = i < h.dash.charges;
+      const full = i < c.charges;
       pips[i].classList.toggle('on', full);
-      pips[i].style.setProperty('--fill', full ? 1 : i === h.dash.charges ? h.dash.back.toFixed(2) : 0);
+      pips[i].style.setProperty('--fill', full ? 1 : i === c.charges ? c.back.toFixed(2) : 0);
     }
   }
 
   if (settings.showFps && performance.now() - hudFpsTimer > 250) {
     hudFpsTimer = performance.now();
-    $('hud-fps').textContent = `${Math.round(h.fps)} fps`;
+    // Frames that miss the display's refresh judder, so they're shown too.
+    $('hud-fps').textContent = `${Math.round(h.fps)} fps${h.late > 0.02 ? ` · ${Math.round(h.late * 100)}% late` : ''}`;
   }
 }
 
@@ -284,7 +316,7 @@ function renderDetail() {
     ['Speed', d.speed],
   ];
   if (d.moves) rows.push(['Moves', d.moves]);
-  rows.push(['Weapon', `${d.fire}`], ['Scoring', d.scoring], ['Controls', `WASD moves · Space jumps · Shift crouches (slides while running) · E dashes · ${s.weapon.type === 'sniper' ? '1 AWP, 2 rifle (again for the next), 3 knife' : 'wheel or 3 knife, 1 gun'} · R restarts`]);
+  rows.push(['Weapon', `${d.fire}`], ['Scoring', d.scoring], ['Controls', `WASD moves · Space jumps (hold to drift down) · Shift crouches (slides while running) · E dashes · Q updrafts · ${s.weapon.type === 'sniper' ? '1 AWP, 2 rifle (again for the next), 3 knife' : 'wheel or 3 knife, 1 gun'} · R restarts`]);
   $('d-specs').innerHTML = rows.map(([k, val]) => `<dt>${k}</dt><dd>${val}</dd>`).join('');
 
   const beam = s.weapon.type === 'beam';
@@ -350,7 +382,16 @@ function showResults(result) {
   }
 
   const stats = [];
-  if (s.weapon.type === 'sniper') {
+  const fl = result.flash;
+  if (fl) {
+    stats.push(['Dodged', `${fl.dodges}<small>of ${fl.throws}</small>`]);
+    stats.push(['Flashed', fl.flashed]);
+    stats.push(['Avg. turn-away', fl.turn === null ? '–' : `${Math.round(fl.turn * 1000)}<small>ms</small>`]);
+    if (fl.peek) {
+      stats.push(['Kills', result.kills]);
+      stats.push(['Peeks lost', fl.lost]);
+    }
+  } else if (s.weapon.type === 'sniper') {
     stats.push(['Accuracy', pct(result.accuracy)]);
     stats.push(['Kills', result.kills]);
     stats.push(['Headshots', result.kills ? `${result.headshots}<small>${pct(result.headshots / result.kills)}</small>` : '0']);
@@ -385,6 +426,21 @@ function clock(sec) {
 }
 
 function coaching(r, s, v) {
+  const fl = r.flash;
+  if (fl) {
+    if (!fl.throws) return 'Phoenix only throws while you hold his angle: keep your crosshair on the crates.';
+    const fuse = game.eff.motion.fuse;
+    let text = fl.turn !== null
+      ? `You turned away <b>${Math.round(fl.turn * 1000)} ms</b> after the throw on average, with ${fuse.toFixed(2)} s before the pop.`
+      : 'You didn\'t dodge a flash this run.';
+    if (fl.flashed > fl.dodges) text += ' Most flashes caught you: turn the moment the orb shows round the corner (or you hear it), and turn well away, past 75°: a flash just off the edge of the screen still blinds you a little.';
+    else if (fl.flashed) text += ` ${fl.flashed} caught you. Turn a little further: at least 75° from the orb.`;
+    if (fl.peek) {
+      if (fl.lost > r.kills) text += ` Phoenix won <b>${fl.lost}</b> peeks. Turn back as soon as it pops, to where the orb came out: he swings from that side.`;
+      else if (r.kills) text += ` You won ${r.kills} of ${r.kills + fl.lost} peeks.`;
+    }
+    return text;
+  }
   if (s.weapon.type === 'sniper') {
     const spec = game.sniperSpec;
     if (r.shots === 0) return 'No shots fired. Right click to scope, left click to fire.';
@@ -633,7 +689,7 @@ function renderWeapon() {
   if (g.melee) {
     equip.disabled = true;
     equip.textContent = 'Scroll the mouse wheel in a run';
-    $('w-equip-note').textContent = '3 draws the knife, 1 your gun, Q swaps, F inspects.';
+    $('w-equip-note').textContent = '3 draws the knife, 1 your gun, the mouse wheel swaps, F inspects.';
   } else if (g.sniper) {
     equip.disabled = true;
     equip.textContent = 'Used in sniping scenarios';
@@ -1277,6 +1333,14 @@ $('btn-clear-runs').addEventListener('click', (e) => armButton(e.currentTarget, 
   $('danger-msg').textContent = 'Run history cleared.';
 }));
 
+// A dash or an updraft: a rush of wind at the screen's edges.
+function windRush() {
+  const fx = $('dash-fx');
+  fx.classList.remove('on');
+  void fx.offsetWidth;
+  fx.classList.add('on');
+}
+
 const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
 document.addEventListener('keydown', (e) => {
   const tag = e.target && e.target.tagName;
@@ -1292,7 +1356,14 @@ document.addEventListener('keydown', (e) => {
   }
   if (k === 'Space' && live) {
     e.preventDefault();
+    // Held in the air, Space drifts down slowly (Jett's Drift).
     if (!e.repeat) game.jump();
+    game.drift(true);
+    return;
+  }
+  if (k === 'KeyQ' && live) {
+    e.preventDefault();
+    if (!e.repeat) game.updraft();
     return;
   }
   if (k === 'ShiftLeft' || k === 'ShiftRight') {
@@ -1317,8 +1388,6 @@ document.addEventListener('keydown', (e) => {
     game.switchWeapon('gun');
   } else if (k === 'Digit3' || k === 'Numpad3') {
     game.switchWeapon('knife');
-  } else if (k === 'KeyQ' && !e.repeat) {
-    game.switchWeapon('toggle');
   } else if (k === 'KeyF' && !e.repeat) {
     game.inspectWeapon();
   } else if (k === 'KeyR' && game.state === 'paused') {
@@ -1337,6 +1406,7 @@ document.addEventListener('keydown', (e) => {
 });
 document.addEventListener('keyup', (e) => {
   if (MOVE_KEYS.has(e.code)) game.moveKey(e.code, false);
+  if (e.code === 'Space') game.drift(false);
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') game.crouch(false);
 });
 // Let go of every movement key when the window loses focus, so nothing

@@ -159,6 +159,13 @@ function onGameState(s) {
     $('pause-msg').textContent = game.run && game.run.free
       ? 'The run is frozen. Resume locks the mouse again; Finish run shows your results.'
       : 'The run is frozen. Resume locks the mouse again.';
+    // The last second before pausing, for checking a shaky or laggy view.
+    const p = game.pacing;
+    $('pause-stats').hidden = !p;
+    if (p) {
+      $('pause-stats').textContent = `Last second: ${pacingText(p.fps, p)}. Low-latency rendering ${settings.render.lowLatency ? 'on' : 'off'}.`
+        + (p.late > 0.05 ? ' Frames are coming late for your screen, which judders small movements: lower Render scale in Settings.' : '');
+    }
   }
   if (s === 'menu') {
     $('results').hidden = true;
@@ -209,6 +216,20 @@ function setFlash(f) {
   fx.style.setProperty('--clear', `${(f.clear * 100).toFixed(1)}%`);
 }
 
+// One line on how the game is running: frames against the display's
+// refresh, and what the mouse is sending. Shown by the frame-rate readout
+// and on the pause screen.
+function pacingText(fps, p) {
+  if (!p) return `${Math.round(fps)} fps`;
+  const parts = [`${Math.round(p.fps)} fps`];
+  if (p.hz) parts.push(`${Math.round(p.hz)} Hz screen`);
+  parts.push(`${Math.round(p.late * 100)}% late`);
+  parts.push(p.reports ? `mouse ${Math.round(p.reports)}/s, biggest ${Math.round(p.biggest)}${p.fractional ? ' (fractional)' : ''}` : 'mouse still');
+  parts.push(rawInput ? 'raw input' : 'no raw input');
+  parts.push(`render ${p.scale.toFixed(2)}x`);
+  return parts.join(' · ');
+}
+
 function renderHud(h) {
   setFlash(h.flash);
   if (!h) return;
@@ -237,8 +258,9 @@ function renderHud(h) {
 
   if (settings.showFps && performance.now() - hudFpsTimer > 250) {
     hudFpsTimer = performance.now();
-    // Frames that miss the display's refresh judder, so they're shown too.
-    $('hud-fps').textContent = `${Math.round(h.fps)} fps${h.late > 0.02 ? ` · ${Math.round(h.late * 100)}% late` : ''}`;
+    // Frames that miss the display's refresh judder, so they're shown too,
+    // with what the mouse is sending.
+    $('hud-fps').textContent = pacingText(h.fps, h.pacing);
   }
 }
 

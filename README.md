@@ -623,13 +623,18 @@ before the scope settled.
 - **Horizontal FOV**: 60–130°, converted to vertical FOV for your aspect ratio.
 - **Crosshair**: style, colour, length, thickness, gap, dot size and outline, with
   a live preview.
-- **Target and on-hit colours**, volume, auto-fire, and an FPS counter. The
-  counter also shows the share of frames that came late for your screen's
-  refresh ("12% late"), which is what makes slow aiming judder.
-- **Low-latency rendering** (on by default): the game draws straight to the
+- **Target and on-hit colours**, volume, auto-fire, and a frame-rate and
+  mouse readout: frames a second against your screen's refresh, the share of
+  frames that came late for it ("12% late", what makes slow aiming judder),
+  mouse reports a second and the biggest single report, whether raw input is
+  on, and the render scale. The pause screen always shows the same line for
+  the last second of play.
+- **Low-latency rendering** (off by default): the game draws straight to the
   screen (a desynchronized canvas) instead of waiting a frame for the page
-  compositor, so the view keeps up with the mouse. Chrome and Edge honour it;
-  it can tear slightly, and a change applies when the page reloads.
+  compositor, a frame less lag in Chrome and Edge. It can tear, which looks
+  like the view shaking on small movements, so it's off unless you turn it on
+  (settings saved before this change are switched off once). A change applies
+  when the page reloads.
 
 **Mouse input.** Trackline adds no acceleration or smoothing of its own: the
 view turns by exactly the mouse counts times your sensitivity, applied the

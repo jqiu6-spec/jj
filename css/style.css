@@ -126,9 +126,11 @@ body.in-menu #crosshair { display: none; }
 #hud.on-target .hud-stat b#hud-acc { color: var(--accent); }
 #hud-fps {
   position: fixed; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 4;
-  font: 500 12px/1 var(--font-mono); color: var(--text-2);
+  max-width: min(420px, calc(100vw - 24px)); text-align: right;
+  font: 500 12px/1.35 var(--font-mono); color: var(--text-2);
   text-shadow: 0 1px 2px #000; pointer-events: none;
 }
+.hint.mono { font-family: var(--font-mono); font-size: 12px; line-height: 1.5; }
 #countdown {
   position: fixed; left: 50%; top: 22%; transform: translateX(-50%);
   display: grid; justify-items: center; gap: 6px; z-index: 4; pointer-events: none;

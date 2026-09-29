@@ -17,6 +17,7 @@ export const CROSSHAIR_STYLES = {
 };
 
 export const DEFAULTS = {
+  version: 2, // settings format; see loadSettings
   sensMode: 'game', // 'game' | 'cm360'
   freePlay: false, // runs with no time limit: the clock counts up and you finish when you like
   game: 'source',
@@ -33,7 +34,10 @@ export const DEFAULTS = {
   render: {
     auto: true, // lower the resolution by itself when the frame rate drops
     scale: 1, // fixed fraction of the device pixel ratio (capped at 2) when not auto
-    lowLatency: true, // draw straight to the screen (desynchronized canvas): about a frame less lag
+    // Draw straight to the screen (a desynchronized canvas): about a frame
+    // less lag, but it can tear, which reads as the view shaking under small
+    // movements, so it's off unless you turn it on.
+    lowLatency: false,
   },
   weapon: {
     show: true, // gun model in first person
@@ -83,7 +87,17 @@ function merge(base, over) {
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return merge(DEFAULTS, JSON.parse(raw));
+    if (raw) {
+      const saved = JSON.parse(raw);
+      const s = merge(DEFAULTS, saved);
+      // Version 2 turned low-latency rendering off by default (it can tear);
+      // settings saved before then get the new default once.
+      if (!(saved.version >= 2)) {
+        s.render.lowLatency = false;
+        s.version = 2;
+      }
+      return s;
+    }
   } catch (e) { /* storage unavailable */ }
   return merge(DEFAULTS, {});
 }

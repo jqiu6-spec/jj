@@ -280,7 +280,7 @@
           <label class="f wide"><span>Horizontal FOV <output id="o-fov"></output></span><input type="range" id="s-fov" name="fov" min="60" max="130" step="1"></label>
           <label class="f"><span>Render scale</span><select id="s-renderScale" name="renderScale"><option value="auto">Auto (keeps the frame rate up)</option><option value="1">Full (Retina / HiDPI)</option><option value="0.75">75%</option><option value="0.5">50%, for slow laptops</option></select></label>
           <label class="check"><input type="checkbox" id="s-invertY" name="invertY"><span>Invert vertical look</span></label>
-          <label class="check"><input type="checkbox" id="s-lowLatency" name="lowLatency"><span>Low-latency rendering: about a frame less input lag in Chrome and Edge (may tear slightly; applies when the page reloads)</span></label>
+          <label class="check"><input type="checkbox" id="s-lowLatency" name="lowLatency"><span>Low-latency rendering: about a frame less input lag in Chrome and Edge, but the picture can tear, which looks like shaking on small movements (off by default; applies when the page reloads)</span></label>
         </div>
       </fieldset>
 
@@ -326,7 +326,7 @@
           <label class="f"><span>On-hit colour</span><input type="color" id="s-hitColor" name="hitColor"></label>
           <label class="f wide"><span>Volume <output id="o-volume"></output></span><input type="range" id="s-volume" name="volume" min="0" max="100" step="1"></label>
           <label class="check"><input type="checkbox" id="s-autoFire" name="autoFire"><span>Auto-fire in tracking scenarios (no need to hold mouse 1)</span></label>
-          <label class="check"><input type="checkbox" id="s-showFps" name="showFps"><span>Show frame rate</span></label>
+          <label class="check"><input type="checkbox" id="s-showFps" name="showFps"><span>Show frame rate and mouse input (reports a second, biggest report, late frames)</span></label>
         </div>
       </fieldset>
 
@@ -344,6 +344,7 @@
     <p class="eyebrow">Paused</p>
     <h2 id="pause-name"></h2>
     <p class="hint" id="pause-msg">The run is frozen. Resume locks the mouse again.</p>
+    <p class="hint mono" id="pause-stats" hidden></p>
     <div class="row">
       <button id="btn-resume" class="btn-primary">Resume</button>
       <button id="btn-end" hidden>Finish run</button>

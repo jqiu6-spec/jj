@@ -63,13 +63,14 @@ const COUNTDOWN = 3;
 // Share of frame intervals (seconds) that missed the display's refresh:
 // the refresh interval is taken from the quickest fifth of the frames, and a
 // frame half again as long as that came a refresh late.
-function lateShare(ints) {
-  if (ints.length < 10) return 0;
+// Returns { late, vsync } (vsync in seconds, 0 if too few frames).
+function frameStats(ints) {
+  if (ints.length < 10) return { late: 0, vsync: 0 };
   const sorted = ints.slice().sort((a, b) => a - b);
   const vsync = sorted[Math.floor(sorted.length * 0.2)];
   let late = 0;
   for (const d of ints) if (d > vsync * 1.5) late++;
-  return late / ints.length;
+  return { late: late / ints.length, vsync };
 }
 
 // ------------------------------------------------------------------ textures
@@ -298,6 +299,8 @@ export class Game {
     // lowered when frames run slow and raised again when there's headroom.
     this.dynScale = 1;
     this.perf = { frames: 0, time: 0, good: 0 };
+    this.inputWin = { reports: 0, biggest: 0, fractional: false }; // mouse reports this second
+    this.pacing = null;
     this.applySettings(settings);
     // Compile the effects' shaders now, not on the first shot.
     const unprime = this.fx.prime();
@@ -383,9 +386,11 @@ export class Game {
   // resizes the drawing buffer, which can hitch a frame, so during a run it
   // only steps down (at most once a second) and steps back up between runs
   // when the last one kept pace.
+  //
+  // Each second it also records what the frames and the mouse did
+  // (this.pacing), for the frame-rate readout and the pause screen.
   adaptResolution(rawDt) {
     const render = this.settings.render || {};
-    if (render.auto === false) return;
     const p = this.perf;
     if (rawDt > 0.25) { p.frames = 0; p.time = 0; p.ints = []; return; } // a stall or a hidden tab, not load
     if (!p.ints) p.ints = [];
@@ -395,13 +400,24 @@ export class Game {
     p.runFrames = (p.runFrames || 0) + 1;
     p.runTime = (p.runTime || 0) + rawDt;
     if (p.time < 1) return;
-    const late = lateShare(p.ints);
+    const { late, vsync } = frameStats(p.ints);
     const fps = p.frames / p.time;
+    const I = this.inputWin;
+    this.pacing = {
+      fps,
+      late,
+      hz: vsync > 0 ? 1 / vsync : 0, // the display's refresh, as the quickest frames show it
+      reports: I.reports / p.time, // mouse reports a second while it moved
+      biggest: I.biggest, // largest single report, counts
+      fractional: I.fractional, // the browser gave fractional counts
+      scale: this.renderer.getPixelRatio(),
+    };
+    Object.assign(I, { reports: 0, biggest: 0, fractional: false });
     p.runLate = (p.runLate || 0) + late * p.frames;
     p.frames = 0;
     p.time = 0;
     p.ints = [];
-    this.pacing = { fps, late };
+    if (render.auto === false) return;
     if ((fps < 50 || late > 0.1) && this.dynScale > 0.5) {
       this.dynScale = Math.max(0.5, this.dynScale - (fps < 35 || late > 0.3 ? 0.2 : 0.1));
       this.applyResolution();
@@ -1021,6 +1037,13 @@ export class Game {
     // Scoped: slower in proportion to the zoom, times the scoped multiplier.
     const scoped = this.zoomLevel ? this.scopedSensitivity(this.zoomLevel) : 1;
     const k = this.radPerCount * scoped;
+    const I = this.inputWin;
+    const big = Math.max(Math.abs(e.movementX), Math.abs(e.movementY));
+    if (big) {
+      I.reports++;
+      if (big > I.biggest) I.biggest = big;
+      if (e.movementX % 1 || e.movementY % 1) I.fractional = true;
+    }
     const dx = e.movementX * k;
     const dy = e.movementY * k * (this.settings.invertY ? -1 : 1);
     this.yaw -= dx;
@@ -2056,6 +2079,7 @@ export class Game {
       kills: r.kills,
       fps: this.fps,
       late: this.pacing ? this.pacing.late : 0, // share of frames that missed the display's refresh
+      pacing: this.pacing,
       flash: this.flashLook(), // Phoenix's flash on screen, or null
       ammo: this.sniper ? Infinity : null, // guns in sniping runs never run dry
       awp: this.awpHeld,

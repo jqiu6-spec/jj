@@ -781,7 +781,7 @@ function renderModelNote() {
     if (gv && gv.model.detailed) text = 'Detailed model: real mesh with its own normal maps. Pick "Original" to see its factory textures.';
     else if (gv && gv.failed) text = location.protocol === 'file:' && !window.TRACKLINE_MODELS
       ? 'The detailed model is missing: keep trackline-models.js in the same folder as trackline.html, then reload.'
-      : 'The detailed model could not load here, so the simple one is shown.';
+      : `The detailed model could not load here (${gv.failed}), so the simple one is shown.`;
     else text = 'Loading the detailed model…';
   }
   $('w-model-note').textContent = text;
@@ -1204,7 +1204,7 @@ function modelNotice(reason) {
   const el = $('model-notice');
   el.textContent = reason === 'offline'
     ? 'The detailed gun models are missing, so you\'re seeing the simple ones. Keep trackline-models.js in the same folder as trackline.html (unzip both files first; don\'t open the page from inside the zip), then reload.'
-    : `The detailed gun models couldn't load (${reason}), so the simple ones are shown. Reload the page to try again.`;
+    : `The detailed gun models couldn't load (${reason}), so the simple ones are shown. Reload the page to try again, and if it keeps happening, tell us this message and your browser.`;
   el.hidden = false;
 }
 if (location.protocol === 'file:' && !window.TRACKLINE_MODELS) modelNotice('offline');
@@ -1212,7 +1212,7 @@ if (location.protocol === 'file:' && !window.TRACKLINE_MODELS) modelNotice('offl
 // A detailed model finished loading: its parts and sticker spots differ.
 game.vm.onModel = (id) => {
   const gv = game.vm.guns[id];
-  if (gv && gv.failed && location.protocol !== 'file:') modelNotice(gv.failed);
+  if (gv && gv.failed && (location.protocol !== 'file:' || window.TRACKLINE_MODELS)) modelNotice(gv.failed);
   if (id !== weaponGun || $('panel-weapon').hidden) return;
   renderZones();
   renderStickers();

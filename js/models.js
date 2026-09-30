@@ -276,9 +276,10 @@ const TEX_KEYS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', '
 
 // Loads gun `id` and returns the same shape buildGun() does, plus `detailed`.
 // `mats` holds the fixed materials for the parts added in code.
-export async function loadDetailedGun(id, mats) {
+export async function loadDetailedGun(id, mats, onLoaded) {
   const info = MODEL_INFO[id];
   const gltf = await fetchModel(id);
+  if (onLoaded) onLoaded(); // the file is in; building the gun from it
   const scene = gltf.scene;
   scene.updateMatrixWorld(true);
 

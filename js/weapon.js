@@ -290,15 +290,24 @@ class GunView {
       return;
     }
     if (!this.loading) {
-      this.loading = loadDetailedGun(this.id, FIXED).then((m) => {
+      // On failure, `failed` says which step broke (loading the file,
+      // building the gun from it, or putting it on screen with its skin)
+      // and why, for the notice in the menu.
+      let step = 'loading';
+      this.loading = loadDetailedGun(this.id, FIXED, () => { step = 'building'; }).then((m) => {
+        step = 'showing';
         this.detailed = m;
         if (this.wantDetailed) {
           this.setModel(m);
           if (this.onModel) this.onModel(this);
         }
       }).catch((e) => {
-        this.failed = String(e && e.message ? e.message : e);
-        console.warn(`Trackline: using the simple ${this.info.name} model (${this.failed})`);
+        try {
+          if (this.model !== this.simple) this.setModel(this.simple);
+        } catch (err) { /* keep whatever is showing */ }
+        this.detailed = null;
+        this.failed = `${this.info.name}, ${step}: ${e && e.message ? e.message : e}`;
+        console.warn(`Trackline: using the simple ${this.info.name} model (${this.failed})`, e);
         if (this.onModel) this.onModel(this);
       });
     }

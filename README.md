@@ -266,8 +266,8 @@ more say over where you land.
 
 **Recoil** (clicking and sniping scenarios). The AK-47 kicks like CS2's: each round of a spray climbs the view,
 about 3.5° over the first second of full auto, and wanders left and right
-after the first ten rounds; the M4A1-S and Phantom climb about a third as much
-and barely wander. The first shot goes where you aim, the view itself moves
+after the first ten rounds; the M4A1-S, XM7, Phantom and Vandal climb about a
+third as much and barely wander. The first shot goes where you aim, the view itself moves
 (so shots land on the crosshair and you pull down against it), and it settles
 back within half a second of letting go. The other guns have none, and in
 tracking scenarios the view never kicks (the gun still does), since it would

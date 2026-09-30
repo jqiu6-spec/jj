@@ -46,7 +46,7 @@ export const DEFAULTS = {
     fov: 60, // viewmodel field of view
     sounds: true,
     headshot: true, // CS:GO's headshot sound on hits to the head
-    recoil: true, // spray patterns: AK-47 strong, M4A1-S and Phantom slight
+    recoil: true, // spray patterns: AK-47 strong; M4A1-S, XM7, Phantom and Vandal slight
     sway: false, // the gun trails the view when you move the mouse (off: locked to the view)
     hands: true, // gloved hands holding the weapon in first person
     gloveColor: '#2b2d31',

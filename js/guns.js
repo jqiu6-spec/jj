@@ -83,6 +83,7 @@ export const GUNS = {
     name: 'XM7',
     run: 5.33, // m/s running: CS2 210 units/s (estimate)
     bodyShots: 3,
+    recoil: 'light',
     kind: 'Rifle',
     fireInterval: 0.075, // 800 rounds per minute
     blurb: 'The US Army\'s 6.8 mm rifle: long slotted handguard, flip-up sights, straight box magazine, folding stock. Fires at 800 rounds per minute here.',
@@ -104,6 +105,7 @@ export const GUNS = {
     name: 'Vandal 2021',
     run: 5.4, // m/s running: Valorant's run speed
     bodyShots: 4,
+    recoil: 'light',
     kind: 'Rifle',
     fireInterval: 1 / 9.75, // Valorant Vandal: 9.75 rounds per second
     blurb: 'Valorant\'s Vandal in the Champions 2021 finish. 9.75 rounds per second, a gold tracer, and a kill sound that climbs with each kill in a streak.',

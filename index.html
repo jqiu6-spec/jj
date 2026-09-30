@@ -272,6 +272,16 @@
         </div>
         <p class="readout" id="sens-readout"></p>
         <p class="hint" id="raw-status">Raw input is used when the browser supports it, so your Windows pointer speed and acceleration do not apply.</p>
+        <label class="check"><input type="checkbox" id="s-rawInput" name="rawInput"><span>Raw input: take the mouse's own counts, skipping the system's pointer acceleration (Chrome and Edge)</span></label>
+        <div class="mouse-check" id="mouse-check">
+          <div class="mc-head"><span class="mc-title">Mouse check</span><button type="button" class="mc-start">Start</button></div>
+          <p class="hint">Does the same hand movement always turn you the same amount, whether you make it slowly, fast or in small nudges? It should: the game turns by mouse counts alone. You need two fixed stops a hand-width or more apart, like the edges of your mousepad, or a book and your keyboard.</p>
+          <div class="mc-pad" hidden>
+            <p class="mc-step"></p>
+            <p class="mc-live"></p>
+          </div>
+          <div class="mc-result" hidden></div>
+        </div>
       </fieldset>
 
       <fieldset>

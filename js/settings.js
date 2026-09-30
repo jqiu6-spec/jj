@@ -31,6 +31,7 @@ export const DEFAULTS = {
   targetColor: '#ff4f64',
   hitColor: '#ffe066',
   showFps: false,
+  rawInput: true, // ask the browser for the mouse's own counts (no pointer acceleration)
   render: {
     auto: true, // lower the resolution by itself when the frame rate drops
     scale: 1, // fixed fraction of the device pixel ratio (capped at 2) when not auto

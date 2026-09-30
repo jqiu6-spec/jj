@@ -636,6 +636,21 @@ before the scope settled.
   (settings saved before this change are switched off once). A change applies
   when the page reloads.
 
+**Mouse check** (Settings › Sensitivity). The same hand movement should turn
+you the same amount whether you make it slowly, fast or in small nudges,
+since the game turns by mouse counts alone. The check measures it: with two
+fixed stops a hand-width or more apart (the edges of your mousepad, or a
+book and your keyboard), you move from one to the other three times, slowly,
+with a quick flick and in lots of small nudges, clicking at each end, under
+the same pointer lock and raw input as a run. It shows the counts of each
+pass against the slow one, the mouse's reports a second and its biggest
+single report, and says whether your input is linear. If it isn't, it says
+how (quick moves going further, small ones shrinking) and what to change:
+the browser (Chrome or Edge for raw input), the system's pointer
+acceleration (macOS Pointer acceleration, Windows Enhance pointer
+precision), or the mouse's own software (acceleration, smoothing, angle
+snapping). **Raw input**, next to it, can be switched off to compare.
+
 **Mouse input.** Trackline adds no acceleration or smoothing of its own: the
 view turns by exactly the mouse counts times your sensitivity, applied the
 moment they arrive, and nothing else moves it (no recoil while tracking, no
@@ -662,6 +677,7 @@ Settings and run history are saved in `localStorage`.
 index.html            page shell, HUD and menus
 css/style.css         styles
 js/main.js            UI wiring: menus, settings, results
+js/mousecheck.js      the Mouse check in Settings (is your mouse input linear?)
 js/game.js            renderer, arena, camera, weapons, run state machine
 js/motion.js          target movement models (wander, strafe, Valorant agent, crate peeks, Phoenix's flash, air, orbit, bounce)
 js/scenarios.js       scenario definitions

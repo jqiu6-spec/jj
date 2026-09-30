@@ -28,6 +28,7 @@ const IS_CHROMIUM = !!(navigator.userAgentData && navigator.userAgentData.brands
   || (/(Chrome|Chromium|Edg)\//.test(navigator.userAgent || '') && !/Firefox|FxiOS/.test(navigator.userAgent || '') && !IS_SAFARI);
 import { runsFor, bestRun, addRun, clearRuns, average } from './stats.js';
 import { paceChart, sparkline } from './chart.js';
+import { initMouseCheck } from './mousecheck.js';
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
@@ -93,11 +94,12 @@ function changeSetup(patch) {
 async function lockPointer() {
   $('lock-error').hidden = true;
   if (!canvas.requestPointerLock) throw new Error('unsupported');
+  const wantRaw = settings.rawInput !== false;
   try {
-    const p = canvas.requestPointerLock({ unadjustedMovement: true });
+    const p = wantRaw ? canvas.requestPointerLock({ unadjustedMovement: true }) : canvas.requestPointerLock();
     if (p && p.then) await p;
     // Only Chromium browsers honour the request for raw input.
-    rawInput = !!(p && p.then) && IS_CHROMIUM;
+    rawInput = wantRaw && !!(p && p.then) && IS_CHROMIUM;
   } catch (err) {
     if (err && err.name === 'NotSupportedError') {
       const p = canvas.requestPointerLock();
@@ -524,6 +526,7 @@ function syncForm() {
   $('s-volume').value = s.volume;
   $('s-autoFire').checked = s.autoFire;
   $('s-showFps').checked = s.showFps;
+  $('s-rawInput').checked = s.rawInput !== false;
   $('s-handling-cs2').checked = s.sniper.handling !== 'operator';
   $('s-handling-operator').checked = s.sniper.handling === 'operator';
   $('s-scope-toggle').checked = s.sniper.scopeMode !== 'hold';
@@ -576,7 +579,8 @@ function renderSensReadout() {
   $('sens-readout').innerHTML = `<b>${cm.toFixed(2)} cm/360°</b> <span>·</span> ${(cm / 2.54).toFixed(2)} in/360° <span>·</span> ${deg.toFixed(4)}° per count <span>·</span> ${Math.round(360 / deg).toLocaleString('en-US')} counts per turn`;
   $('sens-chip').textContent = `${cm.toFixed(1)} cm/360 · ${settings.fov}° FOV`;
   const status = $('raw-status');
-  if (rawInput === true) status.textContent = 'Raw input is active: the browser reports unaccelerated mouse counts, so the conversion is exact.';
+  if (settings.rawInput === false) status.textContent = 'Raw input is off (below), so the system\'s pointer speed and acceleration apply. Run the Mouse check to compare.';
+  else if (rawInput === true) status.textContent = 'Raw input is active: the browser reports unaccelerated mouse counts, so the conversion is exact.';
   else if (rawInput === false && IS_MAC) status.textContent = 'This browser does not offer raw input, so macOS pointer acceleration applies and the cm/360 figure is approximate. Chrome and Edge on macOS give raw input; otherwise turn off System Settings › Mouse › Advanced › Pointer acceleration.';
   else if (rawInput === false) status.textContent = 'This browser does not offer raw input, so OS pointer speed and acceleration apply. On Windows, set pointer speed to 6/11 and turn off Enhance pointer precision. Chrome and Edge on Windows give raw input.';
   else status.textContent = IS_MAC
@@ -612,6 +616,7 @@ function readForm() {
   s.volume = parseInt($('s-volume').value, 10);
   s.autoFire = $('s-autoFire').checked;
   s.showFps = $('s-showFps').checked;
+  s.rawInput = $('s-rawInput').checked;
   s.sniper.handling = $('s-handling-operator').checked ? 'operator' : 'cs2';
   s.sniper.scopeMode = $('s-scope-hold').checked ? 'hold' : 'toggle';
   s.sniper.scopedSens = parseFloat($('s-scopedSens').value);
@@ -1303,6 +1308,7 @@ $('menu').addEventListener('scroll', recentre, { passive: true });
 $('settings-form').addEventListener('input', readForm);
 $('settings-form').addEventListener('change', readForm);
 $('settings-form').addEventListener('submit', (e) => e.preventDefault());
+initMouseCheck({ el: $('mouse-check'), wantRaw: () => settings.rawInput !== false, isChromium: IS_CHROMIUM, isMac: IS_MAC });
 $('tab-scenarios').addEventListener('click', () => showTab('scenarios'));
 $('tab-settings').addEventListener('click', () => showTab('settings'));
 $('tab-weapon').addEventListener('click', () => showTab('weapon'));

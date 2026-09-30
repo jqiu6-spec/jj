@@ -17,7 +17,10 @@ edit, stickers, selectable fire and kill sounds, and AWP sniping drills with CS2
 `dist/trackline-models.js` into the same folder and double-click the HTML file.
 It opens straight from disk in Chrome, Edge, Firefox or Safari. The second file
 holds the detailed gun models; without it the trainer still runs, with the
-simple built-in guns. Your settings, skins and scores are saved in that browser.
+simple built-in guns, and a notice at the top says the models file is missing.
+If you copy the two files as a zip, unzip it first: opening the HTML from
+inside the zip leaves the models file behind. Your settings, skins and scores
+are saved in that browser, so a new computer starts from the defaults.
 
 **From the source:** the site uses ES modules, so serve the folder over HTTP.
 Opening `index.html` straight from disk won't work.

@@ -779,7 +779,9 @@ function renderModelNote() {
   let text = 'Simple built-in model.';
   if (settings.weapon.models !== 'simple' && MODEL_INFO[weaponGun]) {
     if (gv && gv.model.detailed) text = 'Detailed model: real mesh with its own normal maps. Pick "Original" to see its factory textures.';
-    else if (gv && gv.failed) text = 'The detailed model could not load here, so the simple one is shown.';
+    else if (gv && gv.failed) text = location.protocol === 'file:' && !window.TRACKLINE_MODELS
+      ? 'The detailed model is missing: keep trackline-models.js in the same folder as trackline.html, then reload.'
+      : 'The detailed model could not load here, so the simple one is shown.';
     else text = 'Loading the detailed model…';
   }
   $('w-model-note').textContent = text;
@@ -1193,8 +1195,24 @@ viewInput('w-sleeve', (el) => { settings.weapon.sleeveColor = el.value; });
 viewInput('w-fov', (el) => { settings.weapon.fov = parseInt(el.value, 10); });
 viewInput('w-models', (el) => { settings.weapon.models = el.value === 'simple' ? 'simple' : 'detailed'; });
 $('w-models').addEventListener('input', () => { renderZones(); renderStickers(); renderModelNote(); });
+// When the detailed gun models can't load, the guns fall back to the simple
+// built-in ones; say so plainly, and why, rather than leaving it to be
+// noticed. Offline, the models live in trackline-models.js, which has to
+// sit next to trackline.html.
+function modelNotice(reason) {
+  if (settings.weapon.models === 'simple') return;
+  const el = $('model-notice');
+  el.textContent = reason === 'offline'
+    ? 'The detailed gun models are missing, so you\'re seeing the simple ones. Keep trackline-models.js in the same folder as trackline.html (unzip both files first; don\'t open the page from inside the zip), then reload.'
+    : `The detailed gun models couldn't load (${reason}), so the simple ones are shown. Reload the page to try again.`;
+  el.hidden = false;
+}
+if (location.protocol === 'file:' && !window.TRACKLINE_MODELS) modelNotice('offline');
+
 // A detailed model finished loading: its parts and sticker spots differ.
 game.vm.onModel = (id) => {
+  const gv = game.vm.guns[id];
+  if (gv && gv.failed && location.protocol !== 'file:') modelNotice(gv.failed);
   if (id !== weaponGun || $('panel-weapon').hidden) return;
   renderZones();
   renderStickers();

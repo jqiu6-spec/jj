@@ -649,7 +649,12 @@ how (quick moves going further, small ones shrinking) and what to change:
 the browser (Chrome or Edge for raw input), the system's pointer
 acceleration (macOS Pointer acceleration, Windows Enhance pointer
 precision), or the mouse's own software (acceleration, smoothing, angle
-snapping). **Raw input**, next to it, can be switched off to compare.
+snapping). In Chrome and Edge it runs the passes twice, with raw input and
+without, since they take different routes from the mouse (on macOS, raw input
+is the system's "unaccelerated" movement, which the Pointer acceleration
+switch doesn't touch; without raw input it's the pointer's own movement,
+exact once that switch is off), and recommends whichever came out linear,
+with a button to switch **Raw input** (next to the check) to match.
 
 **Mouse input.** Trackline adds no acceleration or smoothing of its own: the
 view turns by exactly the mouse counts times your sensitivity, applied the

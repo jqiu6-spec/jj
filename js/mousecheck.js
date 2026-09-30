@@ -1,10 +1,17 @@
 // Mouse check (Settings): does the same hand movement always turn you the
-// same amount, however you make it? Three passes between the same two
-// fixed stops, slowly, fast and in small nudges, under pointer lock and
-// asking for raw input exactly as a run does. With nothing between the
-// mouse and the page changing the counts (pointer acceleration, rounding of
-// small moves, smoothing in mouse software), every pass adds up to the same
-// number of counts, since the game turns the view by counts alone.
+// same amount, however you make it? Passes between the same two fixed
+// stops, slowly, fast and in small nudges, under pointer lock. With nothing
+// between the mouse and the page changing the counts (pointer acceleration,
+// rounding of small moves, smoothing in mouse software), every pass adds up
+// to the same number of counts, since the game turns the view by counts
+// alone.
+//
+// In Chrome and Edge it runs the passes twice, with raw input and without,
+// because the two take different routes from the mouse: raw input is the
+// mouse's own counts as the system reports them (on macOS, its
+// "unaccelerated" movement), and without it the counts are the pointer's
+// movement, which is exact once the system's pointer acceleration is off.
+// It then recommends whichever came out linear.
 
 const PASSES = [
   { name: 'Slowly', tell: 'Put the mouse against the left stop. Click, move it <b>slowly</b> to the right stop (take about three seconds), then click again.' },
@@ -13,69 +20,82 @@ const PASSES = [
 ];
 // Hands aren't exact: passes within this share of the slow one count as the same.
 const TOLERANCE = 0.06;
-// Fewer counts than this in the slow pass: the stops are too close to measure.
+// Fewer counts than this in a slow pass: the stops are too close to measure.
 const MIN_COUNTS = 150;
 
-// `el` holds the check's markup (see index.html); `wantRaw()` says whether
-// to ask for raw input (the Raw input setting); `isChromium` and `isMac`
-// pick the advice.
-export function initMouseCheck({ el, wantRaw, isChromium, isMac }) {
+// `el` holds the check's markup (see index.html). `getRaw()` / `setRaw(on)`
+// read and change the Raw input setting; `isChromium` (raw input possible)
+// and `isMac` pick the passes and the advice.
+export function initMouseCheck({ el, getRaw, setRaw, isChromium, isMac }) {
   const $ = (sel) => el.querySelector(sel);
   const pad = $('.mc-pad');
   const stepEl = $('.mc-step');
   const liveEl = $('.mc-live');
   const resultEl = $('.mc-result');
-  let index = -1; // pass under way, -1 when idle
+  let steps = []; // { pass, raw } in order
+  let index = -1; // step under way, -1 when idle
   let pass = null; // counts of the pass being measured, between its clicks
   let results = [];
-  let raw = false; // raw input was granted for this check
+  let lockedRaw = null; // raw input granted to the current lock
 
   const showStep = () => {
-    stepEl.innerHTML = `<span class="mc-n">${index + 1} of ${PASSES.length}</span> ${PASSES[index].tell}`;
-    liveEl.textContent = document.pointerLockElement === pad ? 'Mouse locked. Click to begin this pass.' : 'Click here to lock the mouse.';
+    const s = steps[index];
+    const group = isChromium ? ` <span class="mc-n">(raw input ${s.raw ? 'on' : 'off'})</span>` : '';
+    stepEl.innerHTML = `<span class="mc-n">${index + 1} of ${steps.length}</span> ${PASSES[s.pass].tell}${group}`;
+    const ready = document.pointerLockElement === pad && lockedRaw === s.raw;
+    liveEl.textContent = ready ? 'Mouse locked. Click to begin this pass.'
+      : document.pointerLockElement === pad ? `Click to switch raw input ${s.raw ? 'on' : 'off'}, then click again to begin.`
+        : 'Click here to lock the mouse.';
   };
 
-  async function lock() {
-    const ask = wantRaw();
+  // Lock the mouse to the pad, with or without raw input; while it's locked
+  // this changes the kind of lock in place.
+  async function lock(raw) {
     try {
-      const p = ask ? pad.requestPointerLock({ unadjustedMovement: true }) : pad.requestPointerLock();
+      const p = raw ? pad.requestPointerLock({ unadjustedMovement: true }) : pad.requestPointerLock();
       if (p && p.then) await p;
-      raw = ask && !!(p && p.then) && isChromium;
+      lockedRaw = raw && !!(p && p.then) && isChromium;
     } catch (err) {
       if (err && err.name === 'NotSupportedError') {
         const p = pad.requestPointerLock();
         if (p && p.then) await p;
-        raw = false;
+        lockedRaw = false;
       } else {
         liveEl.textContent = 'The browser refused to lock the mouse. Click here again in a moment.';
+        return;
       }
     }
+    if (index >= 0) showStep();
   }
 
   $('.mc-start').addEventListener('click', () => {
+    // Raw input first where there is any, then without.
+    const modes = isChromium ? [true, false] : [false];
+    steps = modes.flatMap((raw) => PASSES.map((_, pass) => ({ pass, raw })));
     index = 0;
     pass = null;
     results = [];
     resultEl.hidden = true;
     pad.hidden = false;
     showStep();
-    lock();
+    lock(steps[0].raw);
   });
 
   pad.addEventListener('mousedown', (e) => {
     if (index < 0 || e.button !== 0) return;
     e.preventDefault();
-    if (document.pointerLockElement !== pad) { lock(); return; }
+    const s = steps[index];
+    if (document.pointerLockElement !== pad || lockedRaw !== s.raw) { lock(s.raw); return; }
     if (!pass) {
-      pass = { x: 0, y: 0, reports: 0, biggest: 0, t0: performance.now() };
+      pass = { x: 0, reports: 0, biggest: 0, t0: performance.now() };
       liveEl.textContent = 'Measuring… click at the right stop.';
       return;
     }
     pass.time = (performance.now() - pass.t0) / 1000;
-    results.push(pass);
+    results.push({ ...s, ...pass });
     pass = null;
     index++;
-    if (index < PASSES.length) { showStep(); return; }
+    if (index < steps.length) { showStep(); return; }
     index = -1;
     pad.hidden = true;
     document.exitPointerLock();
@@ -85,7 +105,6 @@ export function initMouseCheck({ el, wantRaw, isChromium, isMac }) {
   document.addEventListener('mousemove', (e) => {
     if (!pass || document.pointerLockElement !== pad) return;
     pass.x += e.movementX;
-    pass.y += Math.abs(e.movementY);
     const big = Math.max(Math.abs(e.movementX), Math.abs(e.movementY));
     if (big) {
       pass.reports++;
@@ -95,51 +114,87 @@ export function initMouseCheck({ el, wantRaw, isChromium, isMac }) {
   });
 
   document.addEventListener('pointerlockchange', () => {
-    if (index >= 0 && document.pointerLockElement !== pad) {
+    if (index < 0) return;
+    if (document.pointerLockElement !== pad) {
       pass = null;
+      lockedRaw = null;
       liveEl.textContent = 'Mouse released. Click here to carry on with this pass.';
-    } else if (index >= 0) {
+    } else {
       showStep();
     }
   });
 
+  // One mode's passes: counts against its slow pass, and how far off the
+  // others are.
+  function judge(rows) {
+    const base = Math.abs(rows[0].x);
+    const out = rows.map((r) => ({
+      name: PASSES[r.pass].name,
+      counts: Math.abs(r.x),
+      k: base ? Math.abs(r.x) / base : 0,
+      rate: r.time > 0 ? Math.round(r.reports / r.time) : 0,
+      biggest: r.biggest,
+    }));
+    const off = out.slice(1).map((r) => r.k - 1);
+    return { rows: out, base, off, worst: Math.max(...off.map(Math.abs)), linear: base >= MIN_COUNTS && Math.max(...off.map(Math.abs)) <= TOLERANCE };
+  }
+
+  function describe(j) {
+    const [fast, small] = j.off;
+    const what = [];
+    if (Math.abs(fast) > TOLERANCE) what.push(fast > 0 ? `quick moves came to ${Math.round(fast * 100)}% more counts than slow ones` : `quick moves came to ${Math.round(-fast * 100)}% fewer counts than slow ones`);
+    if (Math.abs(small) > TOLERANCE) what.push(small < 0 ? `small nudges came to ${Math.round(-small * 100)}% fewer counts (small movements shrink)` : `small nudges came to ${Math.round(small * 100)}% more counts (small movements grow)`);
+    return what.join('; ');
+  }
+
   function report() {
-    const [slow] = results;
-    const base = Math.abs(slow.x);
-    if (base < MIN_COUNTS) {
-      resultEl.hidden = false;
-      resultEl.innerHTML = `<p>The slow pass came to only ${base} counts, too few to compare. Use stops further apart (15 cm or more) and move left to right, then run the check again.</p>`;
+    const groups = [true, false].map((raw) => results.filter((r) => r.raw === raw)).filter((g) => g.length);
+    const judged = groups.map((g) => ({ raw: g[0].raw, ...judge(g) }));
+    const tooShort = judged.find((j) => j.base < MIN_COUNTS);
+    resultEl.hidden = false;
+    if (tooShort) {
+      resultEl.innerHTML = `<p>A slow pass came to only ${tooShort.base} counts, too few to compare. Use stops further apart (15 cm or more) and move left to right, then run the check again.</p>`;
       return;
     }
-    const rows = results.map((r, i) => {
-      const k = Math.abs(r.x) / base;
-      const rate = r.time > 0 ? Math.round(r.reports / r.time) : 0;
-      return { name: PASSES[i].name, counts: Math.abs(r.x), k, rate, biggest: r.biggest };
-    });
-    const off = rows.slice(1).map((r) => r.k - 1);
-    const worst = Math.max(...off.map(Math.abs));
-    const table = rows.map((r) => `<tr><td>${r.name}</td><td>${r.counts.toLocaleString('en-US')}</td><td>${r.k.toFixed(2)}×</td><td>${r.rate}/s</td><td>${r.biggest}</td></tr>`).join('');
+    const withRaw = judged.find((j) => j.raw);
+    const without = judged.find((j) => !j.raw);
+    const accelFix = isMac
+      ? 'System Settings › Mouse › Pointer acceleration (under Advanced… on older macOS)'
+      : 'Enhance pointer precision, in Settings › Bluetooth & devices › Mouse › Additional mouse settings › Pointer Options, with the pointer speed in the middle (6 of 11)';
     let verdict;
-    if (worst <= TOLERANCE) {
-      verdict = `<p class="ok"><b>Linear.</b> All three passes came within ${Math.round(worst * 100)}% of each other, so small, slow and fast movements turn you by the same amount; the game gets your mouse exactly. If aiming still looks unstable, it's the picture rather than the mouse: press Esc in a run and check the line on the pause screen for late frames.</p>`;
-    } else {
-      const [fast, small] = off;
-      const what = [];
-      if (Math.abs(fast) > TOLERANCE) what.push(fast > 0 ? `the fast pass came to ${Math.round(fast * 100)}% more counts than the slow one, so quick movements turn you further` : `the fast pass came to ${Math.round(-fast * 100)}% fewer counts than the slow one`);
-      if (Math.abs(small) > TOLERANCE) what.push(small < 0 ? `small nudges came to ${Math.round(-small * 100)}% fewer counts, so small movements are being shrunk or lost` : `small nudges came to ${Math.round(small * 100)}% more counts, so small movements are being enlarged`);
-      let fix;
-      if (!raw) {
-        fix = isMac
-          ? 'Raw input isn\'t on, so macOS pointer acceleration changes the counts with speed. Play in Chrome or Edge with Raw input on, or turn off System Settings › Mouse › Pointer acceleration (under Advanced… on older macOS).'
-          : 'Raw input isn\'t on, so Windows changes the counts with speed. Play in Chrome or Edge with Raw input on, or turn off Enhance pointer precision (Settings › Bluetooth & devices › Mouse › Additional mouse settings › Pointer Options) and set the pointer speed to the middle (6 of 11).';
+    let apply = null; // the Raw input setting to recommend
+    if (withRaw && without) {
+      if (withRaw.linear && without.linear) {
+        verdict = `<p class="ok"><b>Linear both ways.</b> Small, slow and fast movements turn you by the same amount, with raw input and without, so the game gets your mouse exactly. If aiming still looks unstable, it's the picture rather than the mouse: press Esc in a run and check the line on the pause screen for late frames.</p>`;
+      } else if (!withRaw.linear && without.linear) {
+        apply = false;
+        verdict = `<p class="bad"><b>Raw input isn't linear on this computer:</b> ${describe(withRaw)}. Without raw input it is. Turn Raw input off, and keep the system's pointer acceleration off: ${accelFix}.</p>`;
+      } else if (withRaw.linear && !without.linear) {
+        apply = true;
+        verdict = `<p class="ok"><b>Raw input is linear; keep it on.</b> Without it, ${describe(without)}, which is the system's pointer acceleration: ${accelFix}.</p>`;
       } else {
-        fix = `Raw input is on, so the browser isn't adding acceleration: look at your mouse's own software (Logitech G HUB, Razer Synapse, SteelSeries GG and the like) for acceleration, smoothing, "angle snapping" or "lift-off" settings and turn them off.${isMac ? ' On macOS, Chrome\'s raw input can also round small moves: turn Raw input off above, turn off System Settings › Mouse › Pointer acceleration, and run the check again to compare.' : ' You can also turn Raw input off above and run the check again to compare.'}`;
+        verdict = `<p class="bad"><b>Not linear either way:</b> with raw input, ${describe(withRaw)}; without, ${describe(without)}. Since both routes are off, it's likely the mouse itself: its software (Logitech G HUB, Razer Synapse, SteelSeries GG and the like) can add acceleration, smoothing, "angle snapping" or a "lift-off" cut; turn those off and run the check again.</p>`;
       }
-      verdict = `<p class="bad"><b>Not linear:</b> ${what.join('; ')}. Something between your mouse and the game changes the counts with how you move it. ${fix}</p>`;
+    } else {
+      const j = without || withRaw;
+      verdict = j.linear
+        ? `<p class="ok"><b>Linear.</b> Small, slow and fast movements turn you by the same amount, so the game gets your mouse exactly. If aiming still looks unstable, press Esc in a run and check the line on the pause screen for late frames.</p>`
+        : `<p class="bad"><b>Not linear:</b> ${describe(j)}. This browser can't give raw input, so the system's pointer acceleration applies: turn off ${accelFix}, or play in Chrome or Edge.</p>`;
     }
-    resultEl.hidden = false;
-    resultEl.innerHTML = `${verdict}
+    const table = judged.map((j) => j.rows.map((r) => `<tr><td>${isChromium ? `${j.raw ? 'Raw' : 'No raw'}: ` : ''}${r.name}</td><td>${r.counts.toLocaleString('en-US')}</td><td>${r.k.toFixed(2)}×</td><td>${r.rate}/s</td><td>${r.biggest}</td></tr>`).join('')).join('');
+    const current = getRaw();
+    const button = apply !== null && apply !== current
+      ? `<button type="button" class="mc-start mc-apply">Turn Raw input ${apply ? 'on' : 'off'}</button>`
+      : apply !== null ? `<p class="hint">Raw input is already ${apply ? 'on' : 'off'}.</p>` : '';
+    resultEl.innerHTML = `${verdict}${button}
       <table class="mc-table"><thead><tr><th>Pass</th><th>Counts</th><th>vs slow</th><th>Reports</th><th>Biggest</th></tr></thead><tbody>${table}</tbody></table>
-      <p class="hint">Raw input ${raw ? 'on' : 'off'} for this check. Reports: how many times a second the mouse sent movement; biggest: the largest single report, in counts.</p>`;
+      <p class="hint">Counts are compared with the slow pass of the same kind. Reports: how many times a second the mouse sent movement; biggest: the largest single report, in counts.</p>`;
+    const b = resultEl.querySelector('.mc-apply');
+    if (b) {
+      b.addEventListener('click', () => {
+        setRaw(apply);
+        b.replaceWith(Object.assign(document.createElement('p'), { className: 'hint', textContent: `Raw input is now ${apply ? 'on' : 'off'}; it applies from your next run.` }));
+      });
+    }
   }
 }

@@ -1308,7 +1308,18 @@ $('menu').addEventListener('scroll', recentre, { passive: true });
 $('settings-form').addEventListener('input', readForm);
 $('settings-form').addEventListener('change', readForm);
 $('settings-form').addEventListener('submit', (e) => e.preventDefault());
-initMouseCheck({ el: $('mouse-check'), wantRaw: () => settings.rawInput !== false, isChromium: IS_CHROMIUM, isMac: IS_MAC });
+initMouseCheck({
+  el: $('mouse-check'),
+  getRaw: () => settings.rawInput !== false,
+  setRaw: (on) => {
+    settings.rawInput = on;
+    saveSettings(settings);
+    $('s-rawInput').checked = on;
+    renderSensReadout();
+  },
+  isChromium: IS_CHROMIUM,
+  isMac: IS_MAC,
+});
 $('tab-scenarios').addEventListener('click', () => showTab('scenarios'));
 $('tab-settings').addEventListener('click', () => showTab('settings'));
 $('tab-weapon').addEventListener('click', () => showTab('weapon'));

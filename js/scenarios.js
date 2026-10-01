@@ -433,7 +433,7 @@ export const SCENARIOS = [
     id: 'flash-dodge',
     name: 'Curveball Dodge',
     category: 'flash',
-    blurb: 'Hold the crates. Phoenix throws his Curveball round one of them: when the orb comes round the corner, turn your back on it before it pops. Look at it and you are blind for up to a second.',
+    blurb: 'Hold the crates. Phoenix throws his Curveball round one of them: when the orb comes round the corner, turn your back on it before it pops, anywhere from 0.15 to 0.5 s after the throw, never the same twice. Look at it and you are blind for up to a second.',
     duration: 60,
     arena: FLASH_ROOM,
     weapon: FLASH_GUNS,
@@ -442,9 +442,8 @@ export const SCENARIOS = [
     count: 1,
     target: PHOENIX,
     respawn: 0.6,
-    motion: { type: 'flash', peek: false, fuse: 0.6, wait: [0.8, 2.2], hold: [0.9, 1.3] },
-    levels: FLASH_LEVELS,
-    defaultLevel: 'medium',
+    // Each throw pops at a random time from 0.15 to 0.5 s.
+    motion: { type: 'flash', peek: false, fuse: [0.15, 0.5], wait: [0.8, 2.2], hold: [0.9, 1.3] },
   },
   {
     id: 'flash-peek',
@@ -552,7 +551,8 @@ export function describe(scn, v = defaultSetup(scn)) {
   let speed = 'Static';
   const strafeOnly = agent && m.mix && Object.keys(m.mix).every((k) => ['strafe', 'swing', 'stop'].includes(k));
   if (m.type === 'flash') {
-    speed = `The flash pops ${m.fuse} s after the throw${m.peek ? `; he holds the peek ${m.hold[0]}–${m.hold[1]} s` : ''}`;
+    const pop = Array.isArray(m.fuse) ? `${m.fuse[0]}–${m.fuse[1]} s (random each throw)` : `${m.fuse} s`;
+    speed = `The flash pops ${pop} after the throw${m.peek ? `; he holds the peek ${m.hold[0]}–${m.hold[1]} s` : ''}`;
   } else if (m.type === 'peek') {
     speed = `${AGENT.run} m/s swings and runs`;
   } else if (strafeOnly) {

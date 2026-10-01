@@ -374,7 +374,8 @@ const peek = {
 // Phoenix and his Curveball, for the dodge-flash drills. He waits behind a
 // crate until you're holding his angle (ctx.facing), then throws the flash
 // round one side of it: it comes out sideways past the edge, curves toward
-// you and pops `fuse` seconds after the throw (the game flies it, see
+// you and pops `fuse` seconds after the throw (or a random time in the range
+// [min, max] when `fuse` is a pair, drawn for each throw; the game flies it, see
 // Game.throwCurveball). With `peek`, he swings out on that side just after
 // the pop and holds for `hold` seconds; if you haven't killed him by then he
 // has you (ctx.peekLost), and he ducks back. Then he moves to another crate.
@@ -424,6 +425,7 @@ const flash = {
       // side, curving in to pop in front of the crate, above head height.
       const g = this.geom(c, ctx.eye);
       const side = sign();
+      const fuse = Array.isArray(m.fuse) ? randIn(m.fuse) : m.fuse;
       const at = (along, across, y) => [
         c.x + g.u[0] * along + g.p[0] * side * across,
         y,
@@ -433,11 +435,11 @@ const flash = {
         p0: at(g.depth + 0.4, 0.35, 1.35),
         p1: at(g.depth * 0.2, g.half + 2.4, 1.9),
         p2: at(-(g.depth + 1.9), g.half + 0.7, 2.3),
-        fuse: m.fuse,
+        fuse,
       });
       s.side = side;
       s.state = 'cast';
-      s.timer = m.fuse + (m.peek ? 0.12 : 0.6);
+      s.timer = fuse + (m.peek ? 0.12 : 0.6);
     } else if (s.state === 'cast' && s.timer <= 0) {
       if (!m.peek) { this.spawn(t, ctx); return; }
       // Swing out far enough past the edge to be seen from the eye.

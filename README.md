@@ -88,8 +88,8 @@ To rebuild the single file after changing the source: `npm install && npm run bu
 Phoenix's Curveball, as in Valorant: he hides behind one of four crates
 spread across your front and, once you're holding his angle, throws the flash
 round one side of it. The orb comes out past the edge, curves toward you and
-pops 0.6 s after the throw (0.85 s on Easy, 0.45 s on Hard); you hear it lit
-as it's thrown. Look at it when it pops and the screen whites out, stays
+pops a moment after the throw (see each drill below); you hear it lit as
+it's thrown. Look at it when it pops and the screen whites out, stays
 white for up to 1.1 s, then clears from the middle outward, the white
 receding to the edges as it fades (0.6 s), as in Valorant; every flash plays
 the same way, run-clock timed, so it freezes when you pause. A flash just off
@@ -101,14 +101,19 @@ equipped one; **2** again for the next), **1** is the AWP (right click scopes)
 and **3** the knife. Hold mouse 1 to keep firing, the AWP included: it fires
 again each time its bolt is back.
 
-- **Curveball Dodge**: dodging is the whole drill. +100 per flash dodged,
-  −50 for a full flash (less for a glancing one). Phoenix only throws while
-  you're looking his way, so facing the back wall scores nothing.
-- **Dodge & Peek**: right after the pop he swings out on the side the flash
-  came from and holds the peek for about a second. Turn back and kill him
-  (+100, +50 for the head): one AWP hit anywhere, or a rifle headshot, or the
-  rifle's body hits (his health bar shows them). If he's still standing when
-  his hold is up, he wins the peek (−50, and a red hit at the screen's edges).
+- **Curveball Dodge**: dodging is the whole drill. Each flash pops at a
+  random time from 0.15 to 0.5 s after the throw, so you can't time it; the
+  orb flies faster the sooner it pops. +100 per flash dodged, −50 for a full
+  flash (less for a glancing one). Phoenix only throws while you're looking
+  his way, so facing the back wall scores nothing.
+- **Dodge & Peek**: the flash pops 0.6 s after the throw (0.85 s on Easy,
+  0.45 s on Hard, where he also peeks quicker), and right after the pop he
+  swings out on the side the flash came from and holds the peek for about a
+  second.
+  Turn back and kill him (+100, +50 for the head): one AWP hit anywhere, or a
+  rifle headshot, or the rifle's body hits (his health bar shows them). If
+  he's still standing when his hold is up, he wins the peek (−50, and a red
+  hit at the screen's edges).
 
 The results show how many you dodged, how many caught you, how long after the
 throw you turned your back on it, and (with the peek) your kills and the

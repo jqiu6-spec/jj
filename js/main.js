@@ -452,8 +452,9 @@ function coaching(r, s, v) {
   if (fl) {
     if (!fl.throws) return 'Phoenix only throws while you hold his angle: keep your crosshair on the crates.';
     const fuse = game.eff.motion.fuse;
+    const pop = Array.isArray(fuse) ? `${fuse[0].toFixed(2)}–${fuse[1].toFixed(2)} s` : `${fuse.toFixed(2)} s`;
     let text = fl.turn !== null
-      ? `You turned away <b>${Math.round(fl.turn * 1000)} ms</b> after the throw on average, with ${fuse.toFixed(2)} s before the pop.`
+      ? `You turned away <b>${Math.round(fl.turn * 1000)} ms</b> after the throw on average, with ${pop} before the pop.`
       : 'You didn\'t dodge a flash this run.';
     if (fl.flashed > fl.dodges) text += ' Most flashes caught you: turn the moment the orb shows round the corner (or you hear it), and turn well away, past 75°: a flash just off the edge of the screen still blinds you a little.';
     else if (fl.flashed) text += ` ${fl.flashed} caught you. Turn a little further: at least 75° from the orb.`;

@@ -297,6 +297,54 @@ export const SCENARIOS = [
     minSep: 2,
   },
   {
+    id: 'val-horizontal-far',
+    name: 'Horizontal Tracking Far',
+    category: 'valorant',
+    blurb: 'Horizontal Tracking at long range: the same agent strafing and counter-strafing left and right at head level, but about 28 m out, where its head is barely half a degree across. The strafes cover little screen, so it is all small, steady corrections. Head-only by default.',
+    duration: 60,
+    arena: HALL,
+    weapon: { type: 'beam', dps: 150 },
+    count: 1,
+    target: { shape: 'agent', headOnly: true },
+    motion: {
+      type: 'agent', x: [-14, 14], z: [-29, -27], depth: 0, adad: 0.8,
+      mix: { strafe: 6, swing: 2, stop: 1.5 },
+      strafeTime: [0.25, 0.8], swingTime: [0.6, 1.3], stopTime: [0.08, 0.25],
+    },
+    // The same difficulty levels as Horizontal Tracking.
+    levels: {
+      easy: { hint: 'Shift-walk speed, long strafes, few stops', motion: { gait: 'walk', mix: { strafe: 6, swing: 2, stop: 1 }, strafeTime: [0.45, 1.2], swingTime: [0.9, 1.8] } },
+      medium: { hint: 'Run speed, a mix of short and long strafes', motion: {} },
+      hard: { hint: 'Run speed, ADAD spam and snap counter-strafes', motion: { mix: { strafe: 9, swing: 1, stop: 2.5 }, strafeTime: [0.12, 0.42], stopTime: [0.06, 0.2], adad: 0.9 } },
+    },
+    defaultLevel: 'medium',
+    minSep: 2,
+  },
+  {
+    id: 'val-hflick-far',
+    name: 'Horizontal Flicks Far',
+    category: 'valorant',
+    blurb: 'One agent at a time on a line about 28 m out, its head at crosshair height. Flick to the head and click; the next appears well away along the same line, so every flick is horizontal and has to stop dead on a head barely half a degree across. Head-only by default.',
+    duration: 60,
+    arena: HALL,
+    weapon: { type: 'click', points: 100, missPenalty: 20 },
+    count: 1,
+    target: { shape: 'agent', headOnly: true },
+    motion: {
+      type: 'agent', x: [-16, 16], z: [-29, -27], depth: 0, adad: 0.6,
+      mix: { stop: 1 }, stopTime: [0.5, 1.5], strafeTime: [0.3, 0.8],
+    },
+    levels: {
+      easy: { hint: 'The agents stand still', motion: {} },
+      medium: { hint: 'The agents stand, or shift-walk a few steps', motion: { gait: 'walk', mix: { stop: 3, strafe: 1 } } },
+      hard: { hint: 'The agents strafe at run speed between short stops', motion: { mix: { stop: 1.5, strafe: 3, swing: 1 }, strafeTime: [0.2, 0.6], stopTime: [0.2, 0.6] } },
+    },
+    defaultLevel: 'easy',
+    // A new agent appears well away from where you were aiming (at 28 m,
+    // about 16° or more), so each one is a real flick.
+    minSep: 10,
+  },
+  {
     id: 'val-adad',
     name: 'ADAD Strafes',
     category: 'valorant',
@@ -550,7 +598,10 @@ export function describe(scn, v = defaultSetup(scn)) {
 
   let speed = 'Static';
   const strafeOnly = agent && m.mix && Object.keys(m.mix).every((k) => ['strafe', 'swing', 'stop'].includes(k));
-  if (m.type === 'flash') {
+  const still = agent && m.mix && Object.keys(m.mix).every((k) => k === 'stop');
+  if (still) {
+    speed = 'Stands still until shot';
+  } else if (m.type === 'flash') {
     const pop = Array.isArray(m.fuse) ? `${m.fuse[0]}–${m.fuse[1]} s (random each throw)` : `${m.fuse} s`;
     speed = `The flash pops ${pop} after the throw${m.peek ? `; he holds the peek ${m.hold[0]}–${m.hold[1]} s` : ''}`;
   } else if (m.type === 'peek') {
@@ -589,7 +640,7 @@ export function describe(scn, v = defaultSetup(scn)) {
     angular: agent ? `head spans ${angular.toFixed(2)}°` : `${angular.toFixed(2)}° wide`,
     size,
     speed,
-    moves: m.type === 'flash'
+    moves: still ? 'none: it stands still' : m.type === 'flash'
       ? `Curveball round a crate, left or right${m.peek ? ', then a swing out on that side' : ''}`
       : m.type === 'peek'
       ? ['wide swings from behind crates', m.jiggle ? 'jiggle peeks' : null, m.cross ? 'crate-to-crate runs' : null, m.crouchOnHold ? 'crouched holds' : null].filter(Boolean).join(', ')

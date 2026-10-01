@@ -72,6 +72,8 @@ To rebuild the single file after changing the source: `npm install && npm run bu
 | Clicking | Bounce Shot | 5 targets drifting and bouncing on a wall |
 | Clicking | Micro Flick | One tiny target at a time |
 | Valorant movement | Horizontal Tracking | Left-right only at head level; Easy / Medium / Hard |
+| Valorant movement | Horizontal Tracking Far | The same at about 28 m: the head is 0.6° across |
+| Valorant movement | Horizontal Flicks Far | One agent at a time at about 28 m: flick along the line and click the head |
 | Valorant movement | ADAD Strafes | Short run strafes with counter-strafe stops |
 | Valorant movement | Crouch Spam | Strafes, stops and crouch spam; the head drops 0.44 m |
 | Valorant movement | Jump Peeks | Strafes and jumps with weak air control |
@@ -142,6 +144,19 @@ Difficulty changes how it strafes:
 - **Medium**: run speed (6.75 m/s), a mix of short and long strafes
 - **Hard**: run speed, ADAD spam (0.12–0.42 s strafes) and snap counter-strafes
 
+**Horizontal Tracking Far** is the same drill at about 28 m (27–29 m) instead
+of 10, as in KovaaK's far variants: the agent strafes across 28 m of the hall
+instead of 18, at the same speeds, so each strafe sweeps less of the screen
+and the head spans only 0.6°. Tracking it is all small, steady corrections.
+Same three difficulty levels, head-only by default.
+
+**Horizontal Flicks Far** is the flicking partner to it: one agent at a time
+stands somewhere on a 32 m-wide line about 28 m out, its head at crosshair
+height. Click the head (+100, a miss −20) and the next appears well away
+along the line from where you were aiming, so each flick is a horizontal one
+of about 16° or more that has to stop dead on a 0.6° head. Easy: the agents stand still. Medium: they sometimes shift-walk a few
+steps. Hard: they strafe at run speed between short stops.
+
 The run, walk and crouch speeds are community-measured Valorant values. The
 acceleration, jump and crouch timings are tuned to feel like the game, not
 taken from it.
@@ -156,7 +171,7 @@ The scenario panel has a setup row:
   somewhere else.
 - **Hitbox** (Valorant bots only): head and body, or head only. In head-only mode
   the body turns dark and only time on the head counts.
-- **Difficulty** (Horizontal Tracking): Easy, Medium or Hard.
+- **Difficulty** (Horizontal Tracking, Horizontal Tracking Far and Horizontal Flicks Far): Easy, Medium or Hard.
 
 Personal bests and history are kept separately for each setup, so a 5-target run
 is never compared with a 3-target run.

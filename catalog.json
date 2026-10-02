@@ -1,0 +1,3289 @@
+{
+  "schema_version": 1,
+  "description": "Personal artwork and design reference collection",
+  "references": [
+    {
+      "id": "ref-0001",
+      "title": "Atoms for Peace 1955",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Erik Nitsche",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0001/README.md",
+      "local_asset_paths": [
+        "references/ref-0001/candidate-01.jpg",
+        "references/ref-0001/mobile-23.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "circles",
+        "layering",
+        "diagram"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        1
+      ],
+      "images": [
+        {
+          "candidate_number": 1,
+          "caption": "1. Nitsche — Atoms for Peace 1955",
+          "path": "references/ref-0001/candidate-01.jpg",
+          "original_image_url": "https://www.moma.org/media/W1siZiIsIjIxMDczOSJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=a4a26fbd9b10acf3",
+          "cached_from_url": "https://www.moma.org/media/W1siZiIsIjIxMDczOSJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=a4a26fbd9b10acf3",
+          "recovered": false
+        },
+        {
+          "caption": "Atoms for Peace",
+          "path": "references/ref-0001/mobile-23.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.moma.org/collection/works/5735",
+          "mobile_number": 23,
+          "credit": "Erik Nitsche · 1955 · General Dynamics",
+          "dimensions": [
+            1084,
+            1536
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "dc58093364f7b2a7503ab689031d32da30e803b6464f13cf5983669f7e418708"
+        }
+      ],
+      "visual_observations": "Overlapping translucent circular forms and fine orbital lines sit on a pale green field; restrained typography frames the central diagram.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://www.moma.org/collection/works/5735"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 23,
+          "title": "Atoms for Peace",
+          "credit": "Erik Nitsche · 1955 · General Dynamics",
+          "category": "Rhythm in rings",
+          "editorial_description": "Overlapping orbits circle a small red nucleus, making an invisible subject visible. As in Beethoven, the rings carry the rhythm while the type stays small; this is the campaign’s Russian-language edition.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.moma.org/collection/works/5735"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Nitsche"
+    },
+    {
+      "id": "ref-0002",
+      "title": "Mexico 68",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Lance Wyman & Eduardo Terrazas",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0002/README.md",
+      "local_asset_paths": [
+        "references/ref-0002/candidate-02.jpg",
+        "references/ref-0002/mobile-25.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "typography",
+        "repetition",
+        "optical-pattern"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        2
+      ],
+      "images": [
+        {
+          "candidate_number": 2,
+          "caption": "2. Wyman/Terrazas — Mexico 68",
+          "path": "references/ref-0002/candidate-02.jpg",
+          "original_image_url": "https://www.moma.org/media/W1siZiIsIjUxOTYxNSJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=9b90b16642542307",
+          "cached_from_url": "https://www.moma.org/media/W1siZiIsIjUxOTYxNSJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=9b90b16642542307",
+          "recovered": false
+        },
+        {
+          "caption": "Mexico 68",
+          "path": "references/ref-0002/mobile-25.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.moma.org/collection/works/5545",
+          "mobile_number": 25,
+          "credit": "Lance Wyman & Eduardo Terrazas · 1967 · Olympic Games",
+          "dimensions": [
+            1400,
+            1388
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "6fb9604f38030d8167a003984e90f479d8436b9ad9dc9ebbb874cd40fd5d4e79"
+        }
+      ],
+      "visual_observations": "Dense black-and-white parallel lines radiate around the Mexico 68 lettering, making type and pattern a single composition.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://www.moma.org/collection/works/5545"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 25,
+          "title": "Mexico 68",
+          "credit": "Lance Wyman & Eduardo Terrazas · 1967 · Olympic Games",
+          "category": "Rhythm in rings",
+          "editorial_description": "The logotype’s outlines repeat outward in parallel lines until lettering and pattern become one vibrating field. Compare it with Tokyo 1964: another Olympic identity, built from rhythm instead of a single symbol.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.moma.org/collection/works/5545"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Wyman/Terrazas"
+    },
+    {
+      "id": "ref-0003",
+      "title": "Man with a Movie Camera",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Vladimir & Georgii Stenberg",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0003/README.md",
+      "local_asset_paths": [
+        "references/ref-0003/candidate-03.jpg",
+        "references/ref-0003/mobile-26.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "diagonals",
+        "figure",
+        "motion"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        3
+      ],
+      "images": [
+        {
+          "candidate_number": 3,
+          "caption": "3. Stenberg — Man with a Movie Camera",
+          "path": "references/ref-0003/candidate-03.jpg",
+          "original_image_url": "https://www.moma.org/media/W1siZiIsIjQ0ODM4MCJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=0421f231ae17d9c1",
+          "cached_from_url": "https://www.moma.org/media/W1siZiIsIjQ0ODM4MCJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=0421f231ae17d9c1",
+          "recovered": false
+        },
+        {
+          "caption": "Man with a Movie Camera",
+          "path": "references/ref-0003/mobile-26.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.moma.org/collection/works/217943",
+          "mobile_number": 26,
+          "credit": "Vladimir & Georgii Stenberg · 1929 · Film poster",
+          "dimensions": [
+            993,
+            1536
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "611ea71b4b3ee94d13a89c728f1ba24602928fc1ea362e4647eca881457b7dc9"
+        }
+      ],
+      "visual_observations": "A dramatic tilted figure, converging geometry and curved lettering create movement in black, yellow and red.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://www.moma.org/collection/works/217943"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 26,
+          "title": "Man with a Movie Camera",
+          "credit": "Vladimir & Georgii Stenberg · 1929 · Film poster",
+          "category": "Rhythm in rings",
+          "editorial_description": "A dancing figure is framed by tilting skyscrapers while the credits spiral around her body. Rotation and diagonals set the whole sheet in motion—an energetic contrast to Beethoven’s calm arcs.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.moma.org/collection/works/217943"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Stenberg"
+    },
+    {
+      "id": "ref-0004",
+      "title": "Vormgevers",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Wim Crouwel",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0004/README.md",
+      "local_asset_paths": [
+        "references/ref-0004/candidate-04.jpg",
+        "references/ref-0004/mobile-40.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "grid",
+        "modular-type"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        4
+      ],
+      "images": [
+        {
+          "candidate_number": 4,
+          "caption": "4. Crouwel — Vormgevers",
+          "path": "references/ref-0004/candidate-04.jpg",
+          "original_image_url": "https://www.moma.org/media/W1siZiIsIjIxMjAxMyJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=126eeb636815c463",
+          "cached_from_url": "https://www.moma.org/media/W1siZiIsIjIxMjAxMyJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=126eeb636815c463",
+          "recovered": false
+        },
+        {
+          "caption": "Vormgevers",
+          "path": "references/ref-0004/mobile-40.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.moma.org/collection/works/8735",
+          "mobile_number": 40,
+          "credit": "Wim Crouwel · 1968 · Stedelijk Museum Amsterdam",
+          "dimensions": [
+            1017,
+            1536
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "c6cf71e9d5ee71d3e853765bc42f90f037784275334cf835ad5ceb8d6c57cb4c"
+        }
+      ],
+      "visual_observations": "A tight black grid occupies the upper area; blocky lettering below repeats its modular rhythm.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://www.moma.org/collection/works/8735"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 40,
+          "title": "Vormgevers",
+          "credit": "Wim Crouwel · 1968 · Stedelijk Museum Amsterdam",
+          "category": "Constructivist roots",
+          "editorial_description": "The grid is printed on the poster and every letter is drawn on it. The structure that usually stays hidden becomes the image—the grid idea carried to its logical end.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.moma.org/collection/works/8735"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Crouwel"
+    },
+    {
+      "id": "ref-0005",
+      "title": "Étoile du Nord",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "A. M. Cassandre",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0005/README.md",
+      "local_asset_paths": [
+        "references/ref-0005/candidate-05.jpg",
+        "references/ref-0005/mobile-39.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "perspective",
+        "geometry"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        5
+      ],
+      "images": [
+        {
+          "candidate_number": 5,
+          "caption": "5. Cassandre — Étoile du Nord",
+          "path": "references/ref-0005/candidate-05.jpg",
+          "original_image_url": "https://www.moma.org/media/W1siZiIsIjIxMDg1NiJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=d7528be486ddcf93",
+          "cached_from_url": "https://www.moma.org/media/W1siZiIsIjIxMDg1NiJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=d7528be486ddcf93",
+          "recovered": false
+        },
+        {
+          "caption": "Étoile du Nord",
+          "path": "references/ref-0005/mobile-39.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.moma.org/collection/works/5807",
+          "mobile_number": 39,
+          "credit": "A. M. Cassandre · 1927 · Railway poster",
+          "dimensions": [
+            1125,
+            1536
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "4f084ffc5fe722cb847ee41169643b0b1cd8468d7fde0b9a77494b9d48c35ac3"
+        }
+      ],
+      "visual_observations": "Converging railway lines and tall pointed forms direct the eye toward a star; dark tones contrast with pale lettering.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://www.moma.org/collection/works/5807"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 39,
+          "title": "Étoile du Nord",
+          "credit": "A. M. Cassandre · 1927 · Railway poster",
+          "category": "Constructivist roots",
+          "editorial_description": "Rails converge on a small white star; the train itself never appears. A transit poster built almost entirely from perspective lines—directly relevant to a subway brief.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.moma.org/collection/works/5807"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Cassandre"
+    },
+    {
+      "id": "ref-0006",
+      "title": "Sartre lecture",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Otl Aicher",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0006/README.md",
+      "local_asset_paths": [
+        "references/ref-0006/candidate-06.jpg",
+        "references/ref-0006/mobile-35.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "spiral",
+        "figure-ground"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        6
+      ],
+      "images": [
+        {
+          "candidate_number": 6,
+          "caption": "6. Aicher — Sartre lecture",
+          "path": "references/ref-0006/candidate-06.jpg",
+          "original_image_url": "https://www.moma.org/media/W1siZiIsIjIyNTExOCJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=f57fbdebea29b035",
+          "cached_from_url": "https://www.moma.org/media/W1siZiIsIjIyNTExOCJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=f57fbdebea29b035",
+          "recovered": false
+        },
+        {
+          "caption": "Vortrag über Sartres “Das Sein und das Nichts”",
+          "path": "references/ref-0006/mobile-35.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.moma.org/collection/works/6148",
+          "mobile_number": 35,
+          "credit": "Otl Aicher · c. 1950 · Lecture poster, Ulm",
+          "dimensions": [
+            1400,
+            1415
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "25e28c57edeb99a6ab9c15a1de997d60855bb665fd370cbcf9e3e107dbca865f"
+        }
+      ],
+      "visual_observations": "A large black-and-cream spiral dominates the square composition, with small type positioned near its upper edge.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://www.moma.org/collection/works/6148"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 35,
+          "title": "Vortrag über Sartres “Das Sein und das Nichts”",
+          "credit": "Otl Aicher · c. 1950 · Lecture poster, Ulm",
+          "category": "One sculptural form",
+          "editorial_description": "One huge spiral, black against cream, curls inward for a lecture on Sartre’s Being and Nothingness. Aicher, later the designer of the Munich 1972 Olympics, gave an abstract idea one clear shape.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.moma.org/collection/works/6148"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Aicher"
+    },
+    {
+      "id": "ref-0007",
+      "title": "Theaterbau",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Armin Hofmann",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0007/README.md",
+      "local_asset_paths": [
+        "references/ref-0007/candidate-07.jpg",
+        "references/ref-0007/mobile-34.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "curves",
+        "figure-ground"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        7
+      ],
+      "images": [
+        {
+          "candidate_number": 7,
+          "caption": "7. Hofmann — Theaterbau",
+          "path": "references/ref-0007/candidate-07.jpg",
+          "original_image_url": "https://www.moma.org/media/W1siZiIsIjUxNzk2NyJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=820d0f43b94a8b26",
+          "cached_from_url": "https://www.moma.org/media/W1siZiIsIjUxNzk2NyJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=820d0f43b94a8b26",
+          "recovered": false
+        },
+        {
+          "caption": "Theaterbau von der Antike bis zur Moderne",
+          "path": "references/ref-0007/mobile-34.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.moma.org/collection/works/6270",
+          "mobile_number": 34,
+          "credit": "Armin Hofmann · 1955 · Exhibition poster",
+          "dimensions": [
+            1076,
+            1536
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "f19d840108b43cb2392b379579fddb5827934a33937c9581cf4ba0dda8bad77b"
+        }
+      ],
+      "visual_observations": "Large curved black-and-cream forms create a strong figure-ground exchange, with small type tucked into the dark areas.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://www.moma.org/collection/works/6270"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 34,
+          "title": "Theaterbau von der Antike bis zur Moderne",
+          "credit": "Armin Hofmann · 1955 · Exhibition poster",
+          "category": "One sculptural form",
+          "editorial_description": "A huge white arc, cropped by the edge of the sheet, fills the black field; the title uses V for U, like a Roman inscription. The closest cousin to Die gute Form in this set.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.moma.org/collection/works/6270"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Hofmann"
+    },
+    {
+      "id": "ref-0008",
+      "title": "Keeps London Going",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Man Ray",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0008/README.md",
+      "local_asset_paths": [
+        "references/ref-0008/candidate-08.jpg",
+        "references/ref-0008/mobile-29.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "surrealism",
+        "negative-space"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        8
+      ],
+      "images": [
+        {
+          "candidate_number": 8,
+          "caption": "8. Man Ray — Keeps London Going",
+          "path": "references/ref-0008/candidate-08.jpg",
+          "original_image_url": "https://www.ltmuseum.co.uk/system/files/styles/collection_item_gallery_fullscreen/private/collection_item/DR00011sh.jpg?itok=dHE43HWP",
+          "cached_from_url": "https://www.ltmuseum.co.uk/system/files/styles/collection_item_gallery_fullscreen/private/collection_item/DR00011sh.jpg?itok=dHE43HWP",
+          "recovered": false
+        },
+        {
+          "caption": "Keeps London Going",
+          "path": "references/ref-0008/mobile-29.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.ltmuseum.co.uk/collections/collections-online/posters/item/1983-4-5189",
+          "mobile_number": 29,
+          "credit": "Man Ray · 1938 · London Transport",
+          "dimensions": [
+            499,
+            800
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "f52f3fea23d5aa0ec975ae9b25da8b70ccaac475bb6e9a16a37664576be62f5d"
+        }
+      ],
+      "visual_observations": "Two pale rounded objects float on a dark ground, with a planet-like ring around the lower form and a narrow text band at the bottom.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://www.ltmuseum.co.uk/collections/collections-online/posters/item/1983-4-5189"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 29,
+          "title": "Keeps London Going",
+          "credit": "Man Ray · 1938 · London Transport",
+          "category": "One circle, one idea",
+          "editorial_description": "The Underground roundel becomes a ringed planet, floating in dark space above a single line of text. A real subway poster that transforms a familiar symbol instead of adding new ones.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.ltmuseum.co.uk/collections/collections-online/posters/item/1983-4-5189"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Man Ray"
+    },
+    {
+      "id": "ref-0009",
+      "title": "Your Talk May Kill",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Abram Games",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0009/README.md",
+      "local_asset_paths": [
+        "references/ref-0009/candidate-09.jpg",
+        "references/ref-0009/mobile-36.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "photomontage",
+        "concentric-rings"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        9
+      ],
+      "images": [
+        {
+          "candidate_number": 9,
+          "caption": "9. Games — Your Talk May Kill",
+          "path": "references/ref-0009/candidate-09.jpg",
+          "original_image_url": "https://framemark.vam.ac.uk/collections/2014HH9958/full/!1600,1600/0/default.jpg",
+          "cached_from_url": "https://framemark.vam.ac.uk/collections/2014HH9958/full/!1600,1600/0/default.jpg",
+          "recovered": false
+        },
+        {
+          "caption": "Your Talk May Kill Your Comrades",
+          "path": "references/ref-0009/mobile-36.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://collections.vam.ac.uk/item/O549265/your-talk-may-kill-your-poster-games-abram/",
+          "mobile_number": 36,
+          "credit": "Abram Games · 1942 · Wartime poster",
+          "dimensions": [
+            1071,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "6f42f04c42a45583a9834f4ba03a6c53bc95a6bc36c44bfc76521a677b428eb8"
+        }
+      ],
+      "visual_observations": "A face and concentric graphic rings sit above dark silhouettes; a yellow lower field contrasts with the dark upper composition.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://collections.vam.ac.uk/item/O549265/your-talk-may-kill-your-poster-games-abram/"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 36,
+          "title": "Your Talk May Kill Your Comrades",
+          "credit": "Abram Games · 1942 · Wartime poster",
+          "category": "One sculptural form",
+          "editorial_description": "A spiral pours from a soldier’s mouth and ends as a blade through three figures. Games called his approach “maximum meaning, minimum means”: one device carries the entire message.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://collections.vam.ac.uk/item/O549265/your-talk-may-kill-your-poster-games-abram/"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Games"
+    },
+    {
+      "id": "ref-0010",
+      "title": "Vertigo",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Saul Bass",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0010/README.md",
+      "local_asset_paths": [
+        "references/ref-0010/candidate-10.png",
+        "references/ref-0010/mobile-27.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "spiral",
+        "red",
+        "motion"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        10
+      ],
+      "images": [
+        {
+          "candidate_number": 10,
+          "caption": "10. Bass — Vertigo",
+          "path": "references/ref-0010/candidate-10.png",
+          "original_image_url": "https://thumbs.peoplesgdarchive.org/static/media-items/image/32094/upto-1440x2923/663167cf/1/vertigo.jpg",
+          "cached_from_url": "https://thumbs.peoplesgdarchive.org/static/media-items/image/32094/upto-1440x2923/663167cf/1/vertigo.jpg",
+          "recovered": false
+        },
+        {
+          "caption": "Vertigo",
+          "path": "references/ref-0010/mobile-27.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://peoplesgdarchive.org/item/13770/vertigo-movie-poster-by-saul-bass",
+          "mobile_number": 27,
+          "credit": "Saul Bass · 1958 · Film poster",
+          "dimensions": [
+            1095,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "d599adcba597f47e470e0a6d902ef68fe90f8ad147a6be2548c2c0b58b0232f0"
+        }
+      ],
+      "visual_observations": "A white spiral surrounds small falling figures on a red-orange field, balanced by black lettering.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://peoplesgdarchive.org/item/13770/vertigo-movie-poster-by-saul-bass"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 27,
+          "title": "Vertigo",
+          "credit": "Saul Bass · 1958 · Film poster",
+          "category": "Rhythm in rings",
+          "editorial_description": "A spiral pulls two small falling figures toward its center. One geometric device carries the film’s whole feeling, while the credits stay in simple blocks above and below.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://peoplesgdarchive.org/item/13770/vertigo-movie-poster-by-saul-bass"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Bass"
+    },
+    {
+      "id": "ref-0011",
+      "title": "Victory 1945",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Shigeo Fukuda",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0011/README.md",
+      "local_asset_paths": [
+        "references/ref-0011/candidate-11.png",
+        "references/ref-0011/mobile-31.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "visual-metaphor",
+        "yellow",
+        "minimal"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        11
+      ],
+      "images": [
+        {
+          "candidate_number": 11,
+          "caption": "11. Fukuda — Victory 1945",
+          "path": "references/ref-0011/candidate-11.png",
+          "original_image_url": "https://thumbs.peoplesgdarchive.org/static/media-items/image/24763/upto-1440x1073/6495946e/1/shigeo-fukuda-victory.jpg",
+          "cached_from_url": "https://thumbs.peoplesgdarchive.org/static/media-items/image/24763/upto-1440x1073/6495946e/1/shigeo-fukuda-victory.jpg",
+          "recovered": false
+        },
+        {
+          "caption": "Victory 1945",
+          "path": "references/ref-0011/mobile-31.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://peoplesgdarchive.org/item/9528/victory-1945-1",
+          "mobile_number": 31,
+          "credit": "Shigeo Fukuda · 1975 · Anti-war poster",
+          "dimensions": [
+            746,
+            1073
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "bcd17dd07b992d67f21f9e2894511a3c9979e3ec019f19135e6f8abcb56a528b"
+        }
+      ],
+      "visual_observations": "A detached projectile points back toward a diagonal gun barrel on a flat yellow field; the silhouette carries the visual idea.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://peoplesgdarchive.org/item/9528/victory-1945-1"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 31,
+          "title": "Victory 1945",
+          "credit": "Shigeo Fukuda · 1975 · Anti-war poster",
+          "category": "One circle, one idea",
+          "editorial_description": "A shell flies back into the barrel of the gun that fired it. One reversed image makes the whole argument; the poster won the grand prize at the 1975 Warsaw poster competition.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://peoplesgdarchive.org/item/9528/victory-1945-1"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Fukuda"
+    },
+    {
+      "id": "ref-0012",
+      "title": "Atoms for Peace (V&A)",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Yusaku Kamekura",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0012/README.md",
+      "local_asset_paths": [
+        "references/ref-0012/candidate-12.jpg",
+        "references/ref-0012/mobile-24.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "radial-lines",
+        "geometry"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        12
+      ],
+      "images": [
+        {
+          "candidate_number": 12,
+          "caption": "12. Kamekura — Atoms for Peace (V&A)",
+          "path": "references/ref-0012/candidate-12.jpg",
+          "original_image_url": "https://framemark.vam.ac.uk/collections/2013GU3415/full/!1600,1600/0/default.jpg",
+          "cached_from_url": "https://framemark.vam.ac.uk/collections/2013GU3415/full/!1600,1600/0/default.jpg",
+          "recovered": false
+        },
+        {
+          "caption": "Peaceful Use of Atomic Energy",
+          "path": "references/ref-0012/mobile-24.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://collections.vam.ac.uk/item/O696516/atoms-for-peace-poster-yusaku-kamekura/",
+          "mobile_number": 24,
+          "credit": "Yusaku Kamekura · 1956",
+          "dimensions": [
+            1150,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "863302759475712d35c75d6956aa6ce09b7019d501cf3173b8ca7fe9e7ffaaf3"
+        }
+      ],
+      "visual_observations": "Fine radiating blue-green lines surround a small circular center on a dark field, forming a luminous geometric burst.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://collections.vam.ac.uk/item/O696516/atoms-for-peace-poster-yusaku-kamekura/"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 24,
+          "title": "Peaceful Use of Atomic Energy",
+          "credit": "Yusaku Kamekura · 1956",
+          "category": "Rhythm in rings",
+          "editorial_description": "Hundreds of fine lines burst from one bright point on a deep blue field. Made by the Tokyo 1964 designer a year after Nitsche’s poster, it treats the same subject with pure radiating rhythm.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://collections.vam.ac.uk/item/O696516/atoms-for-peace-poster-yusaku-kamekura/"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Kamekura"
+    },
+    {
+      "id": "ref-0013",
+      "title": "Nikon SP (V&A)",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Kamekura",
+      "attribution_status": "As credited on supplied candidate page; full attribution not independently researched.",
+      "note_path": "references/ref-0013/README.md",
+      "local_asset_paths": [
+        "references/ref-0013/candidate-13.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "typography",
+        "repetition"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        13
+      ],
+      "images": [
+        {
+          "candidate_number": 13,
+          "caption": "13. Kamekura — Nikon SP (V&A)",
+          "path": "references/ref-0013/candidate-13.jpg",
+          "original_image_url": "https://framemark.vam.ac.uk/collections/2019LJ4837/full/!1600,1600/0/default.jpg",
+          "cached_from_url": "https://framemark.vam.ac.uk/collections/2019LJ4837/full/!1600,1600/0/default.jpg",
+          "recovered": false
+        }
+      ],
+      "visual_observations": "Repeated SP letterforms stack and overlap in several colors against black, with a small Nikon credit below."
+    },
+    {
+      "id": "ref-0014",
+      "title": "Red Wedge (MFA)",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "El Lissitzky",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0014/README.md",
+      "local_asset_paths": [
+        "references/ref-0014/candidate-14.jpg",
+        "references/ref-0014/candidate-15.jpg",
+        "references/ref-0014/mobile-38.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "triangle",
+        "circle",
+        "diagonals"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        14,
+        15
+      ],
+      "images": [
+        {
+          "candidate_number": 14,
+          "caption": "14. Lissitzky — Red Wedge (MFA)",
+          "path": "references/ref-0014/candidate-14.jpg",
+          "original_image_url": "https://collections.mfa.org/internal/media/dispatcher/1540062/resize%3Aformat%3Dfull",
+          "cached_from_url": "https://collections.mfa.org/internal/media/dispatcher/1540062/resize%3Aformat%3Dfull",
+          "recovered": false
+        },
+        {
+          "candidate_number": 15,
+          "caption": "15. Lissitzky — Red Wedge (Commons photo)",
+          "path": "references/ref-0014/candidate-15.jpg",
+          "original_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Klinom_Krasnym_Bej_Belych.JPG/1600px-Klinom_Krasnym_Bej_Belych.JPG",
+          "cached_from_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fd/Klinom_Krasnym_Bej_Belych.JPG/1920px-Klinom_Krasnym_Bej_Belych.JPG?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20230807074830",
+          "recovered": true,
+          "source_page": "https://commons.wikimedia.org/wiki/File:Klinom_Krasnym_Bej_Belych.JPG",
+          "credit": "El Lissitzky; source reproduction: Russian State Library",
+          "source_license_label": "Public domain reproduction, as labeled by Commons"
+        },
+        {
+          "caption": "Beat the Whites with the Red Wedge",
+          "path": "references/ref-0014/mobile-38.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://collections.mfa.org/objects/314484",
+          "mobile_number": 38,
+          "credit": "El Lissitzky · 1920 · Museum of Fine Arts, Boston",
+          "dimensions": [
+            1400,
+            1149
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "ab95f9c608463fb4054fa1c5fa86c2e71560d63bf194da04578b8813d49d35f3"
+        }
+      ],
+      "visual_observations": "A large red triangle intrudes into a pale circle across a diagonal black field; small bars and angled lettering extend the directional composition.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://collections.mfa.org/objects/314484"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 38,
+          "title": "Beat the Whites with the Red Wedge",
+          "credit": "El Lissitzky · 1920 · Museum of Fine Arts, Boston",
+          "category": "Constructivist roots",
+          "editorial_description": "A red wedge drives into a white circle, and the few words follow the same diagonals. Tschichold’s poster announced an exhibition of the Constructivists; this is the vocabulary it grew from.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://collections.mfa.org/objects/314484"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Lissitzky"
+    },
+    {
+      "id": "ref-0015",
+      "title": "Several Circles",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Wassily Kandinsky",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0015/README.md",
+      "local_asset_paths": [
+        "references/ref-0015/candidate-16.jpg",
+        "references/ref-0015/mobile-28.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "circles",
+        "color",
+        "overlap"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        16
+      ],
+      "images": [
+        {
+          "candidate_number": 16,
+          "caption": "16. Kandinsky — Several Circles",
+          "path": "references/ref-0015/candidate-16.jpg",
+          "original_image_url": "https://www.guggenheim.org/wp-content/uploads/1926/01/41.283_ph_web-1.jpg",
+          "cached_from_url": "https://www.guggenheim.org/wp-content/uploads/1926/01/41.283_ph_web-1.jpg",
+          "recovered": false
+        },
+        {
+          "caption": "Several Circles",
+          "path": "references/ref-0015/mobile-28.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.guggenheim.org/artwork/1992",
+          "mobile_number": 28,
+          "credit": "Wassily Kandinsky · 1926 · Painting, Guggenheim Museum",
+          "dimensions": [
+            1255,
+            1280
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "470864b4380565731b439fcc10e8708263867bf2e81fa316f8c165a13c882551"
+        }
+      ],
+      "visual_observations": "Colored circles of varied size overlap on a dark background; a large blue ring anchors an asymmetrical constellation.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://www.guggenheim.org/artwork/1992"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 28,
+          "title": "Several Circles",
+          "credit": "Wassily Kandinsky · 1926 · Painting, Guggenheim Museum",
+          "category": "Rhythm in rings",
+          "editorial_description": "Kandinsky limited himself to one form and composed only with size, color, overlap and position. A lesson in how much variety a single shape can hold.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.guggenheim.org/artwork/1992"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Kandinsky"
+    },
+    {
+      "id": "ref-0016",
+      "title": "Endless Ribbon (Essen)",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Max Bill",
+      "attribution_status": "As credited on supplied candidate page; full attribution not independently researched.",
+      "note_path": "references/ref-0016/README.md",
+      "local_asset_paths": [
+        "references/ref-0016/candidate-17.jpg",
+        "references/ref-0016/candidate-18.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "sculpture",
+        "loop",
+        "negative-space"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        17,
+        18
+      ],
+      "images": [
+        {
+          "candidate_number": 17,
+          "caption": "17. Max Bill — Endless Ribbon (Essen)",
+          "path": "references/ref-0016/candidate-17.jpg",
+          "original_image_url": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Max_Bill_Unendliche_Schleife_Stadtgarten_Essen.JPG",
+          "cached_from_url": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Max_Bill_Unendliche_Schleife_Stadtgarten_Essen.JPG",
+          "recovered": false
+        },
+        {
+          "candidate_number": 18,
+          "caption": "18. Max Bill — Endless Ribbon (7890)",
+          "path": "references/ref-0016/candidate-18.jpg",
+          "original_image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Max_Bill_unendliche_Schleife_7890.JPG/1600px-Max_Bill_unendliche_Schleife_7890.JPG",
+          "cached_from_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b2/Max_Bill_unendliche_Schleife_7890.JPG/1920px-Max_Bill_unendliche_Schleife_7890.JPG?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20130719145317",
+          "recovered": true,
+          "source_page": "https://commons.wikimedia.org/wiki/File:Max_Bill_unendliche_Schleife_7890.JPG",
+          "credit": "Sculpture: Max Bill; photograph: Volker Wagenitz, 2013-07-19",
+          "source_license_label": "CC0 1.0, as labeled by Commons",
+          "context": "Commons describes this as the 1974 Tranas granite version in Stadtgarten, Essen."
+        }
+      ],
+      "visual_observations": "A continuous rounded ribbon sculpture sits outdoors on a low base; its folded surface frames an opening through the center."
+    },
+    {
+      "id": "ref-0017",
+      "title": "Ensō (AAM)",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Nakahara Nantenbō",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0017/README.md",
+      "local_asset_paths": [
+        "references/ref-0017/candidate-19.jpg",
+        "references/ref-0017/mobile-33.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "ink",
+        "circle",
+        "gesture"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        19
+      ],
+      "images": [
+        {
+          "candidate_number": 19,
+          "caption": "19. Nantenbō — Ensō (AAM)",
+          "path": "references/ref-0017/candidate-19.jpg",
+          "original_image_url": "https://searchcollection.asianart.org/internal/media/dispatcher/11118/full",
+          "cached_from_url": "https://searchcollection.asianart.org/internal/media/dispatcher/11118/full",
+          "recovered": false
+        },
+        {
+          "caption": "Ensō (Zen circle)",
+          "path": "references/ref-0017/mobile-33.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://searchcollection.asianart.org/objects/19254/enso",
+          "mobile_number": 33,
+          "credit": "Nakahara Nantenbō · c. 1900–25 · Ink on paper",
+          "dimensions": [
+            800,
+            629
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "0e5f8b40c1cd9bd26e39e38d448d28f6d4e7dc296da3125a6edc506bcf18906a"
+        }
+      ],
+      "visual_observations": "A broad, uneven black ink circle is paired with vertical calligraphy on a pale ground, bordered by patterned mounting.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://searchcollection.asianart.org/objects/19254/enso"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 33,
+          "title": "Ensō (Zen circle)",
+          "credit": "Nakahara Nantenbō · c. 1900–25 · Ink on paper",
+          "category": "One circle, one idea",
+          "editorial_description": "One thick brushstroke closes into a circle beside a few lines of calligraphy; the dry, streaked edge records the speed of the hand. The same form as a geometric circle, made in a single breath.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://searchcollection.asianart.org/objects/19254/enso"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Nantenbō"
+    },
+    {
+      "id": "ref-0018",
+      "title": "Black Circle",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Kazimir Malevich",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0018/README.md",
+      "local_asset_paths": [
+        "references/ref-0018/candidate-20.png",
+        "references/ref-0018/mobile-32.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "circle",
+        "minimal"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        20
+      ],
+      "images": [
+        {
+          "candidate_number": 20,
+          "caption": "20. Malevich — Black Circle",
+          "path": "references/ref-0018/candidate-20.png",
+          "original_image_url": "https://upload.wikimedia.org/wikipedia/commons/9/98/%D0%A7%D1%91%D1%80%D0%BD%D1%8B%D0%B9_%D0%BA%D1%80%D1%83%D0%B3.png",
+          "cached_from_url": "https://upload.wikimedia.org/wikipedia/commons/9/98/%D0%A7%D1%91%D1%80%D0%BD%D1%8B%D0%B9_%D0%BA%D1%80%D1%83%D0%B3.png",
+          "recovered": false
+        },
+        {
+          "caption": "Black Circle",
+          "path": "references/ref-0018/mobile-32.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://commons.wikimedia.org/wiki/File:%D0%A7%D1%91%D1%80%D0%BD%D1%8B%D0%B9_%D0%BA%D1%80%D1%83%D0%B3.png",
+          "mobile_number": 32,
+          "credit": "Kazimir Malevich · c. 1923 version of a 1915 painting · State Russian Museum",
+          "dimensions": [
+            697,
+            707
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "480007ca35a8e41283c77cc3c83ca2b14045c510e6c8a98726e01a326e98cc5a"
+        }
+      ],
+      "visual_observations": "A single solid black circle fills most of a pale square, emphasizing the edge, surrounding margin and surface texture.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://commons.wikimedia.org/wiki/File:%D0%A7%D1%91%D1%80%D0%BD%D1%8B%D0%B9_%D0%BA%D1%80%D1%83%D0%B3.png"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 32,
+          "title": "Black Circle",
+          "credit": "Kazimir Malevich · c. 1923 version of a 1915 painting · State Russian Museum",
+          "category": "One circle, one idea",
+          "editorial_description": "One black circle floating on a white ground. Compare it with the Tokyo 1964 sun: the same confidence in a single shape and open space.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://commons.wikimedia.org/wiki/File:%D0%A7%D1%91%D1%80%D0%BD%D1%8B%D0%B9_%D0%BA%D1%80%D1%83%D0%B3.png"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Malevich"
+    },
+    {
+      "id": "ref-0019",
+      "title": "Center for Space Research",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Jacqueline Casey",
+      "attribution_status": "Full artist credit transcribed from the supplied mobile reference page; external source attribution not independently checked.",
+      "note_path": "references/ref-0019/README.md",
+      "local_asset_paths": [
+        "references/ref-0019/candidate-21.jpg",
+        "references/ref-0019/mobile-30.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "ring",
+        "negative-space"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        21
+      ],
+      "images": [
+        {
+          "candidate_number": 21,
+          "caption": "21. Casey — Center for Space Research",
+          "path": "references/ref-0019/candidate-21.jpg",
+          "original_image_url": "https://www.neugraphic.com/casey/posters/casey5.jpg",
+          "cached_from_url": "https://www.neugraphic.com/casey/posters/casey5.jpg",
+          "recovered": false
+        },
+        {
+          "caption": "Center for Space Research",
+          "path": "references/ref-0019/mobile-30.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.neugraphic.com/casey/gallery.html",
+          "mobile_number": 30,
+          "credit": "Jacqueline Casey · 1968 · MIT",
+          "dimensions": [
+            1235,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "784bd68c989784d071ef13d03af620e873096a8088e2bf1958f4e0b663e7e4a8"
+        }
+      ],
+      "visual_observations": "A dark irregular ring sits low on a white poster, with widely spaced information across the top.",
+      "source_urls": [
+        "http://localhost:8765/candidates/index.html",
+        "http://localhost:8765/?v=mobile",
+        "https://www.neugraphic.com/casey/gallery.html"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 30,
+          "title": "Center for Space Research",
+          "credit": "Jacqueline Casey · 1968 · MIT",
+          "category": "One circle, one idea",
+          "editorial_description": "A white disc sits inside a soft black corona, like an eclipse, beneath one line of widely spaced type. Swiss grid discipline applied to a scientific subject.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.neugraphic.com/casey/gallery.html"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "previous_creator_credit": "Casey"
+    },
+    {
+      "id": "ref-0020",
+      "title": "The Moon Show",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Casey",
+      "attribution_status": "As credited on supplied candidate page; full attribution not independently researched.",
+      "note_path": "references/ref-0020/README.md",
+      "local_asset_paths": [
+        "references/ref-0020/candidate-22.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "moon",
+        "black-and-white"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        22
+      ],
+      "images": [
+        {
+          "candidate_number": 22,
+          "caption": "22. Casey — The Moon Show",
+          "path": "references/ref-0020/candidate-22.jpg",
+          "original_image_url": "https://www.neugraphic.com/casey/posters/casey45.jpg",
+          "cached_from_url": "https://www.neugraphic.com/casey/posters/casey45.jpg",
+          "recovered": false
+        }
+      ],
+      "visual_observations": "A detailed moon disk sits high on a narrow black field, with white title lettering near the bottom."
+    },
+    {
+      "id": "ref-0021",
+      "title": "Ocean Engineering",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Casey",
+      "attribution_status": "As credited on supplied candidate page; full attribution not independently researched.",
+      "note_path": "references/ref-0021/README.md",
+      "local_asset_paths": [
+        "references/ref-0021/candidate-23.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "spiral",
+        "blue"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        23
+      ],
+      "images": [
+        {
+          "candidate_number": 23,
+          "caption": "23. Casey — Ocean Engineering",
+          "path": "references/ref-0021/candidate-23.jpg",
+          "original_image_url": "https://www.neugraphic.com/casey/posters/casey25.jpg",
+          "cached_from_url": "https://www.neugraphic.com/casey/posters/casey25.jpg",
+          "recovered": false
+        }
+      ],
+      "visual_observations": "A dark spiral shell appears within a blue lower field below a white area of small informational text."
+    },
+    {
+      "id": "ref-0022",
+      "title": "MIT Open House 1969",
+      "date_added": "2026-09-22",
+      "source_url": "http://localhost:8765/candidates/index.html",
+      "creator": "Casey",
+      "attribution_status": "As credited on supplied candidate page; full attribution not independently researched.",
+      "note_path": "references/ref-0022/README.md",
+      "local_asset_paths": [
+        "references/ref-0022/candidate-24.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "line",
+        "red",
+        "curve"
+      ],
+      "selection_status": "candidate; favorite status unconfirmed",
+      "candidate_numbers": [
+        24
+      ],
+      "images": [
+        {
+          "candidate_number": 24,
+          "caption": "24. Casey — MIT Open House 1969",
+          "path": "references/ref-0022/candidate-24.jpg",
+          "original_image_url": "https://www.neugraphic.com/casey/posters/casey7.jpg",
+          "cached_from_url": "https://www.neugraphic.com/casey/posters/casey7.jpg",
+          "recovered": false
+        }
+      ],
+      "visual_observations": "A thin white curling line sweeps across a red field, with small typography along the edges."
+    },
+    {
+      "id": "ref-0023",
+      "title": "Beethoven",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.neugraphic.com/muller-brockmann/gallery.html",
+      "creator": "Josef Müller-Brockmann",
+      "note_path": "references/ref-0023/README.md",
+      "local_asset_paths": [
+        "references/ref-0023/mobile-01.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "arcs",
+        "rhythm",
+        "grid"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Beethoven",
+          "path": "references/ref-0023/mobile-01.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.neugraphic.com/muller-brockmann/gallery.html",
+          "mobile_number": 1,
+          "credit": "Josef Müller-Brockmann · 1955",
+          "dimensions": [
+            1114,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "c1981b53d8d7299b14a139fbdc9dbb81179237a5a6d1f9d2c83f1dc7a39683a8"
+        }
+      ],
+      "visual_observations": "Broad concentric black arcs sweep beyond the edges of a pale poster; small aligned text sits inside the open center.",
+      "source_urls": [
+        "https://www.neugraphic.com/muller-brockmann/gallery.html",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 1,
+          "title": "Beethoven",
+          "credit": "Josef Müller-Brockmann · 1955",
+          "category": "Grid & typographic tradition",
+          "editorial_description": "Concentric arcs turn musical rhythm into a visual structure. Small, aligned type lets the geometry take the lead.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.neugraphic.com/muller-brockmann/gallery.html"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0024",
+      "title": "Musica Viva",
+      "date_added": "2026-09-22",
+      "source_url": "https://socks-studio.com/2016/11/30/joseph-muller-brockmann-musica-viva-posters-for-the-zurich-tonhalle/",
+      "creator": "Josef Müller-Brockmann",
+      "note_path": "references/ref-0024/README.md",
+      "local_asset_paths": [
+        "references/ref-0024/mobile-02.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "diagonals",
+        "geometry",
+        "primary-colors"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Musica Viva",
+          "path": "references/ref-0024/mobile-02.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://socks-studio.com/2016/11/30/joseph-muller-brockmann-musica-viva-posters-for-the-zurich-tonhalle/",
+          "mobile_number": 2,
+          "credit": "Josef Müller-Brockmann · 1959",
+          "dimensions": [
+            1144,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "65a70803c96aa8ede3abb2e8f42032f100947b2b87c0b4818a3d7b2e5fa7bacc"
+        }
+      ],
+      "visual_observations": "A large pale diamond tilts across a gray field, dotted with tiny red, yellow, blue and black squares; the text follows its diagonal.",
+      "source_urls": [
+        "https://socks-studio.com/2016/11/30/joseph-muller-brockmann-musica-viva-posters-for-the-zurich-tonhalle/",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 2,
+          "title": "Musica Viva",
+          "credit": "Josef Müller-Brockmann · 1959",
+          "category": "Grid & typographic tradition",
+          "editorial_description": "A diagonal field and small geometric accents create movement while the information stays organized.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://socks-studio.com/2016/11/30/joseph-muller-brockmann-musica-viva-posters-for-the-zurich-tonhalle/"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0025",
+      "title": "The Public Theater, 95–96",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.moma.org/collection/works/8840",
+      "creator": "Paula Scher",
+      "note_path": "references/ref-0025/README.md",
+      "local_asset_paths": [
+        "references/ref-0025/mobile-03.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "typography",
+        "density",
+        "yellow"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "The Public Theater, 95–96",
+          "path": "references/ref-0025/mobile-03.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.moma.org/collection/works/8840",
+          "mobile_number": 3,
+          "credit": "Paula Scher · 1995",
+          "dimensions": [
+            1239,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "94725494bcaf5e7d5a02630a26dc9f6b3fc0ba21a41407647e3a5f29e5f8e8d1"
+        }
+      ],
+      "visual_observations": "Dense black lettering changes scale and orientation across a yellow field, surrounding a monochrome performer with red accents.",
+      "source_urls": [
+        "https://www.moma.org/collection/works/8840",
+        "http://localhost:8765/?v=mobile",
+        "https://ed-brandt.com/student-resources/visual-organization-primer.pdf"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 3,
+          "title": "The Public Theater, 95–96",
+          "credit": "Paula Scher · 1995",
+          "category": "Grid & typographic tradition",
+          "editorial_description": "Dense, expressive lettering and a cutout performer create a loud typographic hierarchy. A useful contrast to Swiss restraint.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.moma.org/collection/works/8840"
+            },
+            {
+              "text": "Image reference ↗",
+              "url": "https://ed-brandt.com/student-resources/visual-organization-primer.pdf"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0026",
+      "title": "The Wave, in context",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.nathanarchambault.com/casper-new-wave",
+      "creator": "Owen Gatley (illustration; page credit)",
+      "note_path": "references/ref-0026/README.md",
+      "local_asset_paths": [
+        "references/ref-0026/mobile-04.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "campaign",
+        "flowing-lines",
+        "outdoor"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "The Wave, in context",
+          "path": "references/ref-0026/mobile-04.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.nathanarchambault.com/casper-new-wave",
+          "mobile_number": 4,
+          "credit": "Casper · Illustration by Owen Gatley",
+          "dimensions": [
+            1400,
+            829
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "5384f1330e8738d55c10bdb6c541c01efb49958e8dc49bde55956ce426257f45"
+        }
+      ],
+      "visual_observations": "A horizontal outdoor ad pairs a mattress and flowing white parallel lines with a short pale headline on a dark background.",
+      "client": "Casper",
+      "source_urls": [
+        "https://www.nathanarchambault.com/casper-new-wave",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 4,
+          "title": "The Wave, in context",
+          "credit": "Casper · Illustration by Owen Gatley",
+          "category": "Campaigns in the city",
+          "editorial_description": "A single mattress, flowing lines and a short headline hold together at outdoor scale. Study the relationship between message and setting.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.nathanarchambault.com/casper-new-wave"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0027",
+      "title": "Designed to support",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.nathanarchambault.com/casper-new-wave",
+      "creator": "Owen Gatley (illustration; page credit)",
+      "note_path": "references/ref-0027/README.md",
+      "local_asset_paths": [
+        "references/ref-0027/mobile-05.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "campaign",
+        "flowing-lines",
+        "illustration"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Designed to support",
+          "path": "references/ref-0027/mobile-05.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.nathanarchambault.com/casper-new-wave",
+          "mobile_number": 5,
+          "credit": "Casper · Illustration by Owen Gatley",
+          "dimensions": [
+            1204,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "6c149f41d275c6fe9e647abd6cb0eac8e1bda0e37cef537308c7504604dc9a2b"
+        }
+      ],
+      "visual_observations": "A mattress carrying two figures rests within sweeping white lines on a muted dark field; left-aligned text balances the vertical illustration.",
+      "client": "Casper",
+      "source_urls": [
+        "https://www.nathanarchambault.com/casper-new-wave",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 5,
+          "title": "Designed to support",
+          "credit": "Casper · Illustration by Owen Gatley",
+          "category": "Campaigns in the city",
+          "editorial_description": "The same flowing lines become a vertical composition. Repeated illustration and color choices keep the campaign recognizable.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.nathanarchambault.com/casper-new-wave"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0028",
+      "title": "StreetEasy, on the platform",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.marketingbrew.com/stories/streeteasy-iconic-nyc-subway-ads-OOH-strategy",
+      "creator": null,
+      "note_path": "references/ref-0028/README.md",
+      "local_asset_paths": [
+        "references/ref-0028/mobile-06.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "campaign",
+        "subway",
+        "photography"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "StreetEasy, on the platform",
+          "path": "references/ref-0028/mobile-06.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.marketingbrew.com/stories/streeteasy-iconic-nyc-subway-ads-OOH-strategy",
+          "mobile_number": 6,
+          "credit": "StreetEasy · NYC subway placement",
+          "dimensions": [
+            1400,
+            788
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "6c67c3fd3ddbbeb94a0ace10328b818f801379fa4ec316b22a4bef0ce5518f3e"
+        }
+      ],
+      "visual_observations": "A framed subway platform ad uses a central couple and large orange lettering, photographed against a passing train.",
+      "client": "StreetEasy",
+      "attribution_note": "The page identifies the brand and placement, but no designer or photographer.",
+      "source_urls": [
+        "https://www.marketingbrew.com/stories/streeteasy-iconic-nyc-subway-ads-OOH-strategy",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 6,
+          "title": "StreetEasy, on the platform",
+          "credit": "StreetEasy · NYC subway placement",
+          "category": "Campaigns in the city",
+          "editorial_description": "See the actual scale of a poster beside a train. A strong image and a distinct headline have to compete with a busy environment.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.marketingbrew.com/stories/streeteasy-iconic-nyc-subway-ads-OOH-strategy"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0029",
+      "title": "Staatliches Bauhaus Ausstellung",
+      "date_added": "2026-09-22",
+      "source_url": "https://germanhistorydocs.org/en/weimar-germany-1918-1933/poster-for-bauhaus-exhibition-in-weimar-1923",
+      "creator": "Joost Schmidt",
+      "note_path": "references/ref-0029/README.md",
+      "local_asset_paths": [
+        "references/ref-0029/mobile-07.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "geometry",
+        "diagonals",
+        "profile"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Staatliches Bauhaus Ausstellung",
+          "path": "references/ref-0029/mobile-07.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://germanhistorydocs.org/en/weimar-germany-1918-1933/poster-for-bauhaus-exhibition-in-weimar-1923",
+          "mobile_number": 7,
+          "credit": "Joost Schmidt · 1923",
+          "dimensions": [
+            710,
+            1016
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "cd328dfd84954635e9cf6e60cf44dfe8154c1eefd1135635bf382aad2d85f825"
+        }
+      ],
+      "visual_observations": "A profile assembled from black and red geometric forms intersects diagonal text bands on cream paper.",
+      "source_urls": [
+        "https://germanhistorydocs.org/en/weimar-germany-1918-1933/poster-for-bauhaus-exhibition-in-weimar-1923",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 7,
+          "title": "Staatliches Bauhaus Ausstellung",
+          "credit": "Joost Schmidt · 1923",
+          "category": "Bauhaus style",
+          "editorial_description": "A geometric profile and diagonally arranged lettering create a compact, dynamic composition in black, red and cream.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://germanhistorydocs.org/en/weimar-germany-1918-1933/poster-for-bauhaus-exhibition-in-weimar-1923"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0030",
+      "title": "Bauhaus Ausstellung Weimar",
+      "date_added": "2026-09-22",
+      "source_url": "https://artposterarchive.com/products/herbert-bayer-bauhaus-exhibition-poster-1923",
+      "creator": "Herbert Bayer",
+      "note_path": "references/ref-0030/README.md",
+      "local_asset_paths": [
+        "references/ref-0030/mobile-08.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "geometry",
+        "primary-colors",
+        "construction-lines"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Bauhaus Ausstellung Weimar",
+          "path": "references/ref-0030/mobile-08.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://artposterarchive.com/products/herbert-bayer-bauhaus-exhibition-poster-1923",
+          "mobile_number": 8,
+          "credit": "Herbert Bayer · 1923 design; reproduction shown",
+          "dimensions": [
+            1000,
+            1000
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "be97d8c1d043e223abf3a952d7b3b78a8a7e71f6d2e02282baa05a785dc08f4d"
+        }
+      ],
+      "visual_observations": "A black circle, blue triangular form and red square sit among fine construction lines on cream, with bold exhibition lettering above and below.",
+      "source_urls": [
+        "https://artposterarchive.com/products/herbert-bayer-bauhaus-exhibition-poster-1923",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 8,
+          "title": "Bauhaus Ausstellung Weimar",
+          "credit": "Herbert Bayer · 1923 design; reproduction shown",
+          "category": "Bauhaus style",
+          "editorial_description": "A circle, triangle and square establish a clear geometric vocabulary. Compare the heavy forms with the smaller exhibition information.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://artposterarchive.com/products/herbert-bayer-bauhaus-exhibition-poster-1923"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0031",
+      "title": "Tokyo 1964: the emblem",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.itsnicethat.com/features/kamekura-yusaku-tokyo-1964-olympics-identity-graphic-design-040821",
+      "creator": "Yusaku Kamekura",
+      "note_path": "references/ref-0031/README.md",
+      "local_asset_paths": [
+        "references/ref-0031/mobile-09.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "circle",
+        "negative-space",
+        "symbol"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Tokyo 1964: the emblem",
+          "path": "references/ref-0031/mobile-09.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.itsnicethat.com/features/kamekura-yusaku-tokyo-1964-olympics-identity-graphic-design-040821",
+          "mobile_number": 9,
+          "credit": "Yusaku Kamekura · Tokyo 1964 Olympics",
+          "dimensions": [
+            828,
+            1546
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "6e286b5338901842f8e1337e6d4d0aa3ffcb5e678e152a5bbf2afbc8260f506f"
+        }
+      ],
+      "visual_observations": "A large red disk fills the upper field; gold Olympic rings and condensed gold lettering stack underneath on cream.",
+      "source_urls": [
+        "https://www.itsnicethat.com/features/kamekura-yusaku-tokyo-1964-olympics-identity-graphic-design-040821",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 9,
+          "title": "Tokyo 1964: the emblem",
+          "credit": "Yusaku Kamekura · Tokyo 1964 Olympics",
+          "category": "Japanese poster design",
+          "editorial_description": "A red sun, gold rings and a compact title make an immediately recognizable composition. Space is an active part of the design.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.itsnicethat.com/features/kamekura-yusaku-tokyo-1964-olympics-identity-graphic-design-040821"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0032",
+      "title": "Tokyo 1964: the action series",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.itsnicethat.com/features/kamekura-yusaku-tokyo-1964-olympics-identity-graphic-design-040821",
+      "creator": "Yusaku Kamekura",
+      "note_path": "references/ref-0032/README.md",
+      "local_asset_paths": [
+        "references/ref-0032/mobile-10.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "photography",
+        "series",
+        "sports"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Tokyo 1964: the action series",
+          "path": "references/ref-0032/mobile-10.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.itsnicethat.com/features/kamekura-yusaku-tokyo-1964-olympics-identity-graphic-design-040821",
+          "mobile_number": 10,
+          "credit": "Yusaku Kamekura · Tokyo 1964 Olympics",
+          "dimensions": [
+            1080,
+            463
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "888a912f68032d66ffb0684486917fea53844a075c1b9967fb53705a8d3287a9"
+        }
+      ],
+      "visual_observations": "Three dark photographic sports posters are presented together; athlete images sit above a consistent band of Olympic marks and lettering.",
+      "source_urls": [
+        "https://www.itsnicethat.com/features/kamekura-yusaku-tokyo-1964-olympics-identity-graphic-design-040821",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 10,
+          "title": "Tokyo 1964: the action series",
+          "credit": "Yusaku Kamekura · Tokyo 1964 Olympics",
+          "category": "Japanese poster design",
+          "editorial_description": "Athlete photography changes from poster to poster while the event identity stays anchored below. Study the consistency across the set.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.itsnicethat.com/features/kamekura-yusaku-tokyo-1964-olympics-identity-graphic-design-040821"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0033",
+      "title": "Die gute Form",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.neugraphic.com/ruder/gallery.html",
+      "creator": "Emil Ruder",
+      "note_path": "references/ref-0033/README.md",
+      "local_asset_paths": [
+        "references/ref-0033/mobile-11.jpg",
+        "references/ref-0033/image-6e2ffeb224c85a92.png"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "figure-ground",
+        "loop",
+        "sculptural-form"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Die gute Form",
+          "path": "references/ref-0033/mobile-11.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.neugraphic.com/ruder/gallery.html",
+          "mobile_number": 11,
+          "credit": "Emil Ruder · 1954",
+          "dimensions": [
+            1129,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "4b27dbcb4db63d704cd5776b660b0c6ed9b4dfc0835e20b47861248f507f23b6"
+        },
+        {
+          "path": "references/ref-0033/image-6e2ffeb224c85a92.png",
+          "caption": "Die gute Form",
+          "sha256": "6e2ffeb224c85a9216e63c724b0608568f0cf5b8ffead7ee62ea18f90a2f3bf1"
+        }
+      ],
+      "visual_observations": "A large tilted pale loop with a shaded underside floats against black, above a compact white title and small aligned information.",
+      "source_urls": [
+        "https://www.neugraphic.com/ruder/gallery.html",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 11,
+          "title": "Die gute Form",
+          "credit": "Emil Ruder · 1954",
+          "category": "More in the same visual language",
+          "editorial_description": "A single looping form dominates the black field. Study how one large shape can make a strong poster while the supporting text stays small.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.neugraphic.com/ruder/gallery.html"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ],
+      "date_updated": "2026-09-22"
+    },
+    {
+      "id": "ref-0034",
+      "title": "Moderne französische Knüpfteppiche",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.neugraphic.com/ruder/gallery.html",
+      "creator": "Emil Ruder",
+      "note_path": "references/ref-0034/README.md",
+      "local_asset_paths": [
+        "references/ref-0034/mobile-12.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "typography",
+        "repetition",
+        "red"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Moderne französische Knüpfteppiche",
+          "path": "references/ref-0034/mobile-12.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.neugraphic.com/ruder/gallery.html",
+          "mobile_number": 12,
+          "credit": "Emil Ruder · 1964",
+          "dimensions": [
+            1137,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "272adc04d3c1b82eb415a1cf2594d9a974a00d964a234c17302272ba4ad8d536"
+        }
+      ],
+      "visual_observations": "Red sans-serif words overlap and repeat across a mostly white field, mixing readable text with dense typographic texture.",
+      "source_urls": [
+        "https://www.neugraphic.com/ruder/gallery.html",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 12,
+          "title": "Moderne französische Knüpfteppiche",
+          "credit": "Emil Ruder · 1964",
+          "category": "More in the same visual language",
+          "editorial_description": "Overlapping red words turn a typographic composition into texture. Repetition adds energy without adding extra colors or illustrations.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.neugraphic.com/ruder/gallery.html"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0035",
+      "title": "Der Film",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.neugraphic.com/muller-brockmann/gallery.html",
+      "creator": "Josef Müller-Brockmann",
+      "note_path": "references/ref-0035/README.md",
+      "local_asset_paths": [
+        "references/ref-0035/mobile-13.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "typography",
+        "overlap",
+        "black-and-white"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Der Film",
+          "path": "references/ref-0035/mobile-13.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.neugraphic.com/muller-brockmann/gallery.html",
+          "mobile_number": 13,
+          "credit": "Josef Müller-Brockmann · 1960",
+          "dimensions": [
+            1133,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "68897b89515421ebeefe1eb6db3bcb8eae89198641b69199b36c22e45cf1c254"
+        }
+      ],
+      "visual_observations": "Oversized pale letterforms overlap near the bottom of a black field; small red informational text appears above and below.",
+      "source_urls": [
+        "https://www.neugraphic.com/muller-brockmann/gallery.html",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 13,
+          "title": "Der Film",
+          "credit": "Josef Müller-Brockmann · 1960",
+          "category": "More in the same visual language",
+          "editorial_description": "Overlapping light and dark lettering suggests movement and projection. The title itself becomes the image; the small red details stay secondary.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.neugraphic.com/muller-brockmann/gallery.html"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0036",
+      "title": "Konstruktivisten",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.neugraphic.com/tschichold/gallery.html",
+      "creator": "Jan Tschichold",
+      "note_path": "references/ref-0036/README.md",
+      "local_asset_paths": [
+        "references/ref-0036/mobile-14.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "circle",
+        "negative-space",
+        "asymmetry"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Konstruktivisten",
+          "path": "references/ref-0036/mobile-14.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.neugraphic.com/tschichold/gallery.html",
+          "mobile_number": 14,
+          "credit": "Jan Tschichold · 1937, as catalogued by Neugraphic",
+          "dimensions": [
+            1110,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "697afc9dca445449248eb0b83de4842d982bdb825dba8cd73d3fb5e0d2247505"
+        }
+      ],
+      "visual_observations": "A small pale circle and fine horizontal rule anchor asymmetrical black lettering within a large quiet cream field.",
+      "source_urls": [
+        "https://www.neugraphic.com/tschichold/gallery.html",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 14,
+          "title": "Konstruktivisten",
+          "credit": "Jan Tschichold · 1937, as catalogued by Neugraphic",
+          "category": "More in the same visual language",
+          "editorial_description": "A quiet circle, fine rules and asymmetrical type create a remarkably spare composition. Compare its open space with the denser typographic posters.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.neugraphic.com/tschichold/gallery.html"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0037",
+      "title": "Nihon Buyo",
+      "date_added": "2026-09-22",
+      "source_url": "https://dnpfcp.jp/gallery/ccga/eng/00000567",
+      "creator": "Ikko Tanaka",
+      "note_path": "references/ref-0037/README.md",
+      "local_asset_paths": [
+        "references/ref-0037/mobile-15.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "grid",
+        "geometry",
+        "face"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Nihon Buyo",
+          "path": "references/ref-0037/mobile-15.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://dnpfcp.jp/gallery/ccga/eng/00000567",
+          "mobile_number": 15,
+          "credit": "Ikko Tanaka · 1981",
+          "dimensions": [
+            210,
+            299
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "0d2530543db1d0763723ea1a0cfcbfc022509f8133b9f9200ce41367de60003e"
+        }
+      ],
+      "visual_observations": "A stylized face is assembled from a square grid, black blocks, bright triangles, a blue circle and small red facial accents.",
+      "source_urls": [
+        "https://dnpfcp.jp/gallery/ccga/eng/00000567",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 15,
+          "title": "Nihon Buyo",
+          "credit": "Ikko Tanaka · 1981",
+          "category": "More in the same visual language",
+          "editorial_description": "A face emerges from squares, triangles and a circle. The modular construction connects Japanese imagery with the geometric language of the Bauhaus.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://dnpfcp.jp/gallery/ccga/eng/00000567"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0038",
+      "title": "JAPAN",
+      "date_added": "2026-09-22",
+      "source_url": "https://dnpfcp.jp/gallery/ccga/eng/00000567",
+      "creator": "Ikko Tanaka",
+      "note_path": "references/ref-0038/README.md",
+      "local_asset_paths": [
+        "references/ref-0038/mobile-16.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "symbol",
+        "flat-color",
+        "dots"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "JAPAN",
+          "path": "references/ref-0038/mobile-16.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://dnpfcp.jp/gallery/ccga/eng/00000567",
+          "mobile_number": 16,
+          "credit": "Ikko Tanaka · 1986",
+          "dimensions": [
+            210,
+            293
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "c5c76e82cb58f1e018b5789de787c8fada0ac2949a6f5d96f7db39319138ccc3"
+        }
+      ],
+      "visual_observations": "A simplified ochre deer bends downward on orange; white dots mark its back, with widely spaced colored letters above.",
+      "source_urls": [
+        "https://dnpfcp.jp/gallery/ccga/eng/00000567",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 16,
+          "title": "JAPAN",
+          "credit": "Ikko Tanaka · 1986",
+          "category": "More in the same visual language",
+          "editorial_description": "A simplified deer, repeated white dots and a warm color field create a memorable symbol. The small title leaves the illustration in charge.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://dnpfcp.jp/gallery/ccga/eng/00000567"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0039",
+      "title": "Olivetti: a field of numbers",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.archiviograficaitaliana.com/project/25/olivetti",
+      "creator": "Giovanni Pintori",
+      "note_path": "references/ref-0039/README.md",
+      "local_asset_paths": [
+        "references/ref-0039/mobile-17.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "numbers",
+        "typography",
+        "texture"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Olivetti: a field of numbers",
+          "path": "references/ref-0039/mobile-17.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.archiviograficaitaliana.com/project/25/olivetti",
+          "mobile_number": 17,
+          "credit": "Giovanni Pintori · 1949 · Calculating machines",
+          "dimensions": [
+            1210,
+            797
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "79d1e9d177e7a8c70c150077ea87f00e9106300516f6ff2ccc090c60575836ff"
+        }
+      ],
+      "visual_observations": "A dense field of tiny multicolored numerals fills a dark rectangle, forming an almost woven texture.",
+      "source_urls": [
+        "https://www.archiviograficaitaliana.com/project/25/olivetti",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 17,
+          "title": "Olivetti: a field of numbers",
+          "credit": "Giovanni Pintori · 1949 · Calculating machines",
+          "category": "Posters for products",
+          "editorial_description": "A dense field of colored numerals suggests the work of a calculating machine. Useful for showing a product’s function through a visual idea.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.archiviograficaitaliana.com/project/25/olivetti"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0040",
+      "title": "Pirelli: the tire that bites the road",
+      "date_added": "2026-09-22",
+      "source_url": "https://peoplesgdarchive.org/item/8642/il-pneumatico-che-morde-la-strada-1",
+      "creator": "Pavel Engelmann",
+      "note_path": "references/ref-0040/README.md",
+      "local_asset_paths": [
+        "references/ref-0040/mobile-18.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "pattern",
+        "diagonals",
+        "product"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Pirelli: the tire that bites the road",
+          "path": "references/ref-0040/mobile-18.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://peoplesgdarchive.org/item/8642/il-pneumatico-che-morde-la-strada-1",
+          "mobile_number": 18,
+          "credit": "Pavel Engelmann · 1952 · Tires",
+          "dimensions": [
+            630,
+            800
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "b8d2827874df9242493cf005a1ab9d403ed8fdb8f4070a18aafc413cf286bfac"
+        }
+      ],
+      "visual_observations": "Black tire-tread strips sweep diagonally across cream beneath a large red Pirelli wordmark; a short black caption sits within the pattern.",
+      "source_urls": [
+        "https://peoplesgdarchive.org/item/8642/il-pneumatico-che-morde-la-strada-1",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 18,
+          "title": "Pirelli: the tire that bites the road",
+          "credit": "Pavel Engelmann · 1952 · Tires",
+          "category": "Posters for products",
+          "editorial_description": "Tire tracks become a graphic pattern, paired with a prominent red wordmark. A product benefit—grip—supplies the central visual idea.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://peoplesgdarchive.org/item/8642/il-pneumatico-che-morde-la-strada-1"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0041",
+      "title": "Dubo / Dubon / Dubonnet",
+      "date_added": "2026-09-22",
+      "source_url": "https://peoplesgdarchive.org/item/17738/dubo-dubon-dubonnet",
+      "creator": "A. M. Cassandre",
+      "note_path": "references/ref-0041/README.md",
+      "local_asset_paths": [
+        "references/ref-0041/mobile-19.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "sequence",
+        "repetition",
+        "figure"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Dubo / Dubon / Dubonnet",
+          "path": "references/ref-0041/mobile-19.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://peoplesgdarchive.org/item/17738/dubo-dubon-dubonnet",
+          "mobile_number": 19,
+          "credit": "A. M. Cassandre · 1932 · Aperitif",
+          "dimensions": [
+            1400,
+            534
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "e75292e8e60ae8bc116a4f456eca42cc1e4fa1bc586a9194f625f30540e4014a"
+        }
+      ],
+      "visual_observations": "Three adjacent panels repeat a seated figure raising a glass; color progressively fills the figure as the brand lettering develops.",
+      "source_urls": [
+        "https://peoplesgdarchive.org/item/17738/dubo-dubon-dubonnet",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 19,
+          "title": "Dubo / Dubon / Dubonnet",
+          "credit": "A. M. Cassandre · 1932 · Aperitif",
+          "category": "Posters for products",
+          "editorial_description": "Three panels repeat a figure while color and the brand name build in stages. A useful reference for sequential posters or a coordinated campaign.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://peoplesgdarchive.org/item/17738/dubo-dubon-dubonnet"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0042",
+      "title": "Olivetti Lexikon 82",
+      "date_added": "2026-09-22",
+      "source_url": "https://archives-blog.sva.edu/post/milton-glaser-for-olivetti",
+      "creator": "Milton Glaser",
+      "note_path": "references/ref-0042/README.md",
+      "local_asset_paths": [
+        "references/ref-0042/mobile-20.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "product",
+        "surrealism",
+        "color"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Olivetti Lexikon 82",
+          "path": "references/ref-0042/mobile-20.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://archives-blog.sva.edu/post/milton-glaser-for-olivetti",
+          "mobile_number": 20,
+          "credit": "Milton Glaser · 1976 · Typewriter",
+          "dimensions": [
+            1170,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "851f90d5b93dd6843b1e28ac75bccd7d03952e31211c0e478a8524bee4c3d388"
+        }
+      ],
+      "visual_observations": "A white typewriter anchors a yellow scene filled with colored spheres, dangling figures and wavy lines.",
+      "source_urls": [
+        "https://archives-blog.sva.edu/post/milton-glaser-for-olivetti",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 20,
+          "title": "Olivetti Lexikon 82",
+          "credit": "Milton Glaser · 1976 · Typewriter",
+          "category": "Posters for products",
+          "editorial_description": "A clearly pictured typewriter anchors a playful world of falling forms and color. The product stays recognizable inside an imaginative scene.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://archives-blog.sva.edu/post/milton-glaser-for-olivetti"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0043",
+      "title": "Salvatore Ferragamo",
+      "date_added": "2026-09-22",
+      "source_url": "https://dnpfcp.jp/gallery/ccga/eng/00000567",
+      "creator": "Ikko Tanaka",
+      "note_path": "references/ref-0043/README.md",
+      "local_asset_paths": [
+        "references/ref-0043/mobile-21.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "silhouette",
+        "yellow",
+        "minimal"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Salvatore Ferragamo",
+          "path": "references/ref-0043/mobile-21.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://dnpfcp.jp/gallery/ccga/eng/00000567",
+          "mobile_number": 21,
+          "credit": "Ikko Tanaka · 1997 · Fashion brand poster",
+          "dimensions": [
+            210,
+            291
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "9159a65a67567646b3849941b2ce1b78e9570907a1dc3ed4813474c367bc29b5"
+        }
+      ],
+      "visual_observations": "A single black curving silhouette stands on saturated yellow below a small black brand panel with white script.",
+      "source_urls": [
+        "https://dnpfcp.jp/gallery/ccga/eng/00000567",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 21,
+          "title": "Salvatore Ferragamo",
+          "credit": "Ikko Tanaka · 1997 · Fashion brand poster",
+          "category": "Posters for products",
+          "editorial_description": "A black silhouette on saturated yellow creates an immediate focal point. Study the economical relationship between shape, brand name and background.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://dnpfcp.jp/gallery/ccga/eng/00000567"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0044",
+      "title": "Landscape of Braun",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.dandad.org/work/d-ad-awards-archive/landscape-of-braun",
+      "creator": "MR_DESIGN",
+      "note_path": "references/ref-0044/README.md",
+      "local_asset_paths": [
+        "references/ref-0044/mobile-22.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "product",
+        "architecture",
+        "monochrome"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Landscape of Braun",
+          "path": "references/ref-0044/mobile-22.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://www.dandad.org/work/d-ad-awards-archive/landscape-of-braun",
+          "mobile_number": 22,
+          "credit": "MR_DESIGN · D&AD 2015 · Product-inspired exhibition poster",
+          "dimensions": [
+            1132,
+            1600
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "15efb7ef0d7705eb785a62389ce0e650152d47eaf96284ee1d022f03de30b8b7"
+        }
+      ],
+      "visual_observations": "Monochrome textured rectangular towers and small cylinders resemble architecture, arranged with sparse type and long diagonal lines.",
+      "source_urls": [
+        "https://www.dandad.org/work/d-ad-awards-archive/landscape-of-braun",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 22,
+          "title": "Landscape of Braun",
+          "credit": "MR_DESIGN · D&AD 2015 · Product-inspired exhibition poster",
+          "category": "Posters for products",
+          "editorial_description": "Shaver forms become monumental architecture. Commissioned for the systems exhibition, this is a product-inspired homage, not a retail advertising campaign.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://www.dandad.org/work/d-ad-awards-archive/landscape-of-braun"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0045",
+      "title": "Endless Ribbon (Middelheim, Antwerp)",
+      "date_added": "2026-09-22",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Middelheim_Max_Bill_Eindeloze_kronkel_1956_03_Cropped.jpg",
+      "creator": "Max Bill",
+      "note_path": "references/ref-0045/README.md",
+      "local_asset_paths": [
+        "references/ref-0045/mobile-37.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "sculpture",
+        "loop",
+        "metal",
+        "negative-space"
+      ],
+      "selection_status": "saved reference; individual favorite status unconfirmed",
+      "images": [
+        {
+          "caption": "Endless Ribbon",
+          "path": "references/ref-0045/mobile-37.jpg",
+          "cached_from_url": "http://localhost:8765/?v=mobile",
+          "source_page": "https://commons.wikimedia.org/wiki/File:Middelheim_Max_Bill_Eindeloze_kronkel_1956_03_Cropped.jpg",
+          "mobile_number": 37,
+          "credit": "Max Bill · 1953–56 · Middelheim Museum, Antwerp · Photo: Ad Meskens, CC BY-SA 4.0",
+          "dimensions": [
+            1280,
+            1280
+          ],
+          "asset_origin": "JPEG embedded in supplied page; saved without image modification",
+          "sha256": "95e324ca3ae757731f1766bf273c4904d0d1aadd74794ef129bb9b12aa3d47b6",
+          "photographer": "Ad Meskens",
+          "source_license_label": "CC BY-SA 4.0, as credited on supplied page",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      ],
+      "visual_observations": "A polished golden metal band folds into a continuous rounded loop; broad reflections emphasize its curved surface and central opening.",
+      "related_reference_ids": [
+        "ref-0016"
+      ],
+      "version_note": "Separate museum version from the Essen granite sculpture in ref-0016, according to supplied page.",
+      "source_urls": [
+        "https://commons.wikimedia.org/wiki/File:Middelheim_Max_Bill_Eindeloze_kronkel_1956_03_Cropped.jpg",
+        "http://localhost:8765/?v=mobile"
+      ],
+      "page_records": [
+        {
+          "page_url": "http://localhost:8765/?v=mobile",
+          "number": 37,
+          "title": "Endless Ribbon",
+          "credit": "Max Bill · 1953–56 · Middelheim Museum, Antwerp · Photo: Ad Meskens, CC BY-SA 4.0",
+          "category": "One sculptural form",
+          "editorial_description": "One band of metal loops into a single continuous surface. Bill also conceived the 1949 exhibition “Die gute Form”—set this beside Ruder’s poster and compare the two loops.",
+          "links": [
+            {
+              "text": "View source ↗",
+              "url": "https://commons.wikimedia.org/wiki/File:Middelheim_Max_Bill_Eindeloze_kronkel_1956_03_Cropped.jpg"
+            }
+          ],
+          "metadata_status": "Transcribed from supplied page; external source links not independently checked."
+        }
+      ]
+    },
+    {
+      "id": "ref-0046",
+      "title": "Das Holz als Bau Stoff",
+      "creator": "Armin Hofmann",
+      "year": 1952,
+      "type": "graphic design / exhibition poster",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.moma.org/collection/works/7726",
+      "note_path": "references/ref-0046/README.md",
+      "local_asset_paths": [
+        "references/ref-0046/moma-7726.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "typography",
+        "angular-lettering",
+        "interlocking-forms",
+        "black-and-cream",
+        "asymmetry",
+        "negative-space"
+      ],
+      "selection_status": "individually shared reference; specific reasons and favorite ranking unstated",
+      "medium": "Linocut",
+      "dimensions": "50 13/16 x 35 1/4 inches (129 x 89.6 cm)",
+      "museum_credit": "Gift of the Swiss Commercial Extension Office, Lausanne",
+      "object_number": "608.1981",
+      "department": "Architecture and Design",
+      "attribution_status": "Verified on the supplied MoMA collection page on 2026-09-22.",
+      "visual_observations": "Large black angular letters interlock vertically on a warm cream field. Shared strokes, triangular counters and a diamond-shaped O make the words feel constructed from beams. A much smaller serif text block on the right contrasts with the heavy lettering; broad open areas keep the composition asymmetrical.",
+      "related_reference_ids": [
+        "ref-0007",
+        "ref-0004",
+        "ref-0035"
+      ],
+      "images": [
+        {
+          "caption": "Armin Hofmann — Das Holz als Bau Stoff (1952)",
+          "path": "references/ref-0046/moma-7726.jpg",
+          "source_page": "https://www.moma.org/collection/works/7726",
+          "cached_from_url": "https://www.moma.org/media/W1siZiIsIjIxMTcwNyJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDIwMDB4MjAwMFx1MDAzZSJdXQ.jpg?sha=e9f215876dd0169c"
+        }
+      ]
+    },
+    {
+      "id": "ref-0047",
+      "title": "Der Europäische Familienzwist (The European family quarrel)",
+      "creator": "Otl Aicher",
+      "creator_alias": "Otto Aicher",
+      "date_added": "2026-09-22",
+      "work_date": "c. 1950",
+      "type": "graphic design / poster",
+      "source_url": "https://www.moma.org/collection/works/7649",
+      "note_path": "references/ref-0047/README.md",
+      "local_asset_paths": [
+        "references/ref-0047/moma-7649.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "hand-silhouettes",
+        "red-black-cream",
+        "opposing-directions",
+        "flat-color",
+        "negative-space",
+        "bold-typography"
+      ],
+      "medium": "Photolithograph",
+      "dimensions": "16 x 16 inches (40.6 x 40.6 cm)",
+      "museum_credit": "Gift of the artist",
+      "object_number": "591.1951",
+      "department": "Architecture and Design",
+      "attribution_status": "Verified on the supplied MoMA collection page on 2026-09-22.",
+      "selection_status": "individually shared reference; specific reasons and favorite ranking unstated",
+      "visual_observations": "Two elongated hand silhouettes point in opposite directions across a saturated red square: a black hand enters from the upper left, and a cream hand from the lower right. Bold black lettering runs horizontally between them, with a smaller line near the bottom. Flat colors, rounded fingers and generous red space make the opposing gestures the focal point.",
+      "related_reference_ids": [
+        "ref-0006",
+        "ref-0011",
+        "ref-0043"
+      ],
+      "images": [
+        {
+          "caption": "Otl Aicher — Der Europäische Familienzwist (The European family quarrel) (c. 1950)",
+          "path": "references/ref-0047/moma-7649.jpg",
+          "source_page": "https://www.moma.org/collection/works/7649",
+          "cached_from_url": "https://www.moma.org/media/W1siZiIsIjUxNzg0MyJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDIwMDB4MjAwMFx1MDAzZSJdXQ.jpg?sha=0ba76620e7b39b24",
+          "dimensions": [
+            2000,
+            1969
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref-0048",
+      "title": "Ein Jahrhundert bittet um Frieden",
+      "creator": "Otl Aicher",
+      "creator_alias": "Otto Aicher",
+      "date_added": "2026-09-22",
+      "work_date": "c. 1950",
+      "type": "graphic design / poster",
+      "source_url": "https://www.moma.org/collection/works/6137",
+      "note_path": "references/ref-0048/README.md",
+      "local_asset_paths": [
+        "references/ref-0048/moma-6137.jpg"
+      ],
+      "cache_status": "cached",
+      "tags": [
+        "hand-motif",
+        "outline",
+        "muted-palette",
+        "vertical-composition",
+        "ovals",
+        "scale-contrast"
+      ],
+      "medium": "Photolithograph",
+      "dimensions": "32 3/4 x 16 3/8 inches (83.2 x 41.6 cm)",
+      "museum_credit": "Gift of the artist",
+      "object_number": "297.1957",
+      "department": "Architecture and Design",
+      "attribution_status": "Verified on the supplied MoMA collection page on 2026-09-22.",
+      "selection_status": "individually shared reference; specific reasons and favorite ranking unstated",
+      "visual_observations": "A very tall, thin black outline of an open hand and arm spans a muted gray-brown field. Pale horizontal ovals and scattered small marks surround it; a smaller cream arm reaches upward from a broad triangular form at the bottom. Cream serif text crosses the arm, while the large black word FRIEDEN anchors the lower right. The narrow format emphasizes the upward reach.",
+      "related_reference_ids": [
+        "ref-0047",
+        "ref-0006"
+      ],
+      "images": [
+        {
+          "caption": "Otl Aicher — Ein Jahrhundert bittet um Frieden (c. 1950)",
+          "path": "references/ref-0048/moma-6137.jpg",
+          "source_page": "https://www.moma.org/collection/works/6137",
+          "cached_from_url": "https://www.moma.org/media/W1siZiIsIjUxNzk0OSJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDIwMDB4MjAwMFx1MDAzZSJdXQ.jpg?sha=f294738d286452e1",
+          "dimensions": [
+            1005,
+            2000
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref-0049",
+      "title": "Album cover for the Philharmonia Orchestra performing Szymanowski violin concerto No. 1, op. 35",
+      "creator": "Erik Nitsche",
+      "date_added": "2026-09-22",
+      "source_url": "https://www.moma.org/collection/works/184697",
+      "local_asset_paths": [
+        "references/ref-0049/image-aac881a4036d6f20.jpg"
+      ],
+      "images": [
+        {
+          "path": "references/ref-0049/image-aac881a4036d6f20.jpg",
+          "caption": "Album cover for the Philharmonia Orchestra performing Szymanowski violin concerto No. 1, op. 35",
+          "sha256": "aac881a4036d6f2098efb3ff0d689956d7bba999839d2fdafcbfc2024f895a9f",
+          "cached_from_url": "https://www.moma.org/media/W1siZiIsIjMzMTU0NiJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDIwMDB4MjAwMFx1MDAzZSJdXQ.jpg?sha=fcca35024af739bd",
+          "source_page": "https://www.moma.org/collection/works/184697"
+        }
+      ],
+      "tags": [
+        "album-cover",
+        "concentric-arcs",
+        "fine-lines",
+        "music",
+        "muted-colors",
+        "radial-geometry"
+      ],
+      "selection_status": "shared reference; favorite ranking unstated",
+      "type": "graphic design / album cover",
+      "work_date": "1951",
+      "medium": "Lithograph",
+      "dimensions": "12 1/4 × 12 1/4 inches (31.1 × 31.1 cm)",
+      "museum_credit": "Committee on Architecture and Design Funds",
+      "object_number": "829.2014",
+      "department": "Architecture and Design",
+      "attribution_status": "Verified directly on the MoMA collection page on 2026-09-22.",
+      "visual_observations": "Fine concentric arcs cross rust-orange, mustard, black and gray radial sections. Some lines extend left into long parallel curves. Large black serif lettering runs through the circular center, while performer credits sit along the bottom and a compact Decca mark occupies the upper right. The square composition combines precise geometry with a muted palette.",
+      "preference_signals": "Tentative: this individually shared cover reinforces the collection’s circular rhythm and music-related geometry, alongside Beethoven (ref-0023) and Nitsche’s Atoms for Peace (ref-0001). No specific reason for the selection or favorite ranking was stated.",
+      "source_urls": [
+        "https://www.moma.org/collection/works/184697"
+      ],
+      "note_path": "references/ref-0049/README.md",
+      "cache_status": "cached",
+      "date_updated": "2026-09-22"
+    },
+    {
+      "id": "ref-0050",
+      "title": "Embracing figures in sepia",
+      "creator": null,
+      "date_added": "2026-09-22",
+      "source_url": null,
+      "local_asset_paths": [
+        "references/ref-0050/image-c5bfb4a37c542e37.jpg"
+      ],
+      "images": [
+        {
+          "path": "references/ref-0050/image-c5bfb4a37c542e37.jpg",
+          "caption": "Embracing figures in sepia",
+          "sha256": "c5bfb4a37c542e37785c540f4ff6405681ad2d81be8e547bfab209fd7849a611"
+        }
+      ],
+      "tags": [
+        "figurative",
+        "intimacy",
+        "sepia"
+      ],
+      "selection_status": "shared reference; favorite ranking unstated",
+      "type": "artwork",
+      "attribution_status": "Descriptive catalog title; creator and original title unknown. Source: user attachment.",
+      "visual_observations": "A sepia-toned image of two embracing figures, one clothed and one nude, arranged in a compact curled composition on a rectangular support. The screenshot shows the work against gray tiles.",
+      "preference_signals": "Individually supplied reference; specific reasons for selection have not been stated.",
+      "user_comments": [
+        "add and remove background"
+      ],
+      "note_path": "references/ref-0050/README.md",
+      "cache_status": "cached",
+      "date_updated": "2026-09-22"
+    },
+    {
+      "id": "ref-0051",
+      "title": "Red handwritten label",
+      "creator": null,
+      "date_added": "2026-09-22",
+      "source_url": null,
+      "local_asset_paths": [
+        "references/ref-0051/image-35177b85fd7dba83.jpg",
+        "references/ref-0051/image-f9afabc4c86d7832.png"
+      ],
+      "images": [
+        {
+          "path": "references/ref-0051/image-35177b85fd7dba83.jpg",
+          "caption": "Red handwritten label",
+          "sha256": "35177b85fd7dba837dfa8e38c3f458635f29202ba5b254a10608f9518f0fe448"
+        },
+        {
+          "path": "references/ref-0051/image-f9afabc4c86d7832.png",
+          "caption": "Red handwritten label",
+          "sha256": "f9afabc4c86d783274fe96c8ec953257239a258fe8a465ac089969afdba1693c",
+          "credit": "AI-edited background-removal derivative of user attachment; original preserved."
+        }
+      ],
+      "tags": [
+        "found-graphics",
+        "hand-lettering",
+        "red"
+      ],
+      "selection_status": "shared reference; favorite ranking unstated",
+      "type": "graphic design / found lettering",
+      "attribution_status": "Descriptive catalog title; creator and original title unknown. Source: user attachment.",
+      "visual_observations": "A pale rectangular label with red handwritten lettering on a dark strip with a metallic border. The rotated, soft photograph limits confident transcription and attribution.\n\nEdited PNG: AI-generated background-removal derivative of the original attachment. Surroundings were removed; printed artwork backgrounds are retained where applicable. Fine edges, lettering, proportions or reconstructed occluded areas may differ; use the original for faithful reference.",
+      "preference_signals": "Individually supplied reference; specific reasons for selection have not been stated.",
+      "user_comments": [
+        "add and remove background"
+      ],
+      "note_path": "references/ref-0051/README.md",
+      "cache_status": "cached",
+      "date_updated": "2026-09-22"
+    },
+    {
+      "id": "ref-0052",
+      "title": "Blue portrait with orange eyes",
+      "creator": null,
+      "date_added": "2026-09-22",
+      "source_url": null,
+      "local_asset_paths": [
+        "references/ref-0052/image-290b51fc7373f95f.jpg",
+        "references/ref-0052/image-117902b193bd34ba.png"
+      ],
+      "images": [
+        {
+          "path": "references/ref-0052/image-290b51fc7373f95f.jpg",
+          "caption": "Blue portrait with orange eyes",
+          "sha256": "290b51fc7373f95faeca74c4ec3b3cd26764c68bec2b5e2fbab03eca8b0eae3f"
+        },
+        {
+          "path": "references/ref-0052/image-117902b193bd34ba.png",
+          "caption": "Blue portrait with orange eyes",
+          "sha256": "117902b193bd34baf46140e0d6ed7e402e0b468a27a3c18ac0294847199f4c53",
+          "credit": "AI-edited background-removal derivative of user attachment; original preserved."
+        }
+      ],
+      "tags": [
+        "blue",
+        "expressive",
+        "orange",
+        "portrait"
+      ],
+      "selection_status": "shared reference; favorite ranking unstated",
+      "type": "artwork / painting",
+      "attribution_status": "Descriptive catalog title; creator and original title unknown. Source: user attachment.",
+      "visual_observations": "A stylized blue figure with black hair, bright orange eyes and a brown smoking object with an orange tip, painted against a light ground. Strong contours and exaggerated proportions.\n\nEdited PNG: AI-generated background-removal derivative of the original attachment. Surroundings were removed; printed artwork backgrounds are retained where applicable. Fine edges, lettering, proportions or reconstructed occluded areas may differ; use the original for faithful reference.",
+      "preference_signals": "Individually supplied reference; specific reasons for selection have not been stated.",
+      "user_comments": [
+        "add and remove background"
+      ],
+      "note_path": "references/ref-0052/README.md",
+      "cache_status": "cached",
+      "date_updated": "2026-09-22"
+    },
+    {
+      "id": "ref-0053",
+      "title": "Printed coffee sacks",
+      "creator": null,
+      "date_added": "2026-09-22",
+      "source_url": null,
+      "local_asset_paths": [
+        "references/ref-0053/image-70503cc683f04d03.jpg",
+        "references/ref-0053/image-4dcf42f26e3c3223.png"
+      ],
+      "images": [
+        {
+          "path": "references/ref-0053/image-70503cc683f04d03.jpg",
+          "caption": "Printed coffee sacks",
+          "sha256": "70503cc683f04d03f3d3a9e9a037593f33fc43e0d7075b6c97b3eba5aea6fe26"
+        },
+        {
+          "path": "references/ref-0053/image-4dcf42f26e3c3223.png",
+          "caption": "Printed coffee sacks",
+          "sha256": "4dcf42f26e3c32231041807228ada98e3d9d7ecf11e0714eb56941f7e650d895",
+          "credit": "AI-edited background-removal derivative of user attachment; original preserved."
+        }
+      ],
+      "tags": [
+        "burlap",
+        "packaging",
+        "utilitarian-typography"
+      ],
+      "selection_status": "shared reference; favorite ranking unstated",
+      "type": "packaging / textile",
+      "attribution_status": "Descriptive catalog title; creator and original title unknown. Source: user attachment.",
+      "visual_observations": "Two coarse woven coffee sacks with printed graphics: green foliage and red dots on one, blue lettering and vertical colored stripes on the other. Frayed edges and visible weave.\n\nEdited PNG: AI-generated background-removal derivative of the original attachment. Surroundings were removed; printed artwork backgrounds are retained where applicable. Fine edges, lettering, proportions or reconstructed occluded areas may differ; use the original for faithful reference.",
+      "preference_signals": "Individually supplied reference; specific reasons for selection have not been stated.",
+      "user_comments": [
+        "add and remove background"
+      ],
+      "note_path": "references/ref-0053/README.md",
+      "cache_status": "cached",
+      "date_updated": "2026-09-22"
+    },
+    {
+      "id": "ref-0054",
+      "title": "Red portrait collage",
+      "creator": null,
+      "date_added": "2026-09-22",
+      "source_url": null,
+      "local_asset_paths": [
+        "references/ref-0054/image-168dc3958db9802e.jpg",
+        "references/ref-0054/image-03f9ef7ae87e4052.png"
+      ],
+      "images": [
+        {
+          "path": "references/ref-0054/image-168dc3958db9802e.jpg",
+          "caption": "Red portrait collage",
+          "sha256": "168dc3958db9802ee71494d6dd7338da6946927337976755d7e5477ae9a97ecc"
+        },
+        {
+          "path": "references/ref-0054/image-03f9ef7ae87e4052.png",
+          "caption": "Red portrait collage",
+          "sha256": "03f9ef7ae87e4052e0e320029997d85e355e56d007793503744bbff0826a6bc5",
+          "credit": "AI-edited background-removal derivative of user attachment; original preserved."
+        }
+      ],
+      "tags": [
+        "collage",
+        "photomontage",
+        "red"
+      ],
+      "selection_status": "shared reference; favorite ranking unstated",
+      "type": "graphic design / collage",
+      "attribution_status": "Descriptive catalog title; creator and original title unknown. Source: user attachment.",
+      "visual_observations": "A dark photographic head on a saturated red-orange field, with an angled grayscale strip across the eyes and nose. The rectangular printed object shows worn edges.\n\nEdited PNG: AI-generated background-removal derivative of the original attachment. Surroundings were removed; printed artwork backgrounds are retained where applicable. Fine edges, lettering, proportions or reconstructed occluded areas may differ; use the original for faithful reference.",
+      "preference_signals": "Individually supplied reference; specific reasons for selection have not been stated.",
+      "user_comments": [
+        "add and remove background"
+      ],
+      "note_path": "references/ref-0054/README.md",
+      "cache_status": "cached",
+      "date_updated": "2026-09-22"
+    },
+    {
+      "id": "ref-0055",
+      "title": "White curved paper form",
+      "creator": null,
+      "date_added": "2026-09-22",
+      "source_url": null,
+      "local_asset_paths": [
+        "references/ref-0055/image-e775247d9cf0324d.jpg",
+        "references/ref-0055/image-f9acb717ecfeee35.png"
+      ],
+      "images": [
+        {
+          "path": "references/ref-0055/image-e775247d9cf0324d.jpg",
+          "caption": "White curved paper form",
+          "sha256": "e775247d9cf0324d5d3b31713a36f0a31d78c52e1ea1922ab33260f4ec9141fd"
+        },
+        {
+          "path": "references/ref-0055/image-f9acb717ecfeee35.png",
+          "caption": "White curved paper form",
+          "sha256": "f9acb717ecfeee350c8630f953725aeb19e258a6fcadcacc45f521f710cefc5e",
+          "credit": "AI-edited background-removal derivative of user attachment; original preserved."
+        }
+      ],
+      "tags": [
+        "curve",
+        "negative-space",
+        "paper-form"
+      ],
+      "selection_status": "shared reference; favorite ranking unstated",
+      "type": "object / sculpture study",
+      "attribution_status": "Descriptive catalog title; creator and original title unknown. Source: user attachment.",
+      "visual_observations": "A freestanding white sheet-like form with curved and angular cut edges, curling into a loop near its base. Soft shadows on a pale tabletop emphasize shallow sculptural depth; material appears to be paper or card.\n\nEdited PNG: AI-generated background-removal derivative of the original attachment. Surroundings were removed; printed artwork backgrounds are retained where applicable. Fine edges, lettering, proportions or reconstructed occluded areas may differ; use the original for faithful reference.",
+      "preference_signals": "Individually supplied reference; specific reasons for selection have not been stated.",
+      "user_comments": [
+        "add and remove background"
+      ],
+      "note_path": "references/ref-0055/README.md",
+      "cache_status": "cached",
+      "date_updated": "2026-09-22"
+    },
+    {
+      "id": "ref-0056",
+      "title": "Pink stepped building",
+      "creator": null,
+      "date_added": "2026-09-22",
+      "source_url": null,
+      "local_asset_paths": [
+        "references/ref-0056/image-01e92874949e8e73.jpg",
+        "references/ref-0056/image-e6fd5fe0e516574b.png"
+      ],
+      "images": [
+        {
+          "path": "references/ref-0056/image-01e92874949e8e73.jpg",
+          "caption": "Pink stepped building",
+          "sha256": "01e92874949e8e731e4d3e094d6957cef88b93b2a9ce7a228e53d07c46b0b65c"
+        },
+        {
+          "path": "references/ref-0056/image-e6fd5fe0e516574b.png",
+          "caption": "Pink stepped building",
+          "sha256": "e6fd5fe0e516574bf4e5bc8cb0c6bb866e62586050f757bca33cb6aa7c8eb4a6",
+          "credit": "AI-edited background-removal derivative of user attachment; original preserved."
+        }
+      ],
+      "tags": [
+        "architecture",
+        "modular",
+        "pink",
+        "ribbed-texture"
+      ],
+      "selection_status": "shared reference; favorite ranking unstated",
+      "type": "architecture",
+      "attribution_status": "Descriptive catalog title; creator and original title unknown. Source: user attachment.",
+      "visual_observations": "A pink building with stepped block-like volumes, vertically ribbed facade surfaces, green-gray window frames and inset balconies, photographed from the street beneath blue sky. Architect and location unverified.\n\nEdited PNG: AI-generated background-removal derivative of the original attachment. Surroundings were removed; printed artwork backgrounds are retained where applicable. Fine edges, lettering, proportions or reconstructed occluded areas may differ; use the original for faithful reference.",
+      "preference_signals": "Individually supplied reference; specific reasons for selection have not been stated.",
+      "user_comments": [
+        "add and remove background"
+      ],
+      "note_path": "references/ref-0056/README.md",
+      "cache_status": "cached",
+      "date_updated": "2026-09-22"
+    },
+    {
+      "id": "ref-0057",
+      "title": "Typography / Basic Principles — revised edition",
+      "creator": "John Lewis (author; credited on cover)",
+      "date_added": "2026-10-02",
+      "source_url": null,
+      "local_asset_paths": [
+        "references/ref-0057/image-ee93eb49d752be7c.jpg",
+        "references/ref-0057/image-27f6956cf3e4e68f.png"
+      ],
+      "images": [
+        {
+          "path": "references/ref-0057/image-ee93eb49d752be7c.jpg",
+          "caption": "Typography / Basic Principles — revised edition",
+          "sha256": "ee93eb49d752be7cd2c261fb359dff3e406c2ca322eb9751dbc5d7d06f31c330"
+        },
+        {
+          "path": "references/ref-0057/image-27f6956cf3e4e68f.png",
+          "caption": "Typography / Basic Principles — revised edition",
+          "sha256": "27f6956cf3e4e68f8445776716e659f513d85d0024603cafda99f0418123376f",
+          "credit": "AI-edited background-removal derivative; original attachment preserved. Fine details may differ."
+        }
+      ],
+      "tags": [
+        "overprinting",
+        "red",
+        "type-as-image",
+        "typography",
+        "yellow"
+      ],
+      "selection_status": "shared reference; favorite ranking unstated",
+      "type": "graphic design / book cover",
+      "attribution_status": "Title, author, revised-edition wording and subtitle 'Influences and trends since the 19th century' transcribed from the supplied cover. Cover designer and publication date unknown; not externally verified.",
+      "visual_observations": "A yellow book cover with oversized red-orange TYPO letterforms repeated vertically and joined by streaked, textured marks. Black GRAPHY crosses the center; smaller black sans-serif text is arranged in columns at the top. The physical cover shows wear. The frog-patterned fabric and phone interface are surrounding photo context, not part of the cover design.",
+      "preference_signals": "Tentative interest in type as image, repetition, rough print texture and a limited bold palette; related to ref-0004, ref-0035 and ref-0046. No specific reason for selection supplied.",
+      "note_path": "references/ref-0057/README.md",
+      "cache_status": "cached",
+      "date_updated": "2026-10-02",
+      "user_comments": [
+        "remove background"
+      ]
+    },
+    {
+      "id": "ref-0058",
+      "title": "Designing the Modern Interior: From the Victorians to Today",
+      "creator": "Penny Sparke / Anne Massey / Trevor Keeble / Brenda Martin (editors; credited on cover)",
+      "date_added": "2026-10-02",
+      "source_url": null,
+      "local_asset_paths": [
+        "references/ref-0058/image-3338f01c5df51562.jpg",
+        "references/ref-0058/image-a7c3d504b1cc26ad.png"
+      ],
+      "images": [
+        {
+          "path": "references/ref-0058/image-3338f01c5df51562.jpg",
+          "caption": "Designing the Modern Interior: From the Victorians to Today",
+          "sha256": "3338f01c5df515627bd3f801053c5af89a6316aeff208e077c1fac907af31f1e"
+        },
+        {
+          "path": "references/ref-0058/image-a7c3d504b1cc26ad.png",
+          "caption": "Designing the Modern Interior: From the Victorians to Today",
+          "sha256": "a7c3d504b1cc26ad73b2e435b675883bedaa055ca75e6bb9765763cc57c14949",
+          "credit": "AI-edited background-removal derivative; original attachment preserved. Fine details may differ."
+        }
+      ],
+      "tags": [
+        "abstract-mural",
+        "book-cover",
+        "interior",
+        "monochrome",
+        "pink-type"
+      ],
+      "selection_status": "shared reference; favorite ranking unstated",
+      "type": "graphic design / book cover",
+      "attribution_status": "Title and editor credits transcribed from the supplied cover. Cover designer, photographer, pictured interior and publication date unknown; not externally verified.",
+      "visual_observations": "A predominantly black-and-white photographic cover showing people in an architectural setting with railings, overhead linear elements and a large abstract mural of curves, ovals and contrasting planes. Pale pink uppercase title at upper left, white subtitle beneath, small editor credits along the bottom. Wooden surface and phone interface are outside the cover design.",
+      "preference_signals": "Tentative interest in abstract art integrated into architecture and restrained typography over photography. The cover is evidence of visual interest, not proof of a preference for all interiors or eras discussed in the book.",
+      "note_path": "references/ref-0058/README.md",
+      "cache_status": "cached",
+      "date_updated": "2026-10-02",
+      "user_comments": [
+        "remove background"
+      ]
+    },
+    {
+      "id": "ref-0059",
+      "title": "Purple circle-pattern zip pouch — Côte&Ciel / Comme des Garçons",
+      "creator": null,
+      "date_added": "2026-10-02",
+      "source_url": null,
+      "local_asset_paths": [
+        "references/ref-0059/image-60698c14652eaba8.jpg",
+        "references/ref-0059/image-7c2ee7af194077b3.png"
+      ],
+      "images": [
+        {
+          "path": "references/ref-0059/image-60698c14652eaba8.jpg",
+          "caption": "Purple circle-pattern zip pouch — Côte&Ciel / Comme des Garçons",
+          "sha256": "60698c14652eaba8ecfbe31ccdb358bae32536c5043a9bafa3859f250cea8289"
+        },
+        {
+          "path": "references/ref-0059/image-7c2ee7af194077b3.png",
+          "caption": "Purple circle-pattern zip pouch — Côte&Ciel / Comme des Garçons",
+          "sha256": "7c2ee7af194077b33b7f937b5787a6d58aa90006ae4c7d27fdb528f5fc569931",
+          "credit": "AI-edited background-removal derivative; original attachment preserved. Fine details may differ."
+        }
+      ],
+      "tags": [
+        "black",
+        "circles",
+        "cream",
+        "pattern",
+        "pouch",
+        "purple"
+      ],
+      "selection_status": "shared reference; favorite ranking unstated",
+      "type": "product design / textile accessory",
+      "attribution_status": "Descriptive catalog title. Côte&Ciel and COMME des GARÇONS branding is visible on the supplied object. Exact product name, designer, date, material and authenticity unverified.",
+      "visual_observations": "A purple rounded rectangular zip pouch or sleeve with black and pale cream circles of varied sizes. Several circles are cropped by the edges; the arrangement is irregular rather than a uniform dot grid. Small pale branding sits near the upper right. Bedding and screenshot controls are photo context, not product design.",
+      "preference_signals": "Tentative interest in circular motifs on everyday objects, playful scale variation and a purple/black/cream palette. Connects to circular compositions in ref-0015 and ref-0018, without establishing a preference for either brand.",
+      "note_path": "references/ref-0059/README.md",
+      "cache_status": "cached",
+      "date_updated": "2026-10-02",
+      "user_comments": [
+        "remove background"
+      ]
+    }
+  ]
+}

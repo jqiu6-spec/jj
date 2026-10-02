@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Art Inspo</title>
+<meta name="description" content="A personal collection of favorite artwork and design references.">
+<style>
+:root{
+  --bg:#f4f1eb; --surface:#fffdf9; --ink:#262522; --muted:#6e6a62; --line:#dedad2;
+  --accent:#344d6b; --accent-ink:#fff; --chip:#ebe6dc; --img-bg:#f8f7f4; --shadow:0 1px 2px rgb(0 0 0/.05),0 8px 24px rgb(0 0 0/.06);
+  --new:#c2410c;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#151412; --surface:#1e1d1a; --ink:#ece8e0; --muted:#a19c92; --line:#33312c;
+    --accent:#9db6d6; --accent-ink:#151412; --chip:#2a2824; --img-bg:#24221f; --shadow:0 1px 2px rgb(0 0 0/.3);
+    --new:#fb923c;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151412; --surface:#1e1d1a; --ink:#ece8e0; --muted:#a19c92; --line:#33312c;
+  --accent:#9db6d6; --accent-ink:#151412; --chip:#2a2824; --img-bg:#24221f; --shadow:0 1px 2px rgb(0 0 0/.3);
+  --new:#fb923c;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--accent)}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:1400px;margin:0 auto;padding:0 16px}
+@media (min-width:720px){.wrap{padding:0 32px}}
+
+header.top{padding-top:40px;padding-bottom:20px}
+h1{font-size:clamp(32px,6vw,52px);line-height:1;letter-spacing:-.02em;margin:0 0 10px;font-weight:700}
+.stats{color:var(--muted);margin:0;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.live i{width:8px;height:8px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 3px rgb(22 163 74/.2)}
+.live.off i{background:var(--muted);box-shadow:none}
+
+.controls{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);padding:12px 0;border-bottom:1px solid var(--line)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.search{flex:1 1 240px;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+select{padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);max-width:100%}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{border:1px solid transparent;background:var(--chip);border-radius:999px;padding:3px 11px;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip small{color:var(--muted);margin-left:4px}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.chip[aria-pressed="true"] small{color:inherit;opacity:.8}
+.chip.more{background:none;border-color:var(--line)}
+.result-line{font-size:13px;color:var(--muted);margin-top:8px;min-height:1.5em}
+.result-line button{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:13px}
+
+main{padding:24px 0 60px}
+.grid{columns:260px;column-gap:18px}
+.card{break-inside:avoid;margin:0 0 18px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;display:block;width:100%;text-align:left;padding:0;box-shadow:var(--shadow);transition:transform .15s ease,box-shadow .15s ease;position:relative}
+.card:hover{transform:translateY(-2px)}
+.card:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.card .pic{background:var(--img-bg);display:block}
+.card img{display:block;width:100%;height:auto;min-height:80px}
+.card .meta{display:block;padding:10px 12px 12px}
+.card .t{display:block;font-size:15px;line-height:1.3;margin:0 0 2px;font-weight:600}
+.card .c{display:block;font-size:13px;color:var(--muted)}
+.badge{position:absolute;top:8px;left:8px;background:var(--new);color:#fff;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px}
+.count{position:absolute;top:8px;right:8px;background:rgb(0 0 0/.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:999px}
+.ph{display:flex;align-items:center;justify-content:center;aspect-ratio:4/5;padding:16px;text-align:center;color:var(--muted);font-size:13px;background:repeating-linear-gradient(45deg,var(--img-bg) 0 10px,var(--chip) 10px 20px)}
+.empty,.notice{text-align:center;color:var(--muted);padding:60px 16px}
+.notice code{background:var(--chip);padding:2px 6px;border-radius:4px}
+
+dialog{border:0;padding:0;background:var(--surface);color:var(--ink);width:min(1200px,calc(100vw - 24px));max-height:calc(100dvh - 24px);border-radius:12px;box-shadow:0 20px 60px rgb(0 0 0/.35)}
+dialog::backdrop{background:rgb(15 14 12/.7)}
+.detail{display:grid;grid-template-columns:1fr;max-height:calc(100dvh - 24px)}
+@media (min-width:900px){.detail{grid-template-columns:minmax(0,1.35fr) minmax(320px,1fr)}}
+.stage{background:var(--img-bg);display:flex;flex-direction:column;min-height:0}
+.stage .main-img{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;min-height:260px}
+.stage .main-img img{max-width:100%;max-height:calc(100dvh - 160px);object-fit:contain;display:block}
+@media (max-width:899px){.stage .main-img img{max-height:60dvh}.detail{overflow-y:auto}}
+.stage .ph{width:100%;max-width:420px}
+.thumbs{display:flex;gap:8px;padding:0 16px 16px;overflow-x:auto}
+.thumbs button{flex:0 0 auto;width:64px;height:64px;padding:0;border:2px solid transparent;border-radius:6px;overflow:hidden;background:var(--surface);cursor:pointer}
+.thumbs button[aria-current="true"]{border-color:var(--accent)}
+.thumbs img{width:100%;height:100%;object-fit:cover;display:block}
+.caption{font-size:12px;color:var(--muted);padding:0 16px 14px;margin:0}
+.info{padding:22px 22px 28px;overflow-y:auto;min-height:0}
+@media (min-width:900px){.info{max-height:calc(100dvh - 24px)}}
+.info h2{font-size:24px;line-height:1.2;margin:0 0 4px}
+.info .by{color:var(--muted);margin:0 0 16px}
+.info h3{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 6px;font-weight:600}
+.info p{margin:0 0 10px}
+.info dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0;font-size:14px}
+.info dt{color:var(--muted)}
+.info dd{margin:0}
+.note{background:var(--chip);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.note b{display:block;font-size:13px}
+.note p{font-size:14px;margin:4px 0 0}
+.links{display:flex;flex-direction:column;gap:4px;font-size:14px;word-break:break-word}
+.fine{font-size:12px;color:var(--muted)}
+.closebar{position:sticky;top:0;display:flex;justify-content:flex-end;gap:6px;margin:-8px -8px 4px 0}
+.iconbtn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:4px 10px;cursor:pointer}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(16px);opacity:0;visibility:hidden;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;transition:transform .25s ease,opacity .25s ease,visibility .25s;z-index:20;max-width:calc(100vw - 32px)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;visibility:visible}
+footer{color:var(--muted);font-size:13px;padding:0 0 40px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top wrap">
+  <h1>Art Inspo</h1>
+  <p class="stats"><span id="stats">Loading collection…</span><span class="live off" id="live"><i></i><span>Connecting</span></span></p>
+</header>
+
+<div class="controls">
+  <div class="wrap">
+    <div class="row">
+      <input class="search" id="q" type="search" placeholder="Search titles, artists, tags, notes…" aria-label="Search">
+      <select id="group" aria-label="Group"><option value="">All groups</option></select>
+      <select id="sort" aria-label="Sort">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="creator">Artist A–Z</option>
+        <option value="title">Title A–Z</option>
+      </select>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="result-line" id="result"></div>
+  </div>
+</div>
+
+<main class="wrap"><div class="grid" id="grid"></div><div id="msg"></div></main>
+<footer class="wrap">Built from <a href="catalog.json">catalog.json</a>. Add references with <code>scripts/archive_reference.py</code> and this page picks them up automatically.</footer>
+
+<dialog id="dlg" aria-label="Artwork details"></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const CATALOG = 'catalog.json';
+  const POLL_MS = 10000;
+  const TAG_LIMIT = 18;
+  const $ = (s) => document.querySelector(s);
+
+  const state = {
+    raw: '', refs: [], byId: new Map(), fresh: new Set(),
+    q: '', tag: '', group: '', sort: 'newest', showAllTags: false,
+    current: null, imgIndex: 0,
+  };
+
+  // ---------- helpers ----------
+  function h(tag, attrs, ...kids) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null || v === false) continue;
+      if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+      else if (k === 'class') el.className = v;
+      else el.setAttribute(k, v === true ? '' : v);
+    }
+    for (const kid of kids.flat(Infinity)) {
+      if (kid == null || kid === false) continue;
+      el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+    }
+    return el;
+  }
+  const isWebUrl = (u) => typeof u === 'string' && /^https?:\/\//i.test(u) && !/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)[:/]/i.test(u);
+  const localPath = (p) => p.split('/').map(encodeURIComponent).join('/');
+  const asList = (v) => Array.isArray(v) ? v : (v ? [v] : []);
+  const groupsOf = (r) => [...new Set(asList(r.page_records).map((p) => p.category).filter(Boolean))];
+
+  function imagesOf(r) {
+    const imgs = asList(r.images).filter((i) => i && i.path);
+    if (imgs.length) return imgs;
+    return asList(r.local_asset_paths).map((p) => ({ path: p, caption: r.title }));
+  }
+
+  // Local cached file first; fall back to the original web image if the file isn't in this folder.
+  function sourcesOf(img) {
+    const out = [];
+    if (img.path) out.push(localPath(img.path));
+    for (const u of [img.original_image_url, img.cached_from_url]) if (isWebUrl(u)) out.push(u);
+    return [...new Set(out)];
+  }
+
+  function picture(img, alt, opts = {}) {
+    const srcs = img ? sourcesOf(img) : [];
+    const placeholder = () => h('div', { class: 'ph' }, opts.thumb ? '' : 'Image not in this folder yet');
+    if (!srcs.length) return placeholder();
+    let i = 0;
+    const el = h('img', { src: srcs[0], alt: alt || '', loading: opts.eager ? 'eager' : 'lazy', decoding: 'async' });
+    el.addEventListener('error', () => {
+      i += 1;
+      if (i < srcs.length) el.src = srcs[i];
+      else el.replaceWith(placeholder());
+    });
+    return el;
+  }
+
+  function creatorLine(r) {
+    const bits = [];
+    if (r.creator) bits.push(r.creator);
+    const date = r.work_date || r.year;
+    if (date) bits.push(date);
+    if (!bits.length) bits.push('Artist unknown');
+    return bits.join(' · ');
+  }
+
+  function haystack(r) {
+    return [
+      r.id, r.title, r.creator, r.creator_alias, r.type, r.work_date, r.medium, r.client,
+      asList(r.tags).join(' '), groupsOf(r).join(' '), r.visual_observations,
+      asList(r.user_comments).join(' '),
+      asList(r.page_records).map((p) => [p.title, p.credit, p.editorial_description].join(' ')).join(' '),
+      imagesOf(r).map((i) => [i.caption, i.credit].join(' ')).join(' '),
+    ].filter(Boolean).join(' ').toLowerCase();
+  }
+
+  // ---------- data ----------
+  async function load(initial) {
+    let text;
+    try {
+      const res = await fetch(CATALOG + '?t=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      text = await res.text();
+      setLive(true);
+    } catch (err) {
+      setLive(false);
+      if (initial) showLoadError();
+      return;
+    }
+    if (text === state.raw) return;
+    let data;
+    try { data = JSON.parse(text); } catch { return; } // mid-write; try again next tick
+    const before = new Set(state.byId.keys());
+    state.raw = text;
+    state.refs = asList(data.references);
+    state.byId = new Map(state.refs.map((r) => [r.id, r]));
+    state.refs.forEach((r) => { r._hay = haystack(r); });
+    if (!initial) {
+      const added = state.refs.filter((r) => !before.has(r.id));
+      added.forEach((r) => state.fresh.add(r.id));
+      toast(added.length ? `${added.length} new ${added.length === 1 ? 'work' : 'works'} added` : 'Collection updated');
+    }
+    renderFilters();
+    render();
+    if (state.current && state.byId.has(state.current)) openDetail(state.current, state.imgIndex, true);
+    else if (initial) routeFromHash();
+  }
+
+  function setLive(ok) {
+    const el = $('#live');
+    el.classList.toggle('off', !ok);
+    el.lastElementChild.textContent = ok ? 'Live · updates automatically' : 'Offline';
+  }
+
+  function showLoadError() {
+    $('#stats').textContent = 'Could not load catalog.json';
+    $('#msg').replaceChildren(h('div', { class: 'notice' },
+      h('p', {}, 'This page reads ', h('code', {}, 'catalog.json'), ' from the same folder.'),
+      h('p', {}, 'If you opened the file directly, run ', h('code', {}, 'python3 -m http.server 8000'),
+        ' in the folder and visit ', h('code', {}, 'http://localhost:8000'), '.')));
+  }
+
+  // ---------- filters ----------
+  function renderFilters() {
+    const imgs = state.refs.reduce((n, r) => n + imagesOf(r).length, 0);
+    const latest = state.refs.map((r) => r.date_updated || r.date_added).filter(Boolean).sort().pop();
+    $('#stats').textContent = `${state.refs.length} works · ${imgs} pictures` + (latest ? ` · last change ${latest}` : '');
+
+    const groupSel = $('#group');
+    const counts = new Map();
+    state.refs.forEach((r) => { const g = groupsOf(r); (g.length ? g : ['Other references']).forEach((x) => counts.set(x, (counts.get(x) || 0) + 1)); });
+    const prev = state.group;
+    groupSel.replaceChildren(h('option', { value: '' }, 'All groups'),
+      ...[...counts].map(([g, n]) => h('option', { value: g }, `${g} (${n})`)));
+    groupSel.value = counts.has(prev) ? prev : '';
+    state.group = groupSel.value;
+
+    renderChips();
+  }
+
+  function renderChips() {
+    const counts = new Map();
+    state.refs.forEach((r) => asList(r.tags).forEach((t) => counts.set(t, (counts.get(t) || 0) + 1)));
+    let tags = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    const hidden = Math.max(0, tags.length - TAG_LIMIT);
+    if (!state.showAllTags) {
+      const top = tags.slice(0, TAG_LIMIT);
+      if (state.tag && !top.some(([t]) => t === state.tag)) top.push(tags.find(([t]) => t === state.tag));
+      tags = top.filter(Boolean);
+    }
+    const chips = tags.map(([t, n]) => h('button', {
+      class: 'chip', type: 'button', 'aria-pressed': String(state.tag === t),
+      onclick: () => { state.tag = state.tag === t ? '' : t; renderChips(); render(); },
+    }, t.replace(/-/g, ' '), h('small', {}, n)));
+    if (hidden) chips.push(h('button', { class: 'chip more', type: 'button', onclick: () => { state.showAllTags = !state.showAllTags; renderChips(); } },
+      state.showAllTags ? 'Fewer tags' : `+${hidden} more tags`));
+    $('#chips').replaceChildren(...chips);
+  }
+
+  function filtered() {
+    const words = state.q.toLowerCase().split(/\s+/).filter(Boolean);
+    const list = state.refs.filter((r) => {
+      if (state.tag && !asList(r.tags).includes(state.tag)) return false;
+      if (state.group) {
+        const g = groupsOf(r);
+        if (state.group === 'Other references' ? g.length : !g.includes(state.group)) return false;
+      }
+      return words.every((w) => r._hay.includes(w));
+    });
+    const by = {
+      newest: (a, b) => (b.date_added || '').localeCompare(a.date_added || '') || b.id.localeCompare(a.id),
+      oldest: (a, b) => (a.date_added || '').localeCompare(b.date_added || '') || a.id.localeCompare(b.id),
+      creator: (a, b) => (a.creator || '￿').localeCompare(b.creator || '￿') || a.title.localeCompare(b.title),
+      title: (a, b) => (a.title || '').localeCompare(b.title || ''),
+    }[state.sort];
+    return list.sort(by);
+  }
+
+  // ---------- grid ----------
+  let shown = [];
+  function render() {
+    shown = filtered();
+    const cards = shown.map((r) => {
+      const imgs = imagesOf(r);
+      return h('button', { class: 'card', type: 'button', 'data-id': r.id, onclick: () => openDetail(r.id) },
+        h('span', { class: 'pic' }, picture(imgs[0], r.title)),
+        state.fresh.has(r.id) && h('span', { class: 'badge' }, 'New'),
+        imgs.length > 1 && h('span', { class: 'count' }, `${imgs.length} views`),
+        h('span', { class: 'meta' }, h('span', { class: 't' }, r.title || r.id), h('span', { class: 'c' }, creatorLine(r))));
+    });
+    $('#grid').replaceChildren(...cards);
+    $('#msg').replaceChildren(shown.length || !state.refs.length ? '' : h('div', { class: 'empty' }, 'Nothing matches these filters.'));
+
+    const active = state.q || state.tag || state.group;
+    $('#result').replaceChildren(active
+      ? h('span', {}, `Showing ${shown.length} of ${state.refs.length} · `, h('button', { type: 'button', onclick: clearFilters }, 'Clear filters'))
+      : '');
+  }
+
+  function clearFilters() {
+    state.q = ''; state.tag = ''; state.group = '';
+    $('#q').value = ''; $('#group').value = '';
+    renderChips(); render();
+  }
+
+  // ---------- detail ----------
+  const dlg = $('#dlg');
+
+  function openDetail(id, imgIndex = 0, keepScroll = false) {
+    const r = state.byId.get(id);
+    if (!r) return;
+    state.current = id;
+    const imgs = imagesOf(r);
+    state.imgIndex = Math.min(imgIndex, Math.max(0, imgs.length - 1));
+    const info = dlg.querySelector('.info');
+    const scroll = keepScroll && info ? info.scrollTop : 0;
+    dlg.replaceChildren(buildDetail(r, imgs));
+    if (!dlg.open) dlg.showModal();
+    dlg.querySelector('.info').scrollTop = scroll;
+    if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
+    state.fresh.delete(id);
+    const badge = document.querySelector(`.card[data-id="${CSS.escape(id)}"] .badge`);
+    if (badge) badge.remove();
+  }
+
+  function buildDetail(r, imgs) {
+    const img = imgs[state.imgIndex];
+    const stage = h('div', { class: 'stage' },
+      h('div', { class: 'main-img' }, picture(img, img && img.caption || r.title, { eager: true })),
+      imgs.length > 1 && h('div', { class: 'thumbs' }, imgs.map((im, i) => h('button', {
+        type: 'button', 'aria-label': `View ${i + 1}`, 'aria-current': String(i === state.imgIndex),
+        onclick: () => openDetail(r.id, i, true),
+      }, picture(im, '', { thumb: true })))),
+      img && (img.caption || img.credit) && h('p', { class: 'caption' }, [img.caption, img.credit].filter(Boolean).join(' — ')));
+
+    const facts = [
+      ['Artist', r.creator], ['Also known as', r.creator_alias], ['Date', r.work_date || r.year],
+      ['Type', r.type], ['Medium', r.medium], ['Size', typeof r.dimensions === 'string' ? r.dimensions : null],
+      ['Client', r.client], ['Collection', r.museum_credit], ['Department', r.department], ['Object no.', r.object_number],
+      ['Groups', groupsOf(r).join(', ')], ['Added', r.date_added], ['Updated', r.date_updated], ['ID', r.id],
+    ].filter(([, v]) => v);
+
+    const links = [];
+    const seen = new Set();
+    const addLink = (url, label) => { if (isWebUrl(url) && !seen.has(url)) { seen.add(url); links.push(h('a', { href: url, target: '_blank', rel: 'noopener' }, label || new URL(url).hostname.replace(/^www\./, '') + ' ↗')); } };
+    asList(r.page_records).forEach((p) => asList(p.links).forEach((l) => addLink(l.url)));
+    addLink(r.source_url);
+    asList(r.source_urls).forEach((u) => addLink(u));
+    imgs.forEach((i) => addLink(i.source_page));
+    if (r.note_path) links.push(h('a', { href: localPath(r.note_path) }, 'Full note (Markdown)'));
+
+    const idx = shown.findIndex((x) => x.id === r.id);
+    const prev = idx > 0 ? shown[idx - 1] : null;
+    const next = idx >= 0 && idx < shown.length - 1 ? shown[idx + 1] : null;
+
+    const info = h('div', { class: 'info' },
+      h('div', { class: 'closebar' },
+        h('button', { class: 'iconbtn', type: 'button', disabled: !prev, 'aria-label': 'Previous', onclick: () => prev && openDetail(prev.id) }, '←'),
+        h('button', { class: 'iconbtn', type: 'button', disabled: !next, 'aria-label': 'Next', onclick: () => next && openDetail(next.id) }, '→'),
+        h('button', { class: 'iconbtn', type: 'button', onclick: closeDetail }, 'Close')),
+      h('h2', {}, r.title || r.id),
+      h('p', { class: 'by' }, creatorLine(r)),
+      asList(r.user_comments).length > 0 && [h('h3', {}, 'Your notes'), asList(r.user_comments).map((c) => h('div', { class: 'note' }, h('p', {}, c)))],
+      r.visual_observations && [h('h3', {}, 'What it looks like'), String(r.visual_observations).split(/\n\s*\n/).map((p) => h('p', {}, p))],
+      asList(r.page_records).filter((p) => p.editorial_description).length > 0 && [h('h3', {}, 'From the source page'),
+        asList(r.page_records).filter((p) => p.editorial_description).map((p) => h('div', { class: 'note' },
+          h('b', {}, [p.title, p.credit].filter(Boolean).join(' — ')), h('p', {}, p.editorial_description)))],
+      r.preference_signals && [h('h3', {}, 'Why it is here'), h('p', {}, r.preference_signals)],
+      asList(r.tags).length > 0 && [h('h3', {}, 'Tags'), h('div', { class: 'chips' }, asList(r.tags).map((t) => h('button', {
+        class: 'chip', type: 'button', onclick: () => { state.tag = t; closeDetail(); renderChips(); render(); window.scrollTo({ top: 0 }); },
+      }, t.replace(/-/g, ' '))))],
+      asList(r.related_reference_ids).filter((x) => state.byId.has(x)).length > 0 && [h('h3', {}, 'Related'),
+        h('div', { class: 'chips' }, asList(r.related_reference_ids).filter((x) => state.byId.has(x)).map((x) => h('button', {
+          class: 'chip', type: 'button', onclick: () => openDetail(x),
+        }, state.byId.get(x).title)))],
+      facts.length > 0 && [h('h3', {}, 'Details'), h('dl', {}, facts.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))],
+      links.length > 0 && [h('h3', {}, 'Links'), h('div', { class: 'links' }, links)],
+      (r.attribution_status || r.selection_status) && h('p', { class: 'fine', style: 'margin-top:22px' }, [r.attribution_status, r.selection_status].filter(Boolean).join(' ')));
+
+    return h('div', { class: 'detail' }, stage, info);
+  }
+
+  function closeDetail() {
+    state.current = null;
+    if (dlg.open) dlg.close();
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  }
+
+  function routeFromHash() {
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (id && state.byId.has(id)) openDetail(id);
+  }
+
+  dlg.addEventListener('close', () => { if (state.current) closeDetail(); });
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) closeDetail(); });
+  document.addEventListener('keydown', (e) => {
+    if (!dlg.open || !state.current) return;
+    const r = state.byId.get(state.current);
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const idx = shown.findIndex((x) => x.id === state.current);
+      const to = shown[idx + (e.key === 'ArrowRight' ? 1 : -1)];
+      if (to) openDetail(to.id);
+    } else if ((e.key === ']' || e.key === '[') && r) {
+      const n = imagesOf(r).length;
+      openDetail(r.id, (state.imgIndex + (e.key === ']' ? 1 : n - 1)) % n, true);
+    }
+  });
+  window.addEventListener('hashchange', routeFromHash);
+
+  // ---------- controls ----------
+  let qTimer;
+  $('#q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value; render(); }, 120); });
+  $('#group').addEventListener('change', (e) => { state.group = e.target.value; render(); });
+  $('#sort').addEventListener('change', (e) => { state.sort = e.target.value; render(); });
+
+  let toastTimer;
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  // ---------- live updates ----------
+  load(true);
+  setInterval(() => { if (!document.hidden) load(false); }, POLL_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) load(false); });
+})();
+</script>
+</body>
+</html>

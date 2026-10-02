@@ -1,0 +1,359 @@
+{
+  "candidates": [
+    {
+      "image_url": "https://www.moma.org/media/W1siZiIsIjIxMDczOSJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=a4a26fbd9b10acf3",
+      "label": "1. Nitsche — Atoms for Peace 1955",
+      "loaded": true,
+      "number": 1
+    },
+    {
+      "image_url": "https://www.moma.org/media/W1siZiIsIjUxOTYxNSJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=9b90b16642542307",
+      "label": "2. Wyman/Terrazas — Mexico 68",
+      "loaded": true,
+      "number": 2
+    },
+    {
+      "image_url": "https://www.moma.org/media/W1siZiIsIjQ0ODM4MCJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=0421f231ae17d9c1",
+      "label": "3. Stenberg — Man with a Movie Camera",
+      "loaded": true,
+      "number": 3
+    },
+    {
+      "image_url": "https://www.moma.org/media/W1siZiIsIjIxMjAxMyJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=126eeb636815c463",
+      "label": "4. Crouwel — Vormgevers",
+      "loaded": true,
+      "number": 4
+    },
+    {
+      "image_url": "https://www.moma.org/media/W1siZiIsIjIxMDg1NiJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=d7528be486ddcf93",
+      "label": "5. Cassandre — Étoile du Nord",
+      "loaded": true,
+      "number": 5
+    },
+    {
+      "image_url": "https://www.moma.org/media/W1siZiIsIjIyNTExOCJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=f57fbdebea29b035",
+      "label": "6. Aicher — Sartre lecture",
+      "loaded": true,
+      "number": 6
+    },
+    {
+      "image_url": "https://www.moma.org/media/W1siZiIsIjUxNzk2NyJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=820d0f43b94a8b26",
+      "label": "7. Hofmann — Theaterbau",
+      "loaded": true,
+      "number": 7
+    },
+    {
+      "image_url": "https://www.ltmuseum.co.uk/system/files/styles/collection_item_gallery_fullscreen/private/collection_item/DR00011sh.jpg?itok=dHE43HWP",
+      "label": "8. Man Ray — Keeps London Going",
+      "loaded": true,
+      "number": 8
+    },
+    {
+      "image_url": "https://framemark.vam.ac.uk/collections/2014HH9958/full/!1600,1600/0/default.jpg",
+      "label": "9. Games — Your Talk May Kill",
+      "loaded": true,
+      "number": 9
+    },
+    {
+      "image_url": "https://thumbs.peoplesgdarchive.org/static/media-items/image/32094/upto-1440x2923/663167cf/1/vertigo.jpg",
+      "label": "10. Bass — Vertigo",
+      "loaded": true,
+      "number": 10
+    },
+    {
+      "image_url": "https://thumbs.peoplesgdarchive.org/static/media-items/image/24763/upto-1440x1073/6495946e/1/shigeo-fukuda-victory.jpg",
+      "label": "11. Fukuda — Victory 1945",
+      "loaded": true,
+      "number": 11
+    },
+    {
+      "image_url": "https://framemark.vam.ac.uk/collections/2013GU3415/full/!1600,1600/0/default.jpg",
+      "label": "12. Kamekura — Atoms for Peace (V&A)",
+      "loaded": true,
+      "number": 12
+    },
+    {
+      "image_url": "https://framemark.vam.ac.uk/collections/2019LJ4837/full/!1600,1600/0/default.jpg",
+      "label": "13. Kamekura — Nikon SP (V&A)",
+      "loaded": true,
+      "number": 13
+    },
+    {
+      "image_url": "https://collections.mfa.org/internal/media/dispatcher/1540062/resize%3Aformat%3Dfull",
+      "label": "14. Lissitzky — Red Wedge (MFA)",
+      "loaded": true,
+      "number": 14
+    },
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Klinom_Krasnym_Bej_Belych.JPG/1600px-Klinom_Krasnym_Bej_Belych.JPG",
+      "label": "15. Lissitzky — Red Wedge (Commons photo)",
+      "loaded": false,
+      "number": 15
+    },
+    {
+      "image_url": "https://www.guggenheim.org/wp-content/uploads/1926/01/41.283_ph_web-1.jpg",
+      "label": "16. Kandinsky — Several Circles",
+      "loaded": true,
+      "number": 16
+    },
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Max_Bill_Unendliche_Schleife_Stadtgarten_Essen.JPG",
+      "label": "17. Max Bill — Endless Ribbon (Essen)",
+      "loaded": true,
+      "number": 17
+    },
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Max_Bill_unendliche_Schleife_7890.JPG/1600px-Max_Bill_unendliche_Schleife_7890.JPG",
+      "label": "18. Max Bill — Endless Ribbon (7890)",
+      "loaded": false,
+      "number": 18
+    },
+    {
+      "image_url": "https://searchcollection.asianart.org/internal/media/dispatcher/11118/full",
+      "label": "19. Nantenbō — Ensō (AAM)",
+      "loaded": true,
+      "number": 19
+    },
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/9/98/%D0%A7%D1%91%D1%80%D0%BD%D1%8B%D0%B9_%D0%BA%D1%80%D1%83%D0%B3.png",
+      "label": "20. Malevich — Black Circle",
+      "loaded": true,
+      "number": 20
+    },
+    {
+      "image_url": "https://www.neugraphic.com/casey/posters/casey5.jpg",
+      "label": "21. Casey — Center for Space Research",
+      "loaded": true,
+      "number": 21
+    },
+    {
+      "image_url": "https://www.neugraphic.com/casey/posters/casey45.jpg",
+      "label": "22. Casey — The Moon Show",
+      "loaded": true,
+      "number": 22
+    },
+    {
+      "image_url": "https://www.neugraphic.com/casey/posters/casey25.jpg",
+      "label": "23. Casey — Ocean Engineering",
+      "loaded": true,
+      "number": 23
+    },
+    {
+      "image_url": "https://www.neugraphic.com/casey/posters/casey7.jpg",
+      "label": "24. Casey — MIT Open House 1969",
+      "loaded": true,
+      "number": 24
+    }
+  ],
+  "bundle": {
+    "assets": [
+      {
+        "contentType": "image/jpeg",
+        "id": "53c8dbfcece89a24",
+        "kind": "image",
+        "name": "W1siZiIsIjIxMDczOSJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/53c8dbfcece89a24.jpg",
+        "url": "https://www.moma.org/media/W1siZiIsIjIxMDczOSJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=a4a26fbd9b10acf3"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "386cb8b86b32c056",
+        "kind": "image",
+        "name": "W1siZiIsIjIxMjAxMyJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/386cb8b86b32c056.jpg",
+        "url": "https://www.moma.org/media/W1siZiIsIjIxMjAxMyJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=126eeb636815c463"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "bdb2dfe25435bda0",
+        "kind": "image",
+        "name": "W1siZiIsIjIxMDg1NiJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/bdb2dfe25435bda0.jpg",
+        "url": "https://www.moma.org/media/W1siZiIsIjIxMDg1NiJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=d7528be486ddcf93"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "533c755a4b96f9b6",
+        "kind": "image",
+        "name": "W1siZiIsIjQ0ODM4MCJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/533c755a4b96f9b6.jpg",
+        "url": "https://www.moma.org/media/W1siZiIsIjQ0ODM4MCJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=0421f231ae17d9c1"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "6f9dc2ed7df3155a",
+        "kind": "image",
+        "name": "W1siZiIsIjUxOTYxNSJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/6f9dc2ed7df3155a.jpg",
+        "url": "https://www.moma.org/media/W1siZiIsIjUxOTYxNSJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=9b90b16642542307"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "4a339473ac16b42f",
+        "kind": "image",
+        "name": "W1siZiIsIjUxNzk2NyJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/4a339473ac16b42f.jpg",
+        "url": "https://www.moma.org/media/W1siZiIsIjUxNzk2NyJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=820d0f43b94a8b26"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "2f9f2236a8d31679",
+        "kind": "image",
+        "name": "W1siZiIsIjIyNTExOCJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/2f9f2236a8d31679.jpg",
+        "url": "https://www.moma.org/media/W1siZiIsIjIyNTExOCJdLFsicCIsImNvbnZlcnQiLCItcXVhbGl0eSA5MCAtcmVzaXplIDE1MzZ4MTUzNlx1MDAzZSJdXQ.jpg?sha=f57fbdebea29b035"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "8c6e2b4591b89d3a",
+        "kind": "image",
+        "name": "DR00011sh.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/8c6e2b4591b89d3a.jpg",
+        "url": "https://www.ltmuseum.co.uk/system/files/styles/collection_item_gallery_fullscreen/private/collection_item/DR00011sh.jpg?itok=dHE43HWP"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "026d67bdb049d383",
+        "kind": "image",
+        "name": "default.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/026d67bdb049d383.jpg",
+        "url": "https://framemark.vam.ac.uk/collections/2014HH9958/full/!1600,1600/0/default.jpg"
+      },
+      {
+        "contentType": "image/png",
+        "id": "f3e6daaac0d20dc3",
+        "kind": "image",
+        "name": "vertigo.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/f3e6daaac0d20dc3.jpg",
+        "url": "https://thumbs.peoplesgdarchive.org/static/media-items/image/32094/upto-1440x2923/663167cf/1/vertigo.jpg"
+      },
+      {
+        "contentType": "image/png",
+        "id": "75eaea52665ac9b7",
+        "kind": "image",
+        "name": "shigeo-fukuda-victory.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/75eaea52665ac9b7.jpg",
+        "url": "https://thumbs.peoplesgdarchive.org/static/media-items/image/24763/upto-1440x1073/6495946e/1/shigeo-fukuda-victory.jpg"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "a39161ca4f79c2bc",
+        "kind": "image",
+        "name": "41.283_ph_web-1.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/a39161ca4f79c2bc.jpg",
+        "url": "https://www.guggenheim.org/wp-content/uploads/1926/01/41.283_ph_web-1.jpg"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "756234af54b8e927",
+        "kind": "image",
+        "name": "resize%3Aformat%3Dfull",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/756234af54b8e927",
+        "url": "https://collections.mfa.org/internal/media/dispatcher/1540062/resize%3Aformat%3Dfull"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "0bdd0f8fb1b61cca",
+        "kind": "image",
+        "name": "full",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/0bdd0f8fb1b61cca",
+        "url": "https://searchcollection.asianart.org/internal/media/dispatcher/11118/full"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "389275f842f6237b",
+        "kind": "image",
+        "name": "default.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/389275f842f6237b.jpg",
+        "url": "https://framemark.vam.ac.uk/collections/2013GU3415/full/!1600,1600/0/default.jpg"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "9e045a59d373ace9",
+        "kind": "image",
+        "name": "default.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/9e045a59d373ace9.jpg",
+        "url": "https://framemark.vam.ac.uk/collections/2019LJ4837/full/!1600,1600/0/default.jpg"
+      },
+      {
+        "contentType": "image/png",
+        "id": "cf84fb9b95e10952",
+        "kind": "image",
+        "name": "%D0%A7%D1%91%D1%80%D0%BD%D1%8B%D0%B9_%D0%BA%D1%80%D1%83%D0%B3.png",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/cf84fb9b95e10952.png",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/9/98/%D0%A7%D1%91%D1%80%D0%BD%D1%8B%D0%B9_%D0%BA%D1%80%D1%83%D0%B3.png"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "a26d840a848b98ef",
+        "kind": "image",
+        "name": "Max_Bill_Unendliche_Schleife_Stadtgarten_Essen.JPG",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/a26d840a848b98ef.JPG",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Max_Bill_Unendliche_Schleife_Stadtgarten_Essen.JPG"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "e4433d361bdabc12",
+        "kind": "image",
+        "name": "casey45.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/e4433d361bdabc12.jpg",
+        "url": "https://www.neugraphic.com/casey/posters/casey45.jpg"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "cd6e21ea9d60f5cd",
+        "kind": "image",
+        "name": "casey7.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/cd6e21ea9d60f5cd.jpg",
+        "url": "https://www.neugraphic.com/casey/posters/casey7.jpg"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "8ddcc17d3ce042c8",
+        "kind": "image",
+        "name": "casey5.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/8ddcc17d3ce042c8.jpg",
+        "url": "https://www.neugraphic.com/casey/posters/casey5.jpg"
+      },
+      {
+        "contentType": "image/jpeg",
+        "id": "4632ac394cdde0d0",
+        "kind": "image",
+        "name": "casey25.jpg",
+        "path": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/4632ac394cdde0d0.jpg",
+        "url": "https://www.neugraphic.com/casey/posters/casey25.jpg"
+      }
+    ],
+    "directoryPath": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf",
+    "failures": [
+      {
+        "contentType": null,
+        "id": "bb9acb9248a9eb23",
+        "name": "1600px-Klinom_Krasnym_Bej_Belych.JPG",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch\n    at FX (<anonymous>:1:41)\n    at <anonymous>:1:354",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Klinom_Krasnym_Bej_Belych.JPG/1600px-Klinom_Krasnym_Bej_Belych.JPG"
+      },
+      {
+        "contentType": null,
+        "id": "b373b3864a7aad65",
+        "name": "1600px-Max_Bill_unendliche_Schleife_7890.JPG",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch\n    at FX (<anonymous>:1:41)\n    at <anonymous>:1:354",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Max_Bill_unendliche_Schleife_7890.JPG/1600px-Max_Bill_unendliche_Schleife_7890.JPG"
+      },
+      {
+        "contentType": null,
+        "id": "c67335e99798123d",
+        "name": "favicon.ico",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: Error: Asset request failed with HTTP 404\n    at FX (<anonymous>:1:102)",
+        "url": "http://localhost:8765/favicon.ico"
+      }
+    ],
+    "manifestPath": "/var/folders/fd/fwnzk20x0gl1vd9xz16zxjdw0000gn/T/browser-use/assets/961f4751-953c-409e-9ac8-7ad08bae9ecf/manifest.json",
+    "summary": {
+      "downloadedCount": 22,
+      "elapsedMs": 11637.251458,
+      "failedCount": 3,
+      "requestedCount": 25
+    }
+  }
+}

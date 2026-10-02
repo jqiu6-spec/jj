@@ -95,19 +95,21 @@ select option{background:var(--bg);color:var(--ink)}
 
 /* masonry grid: pictures keep their own shape */
 main{padding:48px 0 96px}
-.grid{columns:4 240px;column-gap:40px}
+.grid{columns:4 240px;column-gap:32px}
 @media (max-width:540px){.grid{columns:2;column-gap:16px}}
-/* Each work has its own size, sideways shift and drop (set per work in render), so nothing lines up. */
-.card{--cw:var(--w,100%);display:block;width:var(--cw);margin-left:calc((100% - var(--cw)) * var(--x,0));padding-top:var(--y,0px);break-inside:avoid;margin-bottom:40px;padding:0;border:0;background:none;text-align:left;cursor:pointer;position:relative}
-@media (max-width:540px){.card{--cw:calc(30% + var(--w,100%) * .7);margin-bottom:16px;padding-top:calc(var(--y,0px) * .4)}}
+/* Museum-style grid: straight columns, every work fills its column on its own light-gray backdrop. */
+.card{display:block;width:100%;break-inside:avoid;margin:0 0 32px;padding:0;border:0;background:none;text-align:left;cursor:pointer;position:relative}
+@media (max-width:540px){.card{margin-bottom:14px}}
 .card:focus-visible{outline:1px solid var(--ink);outline-offset:6px}
 /* Floating: each picture drifts up and down a few pixels on its own rhythm. */
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(-1 * var(--float-y,8px)))}}
 .float{animation:float var(--float-dur,6s) ease-in-out var(--float-delay,0s) infinite}
-.card .pic{display:block;--float-y:14px}
-.card .pic img{display:block;width:100%;height:auto;transition:opacity .2s ease}
-.card:hover .pic img{opacity:.85}
-.badge{position:absolute;top:calc(var(--y,0px) + 10px);font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:4px 8px}
+.card .pic{display:block;background:var(--panel);padding:11% 12%;overflow:hidden;transition:background-color .2s ease}
+.card:hover .pic{background:var(--line)}
+.card .pic .float{display:block;--float-y:10px}
+.card .pic img{display:block;width:100%;height:auto}
+.card .pic .ph{background:none;padding:0}
+.badge{position:absolute;top:10px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:4px 8px}
 .badge{left:10px;background:var(--ink);color:var(--bg)}
 .ph{display:flex;align-items:center;justify-content:center;aspect-ratio:4/5;padding:16px;text-align:center;color:var(--muted);font-size:13px;background:var(--panel)}
 .empty,.notice{color:var(--muted);padding:60px 0}
@@ -414,14 +416,6 @@ footer{color:var(--muted);font-size:14px;padding-top:22px;padding-bottom:48px;bo
   // Varied timing per picture so neighbours never bob in step.
   const floatStyle = (i) => `--float-dur:${(3.6 + (i % 5) * 0.45).toFixed(2)}s;--float-delay:-${((i * 1.3) % 4.5).toFixed(2)}s`;
 
-  // Stable per-work size and drop: looks random, but each work keeps its own across reloads.
-  const hashOf = (str) => { let x = 2166136261; for (const ch of str) x = Math.imul(x ^ ch.charCodeAt(0), 16777619); return x >>> 0; };
-  const scatterStyle = (id) => {
-    const x = hashOf(id);
-    const part = (shift) => ((x >>> shift) & 255) / 255;
-    return `--w:${(55 + part(0) * 45).toFixed(1)}%;--x:${part(8).toFixed(3)};--y:${Math.round(part(16) * 48)}px`;
-  };
-
   // ---------- grid ----------
   let shown = [];
   function render() {
@@ -434,8 +428,8 @@ footer{color:var(--muted);font-size:14px;padding-top:22px;padding-bottom:48px;bo
     });
     const cards = shown.map((r, i) => {
       const imgs = imagesOf(r);
-      return h('button', { class: 'card', type: 'button', 'data-id': r.id, style: scatterStyle(r.id), 'aria-label': `${r.title || r.id}, ${creatorLine(r)}`, onclick: () => openDetail(r.id) },
-        h('span', { class: 'pic float', style: floatStyle(i) }, picture(imgs[0], r.title)),
+      return h('button', { class: 'card', type: 'button', 'data-id': r.id, 'aria-label': `${r.title || r.id}, ${creatorLine(r)}`, onclick: () => openDetail(r.id) },
+        h('span', { class: 'pic' }, h('span', { class: 'float', style: floatStyle(i) }, picture(imgs[0], r.title))),
         state.fresh.has(r.id) && h('span', { class: 'badge' }, 'New'));
     });
     $('#grid').replaceChildren(...cards);

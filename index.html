@@ -97,9 +97,9 @@ select option{background:var(--bg);color:var(--ink)}
 main{padding:48px 0 96px}
 .grid{columns:4 240px;column-gap:40px}
 @media (max-width:540px){.grid{columns:2;column-gap:16px}}
-/* Each work has its own size and drop (set per work in render); left edges stay on the column line. */
-.card{display:block;width:var(--w,100%);padding-top:var(--y,0px);break-inside:avoid;margin-bottom:40px;padding:0;border:0;background:none;text-align:left;cursor:pointer;position:relative}
-@media (max-width:540px){.card{width:calc(30% + var(--w,100%) * .7);margin-bottom:16px;padding-top:calc(var(--y,0px) * .4)}}
+/* Each work has its own size, sideways shift and drop (set per work in render), so nothing lines up. */
+.card{--cw:var(--w,100%);display:block;width:var(--cw);margin-left:calc((100% - var(--cw)) * var(--x,0));padding-top:var(--y,0px);break-inside:avoid;margin-bottom:40px;padding:0;border:0;background:none;text-align:left;cursor:pointer;position:relative}
+@media (max-width:540px){.card{--cw:calc(30% + var(--w,100%) * .7);margin-bottom:16px;padding-top:calc(var(--y,0px) * .4)}}
 .card:focus-visible{outline:1px solid var(--ink);outline-offset:6px}
 /* Floating: each picture drifts up and down a few pixels on its own rhythm. */
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(-1 * var(--float-y,8px)))}}
@@ -419,7 +419,7 @@ footer{color:var(--muted);font-size:14px;padding-top:22px;padding-bottom:48px;bo
   const scatterStyle = (id) => {
     const x = hashOf(id);
     const part = (shift) => ((x >>> shift) & 255) / 255;
-    return `--w:${(55 + part(0) * 45).toFixed(1)}%;--y:${Math.round(part(16) * 48)}px`;
+    return `--w:${(55 + part(0) * 45).toFixed(1)}%;--x:${part(8).toFixed(3)};--y:${Math.round(part(16) * 48)}px`;
   };
 
   // ---------- grid ----------

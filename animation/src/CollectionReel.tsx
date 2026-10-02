@@ -1,4 +1,7 @@
-import { AbsoluteFill, Img, Easing, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Img, Easing, Sequence, continueRender, delayRender, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
+// Font files are bundled from npm, so rendering works offline.
+import '@fontsource/noto-sans-jp/400.css';
+import '@fontsource/noto-sans-jp/800.css';
 
 export type ReelItem = { id: string; title: string; creator: string | null; date: string | null; image: string | null };
 export type ReelData = { total: number; items: ReelItem[] };
@@ -7,7 +10,13 @@ export type ReelData = { total: number; items: ReelItem[] };
 const INK = '#222';
 const MUTED = '#767676';
 const PANEL = '#f2f2f2';
-const FONT = 'Inter, "Helvetica Neue", Helvetica, Arial, sans-serif';
+const FONT = '"Noto Sans JP", "Helvetica Neue", Arial, sans-serif';
+
+// Hold the first frame until both weights are ready.
+const fontHandle = delayRender('Loading Noto Sans JP');
+Promise.all(['400', '800'].map((w) => document.fonts.load(`${w} 40px "Noto Sans JP"`)))
+  .then(() => continueRender(fontHandle))
+  .catch(() => continueRender(fontHandle));
 
 const INTRO = 75;
 const PER_WORK = 90;

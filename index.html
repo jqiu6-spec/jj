@@ -97,8 +97,8 @@ select option{background:var(--bg);color:var(--ink)}
 main{padding:48px 0 96px}
 .grid{columns:4 240px;column-gap:40px}
 @media (max-width:540px){.grid{columns:2;column-gap:16px}}
-.card{display:block;width:100%;break-inside:avoid;margin:0 0 60px;padding:0;border:0;background:none;text-align:left;cursor:pointer;position:relative}
-@media (max-width:540px){.card{margin-bottom:36px}}
+.card{display:block;width:100%;break-inside:avoid;margin:0 0 40px;padding:0;border:0;background:none;text-align:left;cursor:pointer;position:relative}
+@media (max-width:540px){.card{margin-bottom:16px}}
 .card:focus-visible{outline:1px solid var(--ink);outline-offset:6px}
 /* Floating: each picture drifts up and down a few pixels on its own rhythm. */
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(-1 * var(--float-y,8px)))}}
@@ -106,14 +106,8 @@ main{padding:48px 0 96px}
 .card .pic{display:block;--float-y:14px}
 .card .pic img{display:block;width:100%;height:auto;transition:opacity .2s ease}
 .card:hover .pic img{opacity:.85}
-.card .meta{display:block;padding-top:16px}
-.card .t{display:block;font-size:19px;line-height:1.3;font-weight:400;letter-spacing:-.01em}
-.card:hover .t{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
-.card .c{display:block;font-size:17px;color:var(--muted);margin-top:3px}
-@media (max-width:540px){.card .t{font-size:16px}.card .c{font-size:14px}}
-.badge,.count{position:absolute;top:10px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:4px 8px}
+.badge{position:absolute;top:10px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:4px 8px}
 .badge{left:10px;background:var(--ink);color:var(--bg)}
-.count{right:10px;background:var(--bg);color:var(--ink)}
 .ph{display:flex;align-items:center;justify-content:center;aspect-ratio:4/5;padding:16px;text-align:center;color:var(--muted);font-size:13px;background:var(--panel)}
 .empty,.notice{color:var(--muted);padding:60px 0}
 .notice code,footer code{font:13px/1 ui-monospace,Menlo,monospace}
@@ -130,14 +124,12 @@ dialog::backdrop{background:var(--bg)}
 .stage .main-img > .float{--float-y:18px;--float-dur:5.5s;max-width:100%;max-height:100%;display:flex;align-items:center;justify-content:center}
 @media (max-width:899px){.stage .main-img{padding:20px 16px}.stage .main-img img{max-height:60dvh}}
 .stage .ph{width:100%;max-width:420px}
-.thumbs{display:flex;gap:12px;padding:0 44px 14px 28px;overflow-x:auto}
+.thumbs{display:flex;gap:12px;padding:0 44px 28px 28px;overflow-x:auto}
 @media (max-width:899px){.thumbs{padding:0 16px 14px}}
 .thumbs button{flex:0 0 auto;width:56px;height:56px;padding:0;border:0;outline:1px solid transparent;outline-offset:3px;background:var(--panel);cursor:pointer}
 .thumbs button[aria-current="true"]{outline-color:var(--ink)}
 .thumbs img{width:100%;height:100%;object-fit:cover;display:block}
 .thumbs .ph{aspect-ratio:auto;height:100%;padding:0}
-.caption{font-size:13px;color:var(--muted);padding:0 44px 24px 28px;margin:0}
-@media (max-width:899px){.caption{padding:0 16px 18px}}
 .info{background:var(--panel);padding:20px 44px 56px;overflow-y:auto;min-height:0}
 @media (max-width:899px){.info{padding:20px 16px 44px}}
 .info h2{font-size:clamp(28px,2.6vw,40px);line-height:1.15;letter-spacing:-.02em;font-weight:400;margin:48px 0 10px}
@@ -433,11 +425,9 @@ footer{color:var(--muted);font-size:14px;padding-top:22px;padding-bottom:48px;bo
     });
     const cards = shown.map((r, i) => {
       const imgs = imagesOf(r);
-      return h('button', { class: 'card', type: 'button', 'data-id': r.id, onclick: () => openDetail(r.id) },
+      return h('button', { class: 'card', type: 'button', 'data-id': r.id, 'aria-label': `${r.title || r.id}, ${creatorLine(r)}`, onclick: () => openDetail(r.id) },
         h('span', { class: 'pic float', style: floatStyle(i) }, picture(imgs[0], r.title)),
-        state.fresh.has(r.id) && h('span', { class: 'badge' }, 'New'),
-        imgs.length > 1 && h('span', { class: 'count' }, `${imgs.length} views`),
-        h('span', { class: 'meta' }, h('span', { class: 't' }, r.title || r.id), h('span', { class: 'c' }, creatorLine(r))));
+        state.fresh.has(r.id) && h('span', { class: 'badge' }, 'New'));
     });
     $('#grid').replaceChildren(...cards);
     $('#msg').replaceChildren(shown.length || !state.refs.length ? '' : h('div', { class: 'empty' }, 'Nothing matches these filters.'));
@@ -481,8 +471,7 @@ footer{color:var(--muted);font-size:14px;padding-top:22px;padding-bottom:48px;bo
       imgs.length > 1 && h('div', { class: 'thumbs' }, imgs.map((im, i) => h('button', {
         type: 'button', 'aria-label': `View ${i + 1}`, 'aria-current': String(i === state.imgIndex),
         onclick: () => openDetail(r.id, i, true),
-      }, picture(im, '', { thumb: true })))),
-      img && (img.caption || img.credit) && h('p', { class: 'caption' }, [img.caption, img.credit].filter(Boolean).join(' — ')));
+      }, picture(im, '', { thumb: true })))));
 
     const facts = [
       ['Artist', r.creator], ['Also known as', r.creator_alias], ['Date', r.work_date || r.year],

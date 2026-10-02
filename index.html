@@ -57,6 +57,7 @@ button,input,select{font:inherit;color:inherit;letter-spacing:inherit;border-rad
 .hero[hidden]{display:none}
 .hero-img{padding:72px 44px 72px 28px;border:0;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .hero-img img{display:block;max-width:100%;max-height:68vh;object-fit:contain}
+.hero-img .float{display:block;max-width:100%;--float-y:12px;--float-dur:7s}
 .hero-img .ph{width:min(420px,100%)}
 .hero-side{background:var(--panel);display:flex;align-items:center;padding:72px 44px}
 .hero-side .t{display:block;font-size:clamp(26px,2.4vw,36px);line-height:1.18;font-weight:400;letter-spacing:-.015em;margin:18px 0 10px}
@@ -99,7 +100,10 @@ main{padding:48px 0 96px}
 .card{display:block;width:100%;break-inside:avoid;margin:0 0 60px;padding:0;border:0;background:none;text-align:left;cursor:pointer;position:relative}
 @media (max-width:540px){.card{margin-bottom:36px}}
 .card:focus-visible{outline:1px solid var(--ink);outline-offset:6px}
-.card .pic{display:block}
+/* Floating: each picture drifts up and down a few pixels on its own rhythm. */
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(-1 * var(--float-y,8px)))}}
+.float{animation:float var(--float-dur,6s) ease-in-out var(--float-delay,0s) infinite}
+.card .pic{display:block;--float-y:7px}
 .card .pic img{display:block;width:100%;height:auto;transition:opacity .2s ease}
 .card:hover .pic img{opacity:.85}
 .card .meta{display:block;padding-top:16px}
@@ -123,6 +127,7 @@ dialog::backdrop{background:var(--bg)}
 .stage{background:var(--bg);display:flex;flex-direction:column;min-height:0}
 .stage .main-img{flex:1;display:flex;align-items:center;justify-content:center;padding:56px 44px 24px 28px;min-height:280px}
 .stage .main-img img{max-width:100%;max-height:calc(100dvh - 190px);object-fit:contain;display:block}
+.stage .main-img > .float{--float-y:10px;--float-dur:7.5s;max-width:100%;max-height:100%;display:flex;align-items:center;justify-content:center}
 @media (max-width:899px){.stage .main-img{padding:20px 16px}.stage .main-img img{max-height:60dvh}}
 .stage .ph{width:100%;max-width:420px}
 .thumbs{display:flex;gap:12px;padding:0 44px 14px 28px;overflow-x:auto}
@@ -160,7 +165,7 @@ dialog::backdrop{background:var(--bg)}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(12px);opacity:0;visibility:hidden;background:var(--ink);color:var(--bg);padding:12px 18px;font-size:15px;transition:transform .25s ease,opacity .25s ease,visibility .25s;z-index:20;max-width:calc(100vw - 32px)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1;visibility:visible}
 footer{color:var(--muted);font-size:14px;padding-top:22px;padding-bottom:48px;border-top:1px solid var(--line)}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}.float{animation:none}}
 </style>
 </head>
 <body>
@@ -365,7 +370,7 @@ footer{color:var(--muted);font-size:14px;padding-top:22px;padding-bottom:48px;bo
     const open = () => openDetail(r.id);
     const desc = String(r.visual_observations || '').split(/\n\s*\n/)[0];
     hero.replaceChildren(
-      h('button', { class: 'hero-img', type: 'button', 'aria-label': `Open ${r.title}`, onclick: open }, picture(imagesOf(r)[0], r.title, { eager: true })),
+      h('button', { class: 'hero-img', type: 'button', 'aria-label': `Open ${r.title}`, onclick: open }, h('span', { class: 'float' }, picture(imagesOf(r)[0], r.title, { eager: true }))),
       h('div', { class: 'hero-side' }, h('div', {},
         h('p', { class: 'label' }, 'Latest addition'),
         h('button', { class: 'linkbtn t', type: 'button', onclick: open }, r.title || r.id),
@@ -413,6 +418,9 @@ footer{color:var(--muted);font-size:14px;padding-top:22px;padding-bottom:48px;bo
     return list.sort(SORTS[state.sort]);
   }
 
+  // Varied timing per picture so neighbours never bob in step.
+  const floatStyle = (i) => `--float-dur:${(5.2 + (i % 5) * 0.55).toFixed(2)}s;--float-delay:-${((i * 1.7) % 6).toFixed(2)}s`;
+
   // ---------- grid ----------
   let shown = [];
   function render() {
@@ -423,10 +431,10 @@ footer{color:var(--muted);font-size:14px;padding-top:22px;padding-bottom:48px;bo
         : k === 'creator' || k === 'newest' ? state.sort === k : state.showAllTags;
       b.setAttribute('aria-current', String(on && k !== 'all' ? true : false));
     });
-    const cards = shown.map((r) => {
+    const cards = shown.map((r, i) => {
       const imgs = imagesOf(r);
       return h('button', { class: 'card', type: 'button', 'data-id': r.id, onclick: () => openDetail(r.id) },
-        h('span', { class: 'pic' }, picture(imgs[0], r.title)),
+        h('span', { class: 'pic float', style: floatStyle(i) }, picture(imgs[0], r.title)),
         state.fresh.has(r.id) && h('span', { class: 'badge' }, 'New'),
         imgs.length > 1 && h('span', { class: 'count' }, `${imgs.length} views`),
         h('span', { class: 'meta' }, h('span', { class: 't' }, r.title || r.id), h('span', { class: 'c' }, creatorLine(r))));
@@ -469,7 +477,7 @@ footer{color:var(--muted);font-size:14px;padding-top:22px;padding-bottom:48px;bo
   function buildDetail(r, imgs) {
     const img = imgs[state.imgIndex];
     const stage = h('div', { class: 'stage' },
-      h('div', { class: 'main-img' }, picture(img, img && img.caption || r.title, { eager: true })),
+      h('div', { class: 'main-img' }, h('span', { class: 'float' }, picture(img, img && img.caption || r.title, { eager: true }))),
       imgs.length > 1 && h('div', { class: 'thumbs' }, imgs.map((im, i) => h('button', {
         type: 'button', 'aria-label': `View ${i + 1}`, 'aria-current': String(i === state.imgIndex),
         onclick: () => openDetail(r.id, i, true),

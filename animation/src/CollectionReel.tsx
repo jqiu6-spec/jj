@@ -49,6 +49,9 @@ const Work: React.FC<{ item: ReelItem; index: number; count: number }> = ({ item
   const imgIn = interpolate(frame, [6, 30], [0, 1], { ...clamp, easing: ease });
   const textIn = (start: number) => interpolate(frame, [start, start + 18], [0, 1], { ...clamp, easing: ease });
   const out = interpolate(frame, [PER_WORK - 12, PER_WORK], [1, 0], clamp);
+  // Gentle float: a slow sine drift of a few pixels, offset per work.
+  const { fps } = useVideoConfig();
+  const floatY = Math.sin(((frame / fps) * 2 * Math.PI) / 3.2 + index * 1.3) * 12;
   const meta = [item.creator, item.date].filter(Boolean).join(' · ') || 'Artist unknown';
   const num = (n: number) => String(n).padStart(2, '0');
 
@@ -58,10 +61,10 @@ const Work: React.FC<{ item: ReelItem; index: number; count: number }> = ({ item
         {item.image ? (
           <Img
             src={staticFile(item.image)}
-            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', opacity: imgIn, transform: `scale(${1.06 - 0.06 * imgIn})` }}
+            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', opacity: imgIn, transform: `translateY(${floatY}px) scale(${1.06 - 0.06 * imgIn})` }}
           />
         ) : (
-          <div style={{ width: 560, height: 700, background: PANEL, opacity: imgIn }} />
+          <div style={{ width: 560, height: 700, background: PANEL, opacity: imgIn, transform: `translateY(${floatY}px)` }} />
         )}
       </div>
       <div style={{ width: '50%', height: '100%', background: PANEL, transform: `translateX(${panel}%)`, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 120px' }}>

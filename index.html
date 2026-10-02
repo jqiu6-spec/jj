@@ -106,7 +106,7 @@ main{padding:48px 0 96px}
 .float{animation:float var(--float-dur,6s) ease-in-out var(--float-delay,0s) infinite}
 .card .pic{display:block;background:var(--panel);padding:11% 12%;overflow:hidden;transition:background-color .2s ease}
 .card:hover .pic{background:var(--line)}
-.card .pic .float{display:block;--float-y:10px}
+.card .pic .float{display:block;width:var(--art-w,100%);margin:0 auto;transition:width .3s ease;--float-y:10px}
 .card .pic img{display:block;width:100%;height:auto}
 .card .pic .ph{background:none;padding:0}
 .badge{position:absolute;top:10px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:4px 8px}
@@ -413,6 +413,20 @@ footer{color:var(--muted);font-size:14px;padding-top:22px;padding-bottom:48px;bo
     return list.sort(SORTS[state.sort]);
   }
 
+  // Size each artwork by its own shape and resolution: wide pieces fill the backdrop,
+  // tall ones sit narrower, and low-resolution images read smaller.
+  function artWidth(w, h) {
+    const pct = Math.min(100, Math.max(52, 55 + (w / h - 0.5) * 60));
+    return Math.max(w, h) < 500 ? pct * 0.8 : pct;
+  }
+  function sizeByImage(wrapper) {
+    const img = wrapper.querySelector('img');
+    if (!img) return;
+    const apply = () => { if (img.naturalWidth) wrapper.style.setProperty('--art-w', `${artWidth(img.naturalWidth, img.naturalHeight).toFixed(1)}%`); };
+    if (img.complete) apply();
+    img.addEventListener('load', apply);
+  }
+
   // Varied timing per picture so neighbours never bob in step.
   const floatStyle = (i) => `--float-dur:${(3.6 + (i % 5) * 0.45).toFixed(2)}s;--float-delay:-${((i * 1.3) % 4.5).toFixed(2)}s`;
 
@@ -428,8 +442,10 @@ footer{color:var(--muted);font-size:14px;padding-top:22px;padding-bottom:48px;bo
     });
     const cards = shown.map((r, i) => {
       const imgs = imagesOf(r);
+      const art = h('span', { class: 'float', style: floatStyle(i) }, picture(imgs[0], r.title));
+      sizeByImage(art);
       return h('button', { class: 'card', type: 'button', 'data-id': r.id, 'aria-label': `${r.title || r.id}, ${creatorLine(r)}`, onclick: () => openDetail(r.id) },
-        h('span', { class: 'pic' }, h('span', { class: 'float', style: floatStyle(i) }, picture(imgs[0], r.title))),
+        h('span', { class: 'pic' }, art),
         state.fresh.has(r.id) && h('span', { class: 'badge' }, 'New'));
     });
     $('#grid').replaceChildren(...cards);

@@ -43,6 +43,11 @@ commit and push new references (the `references/` folder and the updated
 Everything in this folder is published, including `references/` and notes.
 GitHub Pages sites are public unless your plan supports private Pages.
 
+## Animation
+
+`animation/` is a Remotion project for making videos from the collection. See
+`animation/README.md`.
+
 ## Collection workflow
 
 See `AGENTS.md` for how references are archived and how the style profile is

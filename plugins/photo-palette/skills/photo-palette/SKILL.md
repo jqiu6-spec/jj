@@ -28,9 +28,9 @@ the script below and already runs with the right Python.
 Otherwise, run the extractor `scripts/palette.py` next to this file. It needs
 Python 3.9+ with Pillow and NumPy. If they're installed in the private
 environment that install.sh creates, the script switches to that Python by
-itself. If it still reports missing packages, ask the user to run `install.sh`
-from the photo-palette download, or to run
-`python3 -m pip install --user pillow numpy`.
+itself. If it still reports missing packages, ask the user to repair the
+install with `bash ~/.codex/photo-palette-marketplace/install.sh`, or with
+`install.sh` from the photo-palette download.
 
 ```bash
 python3 <this-skill-dir>/scripts/palette.py IMAGE [IMAGE ...] [options]

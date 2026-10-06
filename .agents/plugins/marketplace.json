@@ -1,0 +1,20 @@
+{
+  "name": "jj",
+  "interface": {
+    "displayName": "jj plugins"
+  },
+  "plugins": [
+    {
+      "name": "photo-palette",
+      "source": {
+        "source": "local",
+        "path": "./plugins/photo-palette"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Design"
+    }
+  ]
+}

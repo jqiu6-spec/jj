@@ -1,0 +1,24 @@
+{
+  "name": "photo-palette",
+  "version": "0.1.0",
+  "description": "Generate clean, perceptually balanced color palettes from photographs and images.",
+  "keywords": ["color", "palette", "design", "photography", "css", "tailwind", "theme"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Photo Palette",
+    "shortDescription": "Turn any photo into a clean color palette",
+    "longDescription": "Extracts a clean, harmonious color palette from photographs. Colors are clustered in the perceptual OKLab space, de-muddied (averaging and edge-blend colors are suppressed), de-duplicated and mapped to UI roles (background, surface, text, primary, accent). Choose clean, natural, vivid or muted finishes and export as CSS variables, SCSS, Tailwind v4 @theme, JSON, SVG swatches or a GIMP/Inkscape/Krita palette.",
+    "developerName": "jqiu6-spec",
+    "category": "Design",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Generate a clean color palette from this photo",
+      "Make a CSS theme from the colors in hero.jpg",
+      "Build one moodboard palette from all images in ./refs"
+    ],
+    "brandColor": "#C8643F",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png"
+  }
+}

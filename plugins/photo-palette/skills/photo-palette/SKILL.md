@@ -21,9 +21,16 @@ representative and clearly distinct from each other.
 
 ## How to run it
 
-The extractor is `scripts/palette.py` next to this file. It needs Python 3.9+
-with Pillow and NumPy. If the import fails, install them with
-`python3 -m pip install pillow numpy`. If you can't install them, tell the user.
+If the `photo-palette` MCP server from this plugin is connected, call its
+`extract_palette` tool with absolute image paths. It takes the same options as
+the script below and already runs with the right Python.
+
+Otherwise, run the extractor `scripts/palette.py` next to this file. It needs
+Python 3.9+ with Pillow and NumPy. If they're installed in the private
+environment that install.sh creates, the script switches to that Python by
+itself. If it still reports missing packages, ask the user to run `install.sh`
+from the photo-palette download, or to run
+`python3 -m pip install --user pillow numpy`.
 
 ```bash
 python3 <this-skill-dir>/scripts/palette.py IMAGE [IMAGE ...] [options]
@@ -51,9 +58,6 @@ primary and accent to hex values. Roles listed in `derived_roles` were not in
 the photo. The extractor generated them as quiet tints of the photo's
 dominant hue, because photos rarely contain a usable page background or
 body-text color.
-
-If the `photo-palette` MCP server from this plugin is connected, its
-`extract_palette` tool does the same thing. Pass it absolute paths.
 
 ## Workflow
 

@@ -46,15 +46,17 @@ derived.
 ## Install
 
 The quickest way is to run `bash install.sh` from the repository root (or
-from the unzipped folder). It installs Pillow and NumPy if they're missing and
-works on any Codex version. The [root README](../../README.md) has the manual
-steps, Windows notes and a troubleshooting table.
+from the unzipped folder). It sets up Pillow and NumPy in a private
+environment if needed, and works on any Codex version. The
+[root README](../../README.md) has the manual steps, Windows notes, a
+troubleshooting table and uninstall steps.
 
-By hand, on Codex 0.135 or newer:
+By hand, on Codex 0.131 or newer:
 
 ```bash
-python3 -m pip install -r plugins/photo-palette/requirements.txt
-codex plugin marketplace add /path/to/jj      # the repository root, not this folder
+python3 -m pip install --user pillow numpy   # Homebrew Python: add --break-system-packages
+cd /path/to/jj                                # the repository root, not this folder
+codex plugin marketplace add .
 codex plugin add photo-palette@jj
 ```
 

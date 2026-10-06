@@ -12,25 +12,38 @@ You need [Codex](https://developers.openai.com/codex) and Python 3.9 or newer.
 
 ### Easiest: the install script (macOS / Linux)
 
-From the unzipped `photo-palette` folder (or a clone of this repo):
+Open Terminal in the unzipped `photo-palette` folder (or a clone of this repo).
+On a Mac, right-click the folder and choose **New Terminal at Folder**. Then run:
 
 ```bash
 bash install.sh
 ```
 
-The script installs Pillow and NumPy if they're missing. On Codex 0.135 or
-newer it installs the plugin with `codex plugin add`. On older Codex it puts
-the skill and the MCP server in place directly. Restart Codex afterwards.
-To skip the plugin system and do the direct install anyway, run
-`bash install.sh --manual`.
+What the script does:
 
-### By hand (Codex 0.135 or newer)
+- If your Python doesn't already have Pillow and NumPy, it installs them into
+  a private environment at `~/.codex/photo-palette-venv`. Nothing is installed
+  system-wide.
+- On Codex 0.131 or newer, it installs a plugin from a copy at
+  `~/.codex/photo-palette-marketplace`, so you can delete the download
+  afterwards.
+- On older Codex, it puts the skill and the MCP server in place directly.
+
+Restart Codex afterwards (the CLI, the desktop app or the IDE extension).
+`bash install.sh --manual` forces the direct install. `bash install.sh --uninstall`
+removes everything the script installed.
+
+### By hand (Codex 0.131 or newer)
 
 ```bash
-python3 -m pip install pillow numpy
-codex plugin marketplace add /path/to/photo-palette      # the folder that contains install.sh
+python3 -m pip install --user pillow numpy   # Homebrew Python: add --break-system-packages
+cd ~/Downloads/photo-palette                  # the folder that contains install.sh
+codex plugin marketplace add .
 codex plugin add photo-palette@jj
 ```
+
+Keep that folder: Codex reads the marketplace from it. The install script
+avoids this by copying the folder into `~/.codex` first.
 
 From GitHub instead of a local folder (the plugin is on a branch for now):
 
@@ -39,37 +52,51 @@ codex plugin marketplace add jqiu6-spec/jj --ref claude/quirky-thompson-7o7tvm
 codex plugin add photo-palette@jj
 ```
 
-Check your version with `codex --version`. To update, run
+Check your version with `codex --version`. To update Codex, run
 `npm install -g @openai/codex@latest` or `brew upgrade --cask codex`.
 
 ### Windows
 
-`install.sh` needs bash (Git Bash or WSL both work). In plain PowerShell, run:
+`install.sh` is written for macOS and Linux and hasn't been tested on Windows.
+In PowerShell, from the unzipped folder:
 
 ```powershell
-py -m pip install pillow numpy
-codex plugin marketplace add C:\path\to\photo-palette
+py -m pip install --user pillow numpy
+codex plugin marketplace add .
 codex plugin add photo-palette@jj
 ```
 
-If the palette tool doesn't start, edit the installed plugin's `.mcp.json`
-(under `%USERPROFILE%\.codex\plugins\cache\jj\photo-palette\`) and change
-`"python3"` to `"py"`.
+Windows installs of Python usually have no `python3` command, so point the
+plugin at `py`. Open
+`%USERPROFILE%\.codex\plugins\cache\jj\photo-palette\0.1.0\.mcp.json` and
+change `"python3"` to `"py"`. Repeat this after each `codex plugin add`.
 
 ## Troubleshooting
 
 | What you see | Cause | Fix |
 | --- | --- | --- |
-| `error: unexpected argument 'marketplace' found` | Codex is older than 0.125. | Update Codex, or run `bash install.sh` (falls back to a direct install). |
-| `unrecognized subcommand 'add'` or `'install'` | Codex is older than 0.135. Also, the command is `plugin add`, not `plugin install`. | Update Codex, or run `bash install.sh`. |
+| `error: unexpected argument 'marketplace' found` | Codex is older than 0.121. | Update Codex, or run `bash install.sh`. It falls back to a direct install. |
+| `error: unrecognized subcommand 'add'` | Codex is older than 0.131. | Update Codex, or run `bash install.sh`. |
+| `error: unrecognized subcommand 'install'` | The command is `codex plugin add`, not `install`. | Use `codex plugin add photo-palette@jj`. |
 | `marketplace root does not contain a supported manifest` | Codex was pointed at the wrong folder, or at GitHub without `--ref`. | Point it at the folder that contains `install.sh` and `.agents/`, or add `--ref claude/quirky-thompson-7o7tvm`. |
-| ``plugin `photo-palette` was not found in marketplace `jj` `` | The marketplace wasn't added (or the add failed). | Run the `codex plugin marketplace add …` step first, then `codex plugin add photo-palette@jj`. |
-| `marketplace 'jj' is already added from a different source` | An earlier attempt added it from another folder. | `codex plugin marketplace remove jj`, then add again (the script does this for you). |
-| The skill shows up but palettes fail with `No module named 'PIL'` | Python is missing the dependencies. | `python3 -m pip install --user pillow numpy` (Homebrew Python: add `--break-system-packages`). |
-| Can't see the `.agents` folder in Finder | Folders starting with a dot are hidden. | Press <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> in Finder. The folder is there; Codex finds it. |
+| `git clone https://github.com/Downloads/…` fails | A path like `Downloads/photo-palette` looks like a GitHub `owner/repo`. | `cd` into the folder and use `codex plugin marketplace add .`, or give the full path, e.g. `~/Downloads/photo-palette`. |
+| `invalid marketplace source format` | Only the folder name was given. | Same fix: `cd` into the folder and use `.`, or give the full path. |
+| ``plugin `photo-palette` was not found in marketplace `jj` `` | The marketplace wasn't added, or adding it failed. | Run the `codex plugin marketplace add …` step first. |
+| `marketplace 'jj' is already added from a different source` | An earlier attempt added it from another folder. | `codex plugin marketplace remove jj`, then add it again. The script does this for you. |
+| `error: externally-managed-environment` from pip | Homebrew or Linux distro Python blocks pip installs. | Run `bash install.sh`, which uses a private environment, or `python3 -m pip install --user --break-system-packages pillow numpy`, or `brew install numpy pillow`. |
+| Palettes fail with `No module named 'numpy'` or `'PIL'` | The Python Codex uses has no Pillow/NumPy. | Re-run `bash install.sh`. Do the same after upgrading Python. |
+| `.agents folder is missing` from the script, or you can't see `.agents` in Finder | Finder hides folders whose names start with a dot, and drops them when copying. | Unzip the original zip again. To see hidden folders in Finder, press <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd>. |
 
-To uninstall, run `codex plugin remove photo-palette@jj` for a plugin install.
-For the direct install, delete `~/.codex/skills/photo-palette` and
-`~/.codex/photo-palette`, then run `codex mcp remove photo-palette`.
+## Uninstall
+
+Run `bash install.sh --uninstall`. To do it by hand instead:
+
+```bash
+codex plugin remove photo-palette@jj
+codex plugin marketplace remove jj
+codex mcp remove photo-palette                 # only after a direct install
+rm -rf ~/.codex/photo-palette ~/.codex/skills/photo-palette \
+       ~/.codex/photo-palette-marketplace ~/.codex/photo-palette-venv
+```
 
 The marketplace definition lives in `.agents/plugins/marketplace.json`.

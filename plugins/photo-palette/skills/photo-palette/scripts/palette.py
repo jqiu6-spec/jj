@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import re
 import sys
 from dataclasses import dataclass, field
@@ -40,9 +41,18 @@ try:
     import numpy as np
     from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 except ImportError as exc:  # pragma: no cover - exercised only without deps
+    # install.sh may have put the packages in a private environment; when this
+    # file (or the MCP server) was started with another Python, hand over to it.
+    _venv = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex") / "photo-palette-venv"
+    for _py in (_venv / "bin" / "python", _venv / "Scripts" / "python.exe"):
+        if (_py.exists() and sys.argv and os.path.isfile(sys.argv[0])
+                and not os.environ.get("PHOTO_PALETTE_REEXEC")):
+            os.environ["PHOTO_PALETTE_REEXEC"] = "1"
+            os.execv(str(_py), [str(_py), *sys.argv])
     sys.stderr.write(
         f"photo-palette needs Pillow and NumPy ({exc}).\n"
-        "Install them with:  python3 -m pip install pillow numpy\n"
+        "Install them with:  python3 -m pip install --user pillow numpy\n"
+        "or run install.sh from the photo-palette download.\n"
     )
     raise SystemExit(2)
 

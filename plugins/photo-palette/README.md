@@ -45,31 +45,23 @@ derived.
 
 ## Install
 
-The plugin needs Python 3.9+ with Pillow and NumPy:
+The quickest way is to run `bash install.sh` from the repository root (or
+from the unzipped folder). It installs Pillow and NumPy if they're missing and
+works on any Codex version. The [root README](../../README.md) has the manual
+steps, Windows notes and a troubleshooting table.
+
+By hand, on Codex 0.135 or newer:
 
 ```bash
 python3 -m pip install -r plugins/photo-palette/requirements.txt
-```
-
-**From this repository's marketplace:**
-
-```bash
-codex plugin marketplace add jqiu6-spec/jj
+codex plugin marketplace add /path/to/jj      # the repository root, not this folder
 codex plugin add photo-palette@jj
 ```
 
-**From a local checkout:**
+From GitHub instead, while the plugin is on a branch:
+`codex plugin marketplace add jqiu6-spec/jj --ref claude/quirky-thompson-7o7tvm`.
 
-```bash
-codex plugin marketplace add /path/to/jj
-codex plugin add photo-palette@jj
-```
-
-You can also open `/plugins` in the Codex TUI and install it from the **jj**
-marketplace. Restart Codex afterwards so it loads the skill and the MCP server.
-
-On Windows, if `python3` isn't on your PATH, change `"command"` in `.mcp.json`
-to `"python"` or `"py"`.
+Restart Codex afterwards so it loads the skill and the MCP server.
 
 ## Use it in Codex
 

@@ -77,7 +77,7 @@ codex plugin add photo-palette@jj
 
 Windows installs of Python usually have no `python3` command, so point the
 plugin at `py`. Open
-`%USERPROFILE%\.codex\plugins\cache\jj\photo-palette\0.1.0\.mcp.json` and
+`%USERPROFILE%\.codex\plugins\cache\jj\photo-palette\<version>\.mcp.json` (the version folder, e.g. `0.2.0`) and
 change `"python3"` to `"py"`. Repeat this after each `codex plugin add`.
 
 ## Troubleshooting

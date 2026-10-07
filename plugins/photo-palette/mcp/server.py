@@ -27,7 +27,8 @@ EXTRACT_TOOL = {
         "image file. Clusters colors in OKLab, restores the saturation that averaging "
         "loses, drops edge-blend and near-duplicate colors, and assigns UI roles "
         "(background, surface, text, primary, accent). Pass several images to get one "
-        "combined moodboard palette. Image paths must be absolute."
+        "combined moodboard palette. By default the palette size fits the photo; other notable "
+        "colors are listed in 'extras' so none are silently dropped. Image paths must be absolute."
     ),
     "inputSchema": {
         "type": "object",
@@ -38,8 +39,12 @@ EXTRACT_TOOL = {
                 "minItems": 1,
                 "description": "Absolute path(s) to JPEG/PNG/WebP/TIFF/GIF/BMP images.",
             },
-            "count": {"type": "integer", "minimum": 1, "maximum": 16, "default": 6,
-                      "description": "Number of palette colors."},
+            "count": {"anyOf": [{"type": "integer", "minimum": 1, "maximum": 16},
+                                {"type": "string", "enum": ["auto"]}],
+                      "default": "auto",
+                      "description": "Number of palette colors, or \"auto\" (default) to size the "
+                                     "palette to the photo (4-12). Notable colors that don't fit "
+                                     "are returned in \"extras\"."},
             "style": {"type": "string", "enum": list(P.STYLES), "default": "clean",
                       "description": "clean (default): de-muddied and balanced; natural: as "
                                      "captured; vivid: punchier; muted: soft and desaturated."},
@@ -85,7 +90,7 @@ def call_extract(args: dict) -> dict:
 
     palette = P.extract_palette(
         images,
-        count=args.get("count", 6),
+        count=args.get("count", "auto"),
         style=args.get("style", "clean"),
         sort=args.get("sort", "weight"),
         neutrals=args.get("include_neutrals", True),

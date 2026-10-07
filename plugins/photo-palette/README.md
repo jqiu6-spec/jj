@@ -19,7 +19,8 @@ SCSS, Tailwind, JSON, SVG or GIMP/Inkscape/Krita palettes.
 ## Why the palettes look clean
 
 Naive extractors (k-means in RGB, or median cut) often give muddy, near-duplicate
-colors on real photos. This one fixes that in six ways:
+colors on real photos, or miss small but important colors. This one fixes that
+in eight ways:
 
 1. **It works in a perceptual color space.** It clusters in OKLab, where
    distance matches how different two colors look.
@@ -32,9 +33,17 @@ colors on real photos. This one fixes that in six ways:
 4. **It keeps the colors that matter.** The picker weighs how much of the
    photo a color covers against how colorful it is, so a 3% red accent can
    beat a fifth shade of sky blue. Near-duplicates are penalized.
-5. **It discounts camera artefacts.** Clipped highlights and crushed shadows
+5. **Shading isn't a new color.** Lightness differences count half as much as
+   hue and saturation differences. A side-lit wall stays one color, which
+   leaves room for the skin tone next to it, and each palette color is the
+   surface's typical shade. A gray and a tinted color are never treated as
+   duplicates.
+6. **Nothing is silently dropped.** The palette size adapts to the photo by
+   default (`auto`, 4–12 colors). Notable colors that still don't fit are
+   listed under "also in this photo" (`extras` in JSON).
+7. **It discounts camera artefacts.** Clipped highlights and crushed shadows
    count less.
-6. **It finishes the colors.** You choose `clean`, `natural`, `vivid` or
+8. **It finishes the colors.** You choose `clean`, `natural`, `vivid` or
    `muted`. Every color is gamut-mapped back to sRGB by reducing chroma, so
    hue and lightness stay put.
 
@@ -77,8 +86,8 @@ Build one muted moodboard palette from every image in ./refs and add it to src/s
 
 ```bash
 S=plugins/photo-palette/skills/photo-palette/scripts
-python3 $S/palette.py photo.jpg                          # readable table
-python3 $S/palette.py photo.jpg -n 8 -s vivid -f css     # CSS custom properties
+python3 $S/palette.py photo.jpg                          # readable table, palette sized to the photo
+python3 $S/palette.py photo.jpg -n 6 -s vivid -f css     # exactly 6 colors, as CSS custom properties
 python3 $S/palette.py photo.jpg -f tailwind --prefix brand -o theme.css
 python3 $S/palette.py a.jpg b.jpg c.jpg --preview board.png   # one moodboard palette
 python3 $S/palette.py photo.jpg -f json --no-neutrals --sort hue
@@ -86,7 +95,7 @@ python3 $S/palette.py photo.jpg -f json --no-neutrals --sort hue
 
 | Option | Default | Choices |
 | --- | --- | --- |
-| `-n, --count` | 6 | 1–16 |
+| `-n, --count` | `auto` (4–12, fits the photo) | `auto` or 1–16 |
 | `-s, --style` | `clean` | `clean`, `natural`, `vivid`, `muted` |
 | `-f, --format` | `text` | `text`, `json`, `css`, `scss`, `tailwind`, `gpl`, `svg` |
 | `--sort` | `weight` | `weight`, `lightness`, `hue` |
@@ -100,13 +109,15 @@ Example JSON (trimmed):
 ```json
 {
   "style": "clean",
+  "count": 9,
   "colors": [
-    {"hex": "#345815", "name": "forest green", "share": 0.273, "roles": ["primary"],
-     "oklch": [0.418, 0.1033, 133.6], "contrast": {"white": 8.23, "black": 2.55}, "text_on": "#FFFFFF"}
+    {"hex": "#325416", "name": "forest green", "share": 0.2747, "roles": ["primary"],
+     "oklch": [0.4055, 0.0979, 133.8], "contrast": {"white": 8.69, "black": 2.42}, "text_on": "#FFFFFF"}
   ],
-  "roles": {"background": "#F5F8F3", "surface": "#E5ECE2", "text": "#45335C",
-            "primary": "#345815", "accent": "#CF251A"},
-  "derived_roles": ["background", "surface"]
+  "roles": {"background": "#F5F8F3", "surface": "#E5ECE2", "text": "#493863",
+            "primary": "#325416", "accent": "#CC2A1D"},
+  "derived_roles": ["background", "surface"],
+  "extras": []
 }
 ```
 

@@ -51,21 +51,41 @@ except ImportError as exc:  # pragma: no cover - exercised only without deps
             os.execv(str(_py), [str(_py), *sys.argv])
     sys.stderr.write(
         f"photo-palette needs Pillow and NumPy ({exc}).\n"
-        "Install them with:  python3 -m pip install --user pillow numpy\n"
-        "or run install.sh from the photo-palette download.\n"
+        "Repair the install with:  bash ~/.codex/photo-palette-marketplace/install.sh\n"
+        "or install them:  python3 -m pip install --user pillow numpy\n"
+        "(Homebrew Python: add --break-system-packages, or run: brew install numpy pillow)\n"
     )
     raise SystemExit(2)
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
+
+# Pillow < 9.1 has the resampling filters on Image itself.
+_RESAMPLE = getattr(Image, "Resampling", Image)
 
 STYLES = ("clean", "natural", "vivid", "muted")
 SORTS = ("weight", "lightness", "hue")
 FORMATS = ("text", "json", "css", "scss", "tailwind", "gpl", "svg")
 
-MAX_SIDE = 256          # analysis resolution; plenty for color statistics
+MAX_SIDE = 384          # analysis resolution; keeps small details, still fast
 NEUTRAL_CHROMA = 0.035  # OKLCh chroma below which a color reads as gray
-MIN_SEPARATION = 0.08   # preferred minimum OKLab distance between palette colors
-DIVERSITY_SCALE = 0.22  # distance beyond which similarity no longer discounts a pick
+EDGE_THR, EDGE_FLOOR = 0.025, 0.1  # down-weighting of edge (blend) pixels
+K_MIN, K_PER = 24, 3    # k-means clusters: max(K_MIN, K_PER * count)
+SEED_POW = 0.25         # k-means++ seeding ~ weight**SEED_POW: distinct small colors get seeds too
+MERGE_DIST = 0.035      # clusters closer than this (OKLab) are one color
+MIN_WEIGHT = 0.002      # clusters lighter than this are mostly edge blends
+# Two colors are compared with lightness counting half: shading, vignetting and
+# light falloff change lightness, so a darker patch of the same wall is not a
+# new color, while a change of hue or saturation is.
+L_WEIGHT = 0.5
+NEUTRAL_FLOOR = 0.05    # gray vs tinted is always at least this far apart
+MIN_SEPARATION = 0.05   # picks closer than this are duplicates
+DIVERSITY_SCALE = 0.16  # picks closer than this are discounted, not excluded
+CONSOLIDATE = 0.06      # shading variants within this distance fold into a pick
+AUTO_MIN, AUTO_MAX = 4, 12  # palette size range for count="auto"
+AUTO_SHARE = 0.005      # a distinct color is notable from 0.5% of the photo...
+AUTO_VIVID = 0.002      # ...or from 0.2% when vivid (chroma >= 0.1)
+EXTRAS_MAX = 6          # notable colors reported beyond the palette
+EDGE_RATIO = 0.2        # notable colors can't be mostly edge pixels (blends between objects)
 
 # --------------------------------------------------------------------------
 # Color math (sRGB <-> OKLab), vectorised over the last axis.
@@ -226,15 +246,16 @@ class Swatches:
     coverage: np.ndarray  # (n,) plain fraction of pixels, for reporting shares
 
 
-def load_swatches(path: str | Path, max_side: int = MAX_SIDE) -> Swatches:
+def load_swatches(path: str | Path, max_side: int | None = None) -> Swatches:
     """Decode an image into weighted 15-bit color bins in OKLab."""
+    max_side = max_side or MAX_SIDE
     with Image.open(path) as img:
         img.draft("RGB", (max_side * 2, max_side * 2))  # fast JPEG downscale
         img = ImageOps.exif_transpose(img)
         if img.mode in ("I;16", "I;16B", "I;16L", "I", "F"):
-            img = img.point(lambda v: v / 256).convert("L")
+            img = img.point(lambda v: v * (1 / 256)).convert("L")  # old Pillow: only * and +
         img = img.convert("RGBA")
-        img.thumbnail((max_side, max_side), Image.Resampling.BOX)
+        img.thumbnail((max_side, max_side), _RESAMPLE.BOX)
         arr = np.asarray(img, dtype=np.uint8)
         smooth = np.asarray(img.convert("RGB").filter(ImageFilter.GaussianBlur(1)), dtype=float)
 
@@ -245,7 +266,7 @@ def load_swatches(path: str | Path, max_side: int = MAX_SIDE) -> Swatches:
         lab_img = srgb_to_oklab(smooth / 255)
         gy, gx = np.gradient(lab_img, axis=(0, 1))
         grad = np.sqrt((gx ** 2 + gy ** 2).sum(axis=2))
-        pixel_w = np.maximum(1 / (1 + (grad / 0.025) ** 2), 0.1).reshape(-1)
+        pixel_w = np.maximum(1 / (1 + (grad / EDGE_THR) ** 2), EDGE_FLOOR).reshape(-1)
     else:  # too small to have edges
         pixel_w = np.ones(smooth.shape[0] * smooth.shape[1])
 
@@ -278,7 +299,7 @@ def kmeans(points: np.ndarray, weights: np.ndarray, k: int, seed: int = 7,
     centers[0] = points[int(np.argmax(weights))]
     d2 = np.sum((points - centers[0]) ** 2, axis=1)
     for i in range(1, k):
-        p = weights * d2
+        p = weights ** SEED_POW * d2
         total = p.sum()
         idx = int(rng.choice(n, p=p / total)) if total > 0 else int(rng.integers(n))
         centers[i] = points[idx]
@@ -302,7 +323,8 @@ def kmeans(points: np.ndarray, weights: np.ndarray, k: int, seed: int = 7,
 @dataclass
 class Cluster:
     lab: np.ndarray
-    weight: float
+    weight: float          # clustering weight (edges and clipping discounted)
+    coverage: float = 0.0  # plain fraction of the image's pixels
 
     @property
     def lch(self) -> np.ndarray:
@@ -341,18 +363,30 @@ def find_clusters(sw: Swatches, k: int, chroma_q: float, seed: int) -> list[Clus
     for j in np.unique(labels):
         m = labels == j
         clusters.append(Cluster(representative(sw.lab[m], sw.weight[m], chroma_q),
-                                float(sw.weight[m].sum())))
+                                float(sw.weight[m].sum()), float(sw.coverage[m].sum())))
     clusters.sort(key=lambda c: -c.weight)
 
     merged: list[Cluster] = []  # heaviest first; absorb close lighter ones
     for c in clusters:
         for m in merged:
-            if np.linalg.norm(m.lab - c.lab) < 0.035:
+            if np.linalg.norm(m.lab - c.lab) < MERGE_DIST:
                 m.weight += c.weight
+                m.coverage += c.coverage
                 break
         else:
-            merged.append(Cluster(c.lab.copy(), c.weight))
+            merged.append(Cluster(c.lab.copy(), c.weight, c.coverage))
     return merged
+
+
+def perceived_distance(a: np.ndarray, b: np.ndarray) -> float:
+    """OKLab distance with lightness discounted (shading is not a new color)."""
+    d = a - b
+    dist = float(np.sqrt((L_WEIGHT * d[0]) ** 2 + d[1] ** 2 + d[2] ** 2))
+    # Gray vs tinted (e.g. a warm gray wall vs skin) reads as a different
+    # color even when the numbers are close, so never treat it as a duplicate.
+    if (np.hypot(a[1], a[2]) < NEUTRAL_CHROMA) != (np.hypot(b[1], b[2]) < NEUTRAL_CHROMA):
+        dist = max(dist, NEUTRAL_FLOOR)
+    return dist
 
 
 def salience(c: Cluster) -> float:
@@ -362,13 +396,19 @@ def salience(c: Cluster) -> float:
 
 
 def select(clusters: list[Cluster], count: int, neutrals: bool,
-           min_sep: float = MIN_SEPARATION) -> list[Cluster]:
+           min_sep: float | None = None, relax: bool = True) -> list[Cluster]:
     """Greedy pick: most salient first, then salience discounted by similarity.
 
     If the photo has too few distinct colors to fill the palette at `min_sep`,
     the separation is relaxed step by step rather than returning fewer colors.
     """
-    pool = [c for c in clusters if neutrals or c.lch[1] >= NEUTRAL_CHROMA]
+    min_sep = MIN_SEPARATION if min_sep is None else min_sep
+    # Negligible clusters are mostly edge blends; keep them only if vivid.
+    pool = [c for c in clusters if (neutrals or c.lch[1] >= NEUTRAL_CHROMA)
+            and (c.weight >= MIN_WEIGHT or (c.weight >= MIN_WEIGHT / 4 and c.lch[1] >= 0.1))]
+    if relax and len(pool) < count:  # an exact count was asked for: use what there is
+        pool += [c for c in clusters if not any(c is q for q in pool)
+                 and (neutrals or c.lch[1] >= NEUTRAL_CHROMA)]
     if not pool:  # e.g. a black-and-white photo with --no-neutrals
         pool = list(clusters)
     chosen = [max(pool, key=salience)]
@@ -377,19 +417,51 @@ def select(clusters: list[Cluster], count: int, neutrals: bool,
         for c in pool:
             if any(c is s for s in chosen):
                 continue
-            sep = min(float(np.linalg.norm(c.lab - s.lab)) for s in chosen)
+            sep = min(perceived_distance(c.lab, s.lab) for s in chosen)
             if sep < min_sep:
                 continue
             score = salience(c) * min(1.0, sep / DIVERSITY_SCALE) ** 2
             if score > best_score:
                 best, best_score = c, score
         if best is None:
-            if min_sep <= 0.02:
+            if not relax or min_sep <= 0.02:
                 break
             min_sep *= 0.7
             continue
         chosen.append(best)
     return chosen
+
+
+def notable(c: Cluster) -> bool:
+    """Worth a palette slot (auto) or a mention (extras), judged by real coverage."""
+    if c.coverage <= 0 or c.weight / c.coverage < EDGE_RATIO:
+        return False
+    return c.coverage >= AUTO_SHARE or (c.coverage >= AUTO_VIVID and c.lch[1] >= 0.1)
+
+
+def consolidate(chosen: list[Cluster], clusters: list[Cluster]) -> list[Cluster]:
+    """Re-center each pick on the shading variants around it.
+
+    A lit surface shows up as several clusters that differ mostly in
+    lightness; the pick should be that surface's typical shade, not whichever
+    variant happened to win selection.
+    """
+    if CONSOLIDATE <= 0:
+        return chosen
+    groups = [[c] for c in chosen]
+    for c in clusters:
+        if any(c is p for p in chosen):
+            continue
+        d = [perceived_distance(c.lab, p.lab) for p in chosen]
+        j = int(np.argmin(d))
+        if d[j] < CONSOLIDATE:
+            groups[j].append(c)
+    out = []
+    for g in groups:
+        w = np.array([c.weight for c in g])
+        lab = (np.array([c.lab for c in g]) * w[:, None]).sum(axis=0) / w.sum()
+        out.append(Cluster(lab, float(w.sum()), float(sum(c.coverage for c in g))))
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -537,10 +609,14 @@ def _sort(colors: list[Color], how: str) -> list[Color]:
     return sorted(colors, key=lambda c: -c.share)
 
 
-def extract_palette(images: Sequence[str | Path] | str | Path, count: int = 6,
+def extract_palette(images: Sequence[str | Path] | str | Path, count: int | str = "auto",
                     style: str = "clean", sort: str = "weight", neutrals: bool = True,
                     seed: int = 7) -> dict:
-    """Build a palette from one image, or one combined palette from several."""
+    """Build a palette from one image, or one combined palette from several.
+
+    count is 1-16, or "auto" to size the palette to the photo (4-12 colors).
+    Notable colors that did not make the palette are returned as "extras".
+    """
     if isinstance(images, (str, Path)):
         images = [images]
     if not images:
@@ -549,9 +625,14 @@ def extract_palette(images: Sequence[str | Path] | str | Path, count: int = 6,
         raise ValueError(f"style must be one of {', '.join(STYLES)}")
     if sort not in SORTS:
         raise ValueError(f"sort must be one of {', '.join(SORTS)}")
-    count = int(count)
-    if not 1 <= count <= 16:
-        raise ValueError("count must be between 1 and 16")
+    auto = isinstance(count, str) and count.strip().lower() == "auto"
+    if not auto:
+        try:
+            count = int(count)
+        except (TypeError, ValueError):
+            raise ValueError("count must be a number from 1 to 16, or 'auto'") from None
+        if not 1 <= count <= 16:
+            raise ValueError("count must be between 1 and 16")
 
     loaded = [load_swatches(p) for p in images]
     sw = Swatches(lab=np.concatenate([s.lab for s in loaded]),
@@ -559,8 +640,16 @@ def extract_palette(images: Sequence[str | Path] | str | Path, count: int = 6,
                   coverage=np.concatenate([s.coverage for s in loaded]) / len(loaded))
 
     chroma_q = {"natural": 0.5, "muted": 0.5, "clean": 0.65, "vivid": 0.75}[style]
-    clusters = find_clusters(sw, k=max(16, count * 3), chroma_q=chroma_q, seed=seed)
-    chosen = select(clusters, count, neutrals)
+    k = max(K_MIN, (AUTO_MAX if auto else count) * K_PER)
+    clusters = find_clusters(sw, k=k, chroma_q=chroma_q, seed=seed)
+    # Greedy order of clearly distinct colors; the palette is a prefix of it,
+    # and the notable colors right after the palette are reported as extras.
+    ordered = select(clusters, 16, neutrals, relax=False)
+    if auto:
+        count = min(max(sum(1 for c in ordered if notable(c)), AUTO_MIN), AUTO_MAX)
+    picks = ordered[:count] if len(ordered) >= count else select(clusters, count, neutrals)
+    extra_picks = [c for c in ordered[len(picks):] if notable(c)][:EXTRAS_MAX]
+    chosen = consolidate(picks, clusters)
 
     # Re-attribute every pixel to its nearest chosen color so shares add up.
     centers = np.array([c.lab for c in chosen])
@@ -568,7 +657,15 @@ def extract_palette(images: Sequence[str | Path] | str | Path, count: int = 6,
     shares = np.bincount(nearest, weights=sw.coverage, minlength=len(chosen))
 
     colors = [_make_color(apply_style(c.lch, style), float(s)) for c, s in zip(chosen, shares)]
-    _dedupe_names(colors)
+    extras = []
+    if extra_picks:
+        allc = np.array([c.lab for c in chosen + extra_picks])
+        near = np.linalg.norm(sw.lab[:, None, :] - allc[None], axis=2).argmin(axis=1)
+        cover = np.bincount(near, weights=sw.coverage, minlength=len(allc))[len(chosen):]
+        extras = [_make_color(apply_style(c.lch, style), float(s)) for c, s in zip(extra_picks, cover)]
+        # an extra that styles to the same hex as a palette color adds nothing
+        extras = [e for e in extras if e.hex not in {c.hex for c in colors}]
+    _dedupe_names(colors + extras)
     roles, derived = assign_roles(colors)
     colors = _sort(colors, sort)
     return {
@@ -578,6 +675,7 @@ def extract_palette(images: Sequence[str | Path] | str | Path, count: int = 6,
         "colors": [c.to_dict() for c in colors],
         "roles": roles,
         "derived_roles": derived,
+        "extras": [{"hex": e.hex, "name": e.name, "share": round(e.share, 4)} for e in extras],
     }
 
 
@@ -606,6 +704,9 @@ def format_text(palette: dict, color: bool = False) -> str:
     if palette.get("derived_roles"):
         lines.append("  derived: " + ", ".join(
             f"{r} {palette['roles'][r]}" for r in palette["derived_roles"]))
+    if palette.get("extras"):
+        lines.append("  also in this photo: " + ", ".join(
+            f"{e['hex']} {e['name']} ({e['share'] * 100:.1f}%)" for e in palette["extras"]))
     return "\n".join(lines)
 
 
@@ -700,10 +801,13 @@ def save_preview(palette: dict, out_path: str | Path, width: int = 1200) -> Path
             im = ImageOps.exif_transpose(im).convert("RGB")
             tile_w = width // len(sources)
             tiles.append(im.resize((tile_w, max(1, round(im.height * tile_w / im.width))),
-                                   Image.Resampling.LANCZOS))
+                                   _RESAMPLE.LANCZOS))
     photo_h = min(max(t.height for t in tiles), round(width * 0.75))
-    strip_h, label_h = 150, 64
-    canvas = Image.new("RGB", (width, photo_h + strip_h + label_h), "#FFFFFF")
+    colors = palette["colors"]
+    per_row = min(len(colors), 8)
+    rows = -(-len(colors) // per_row)
+    strip_h, label_h = (150, 64) if rows == 1 else (110, 60)
+    canvas = Image.new("RGB", (width, photo_h + rows * (strip_h + label_h)), "#FFFFFF")
     x = 0
     for t in tiles:
         top = max(0, (t.height - photo_h) // 2)
@@ -712,13 +816,14 @@ def save_preview(palette: dict, out_path: str | Path, width: int = 1200) -> Path
 
     draw = ImageDraw.Draw(canvas)
     big, small = _font(20), _font(15)
-    colors = palette["colors"]
-    n = len(colors)
     for i, c in enumerate(colors):
-        x0, x1 = round(i * width / n), round((i + 1) * width / n)
-        draw.rectangle([x0, photo_h, x1, photo_h + strip_h], fill=c["hex"])
-        draw.text((x0 + 14, photo_h + strip_h + 10), c["hex"], fill="#1A1A1A", font=big)
-        draw.text((x0 + 14, photo_h + strip_h + 36), c["name"], fill="#6B6B6B", font=small)
+        row, col = divmod(i, per_row)
+        in_row = min(per_row, len(colors) - row * per_row)
+        x0, x1 = round(col * width / in_row), round((col + 1) * width / in_row)
+        y0 = photo_h + row * (strip_h + label_h)
+        draw.rectangle([x0, y0, x1, y0 + strip_h], fill=c["hex"])
+        draw.text((x0 + 14, y0 + strip_h + 10), c["hex"], fill="#1A1A1A", font=big)
+        draw.text((x0 + 14, y0 + strip_h + 36), c["name"], fill="#6B6B6B", font=small)
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(out_path)
@@ -730,13 +835,26 @@ def save_preview(palette: dict, out_path: str | Path, width: int = 1200) -> Path
 # --------------------------------------------------------------------------
 
 
+def _count_arg(value: str):
+    if value.strip().lower() == "auto":
+        return "auto"
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("use a number from 1 to 16, or 'auto'") from None
+    if not 1 <= n <= 16:
+        raise argparse.ArgumentTypeError("use a number from 1 to 16, or 'auto'")
+    return n
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="palette.py",
         description="Generate a clean color palette from a photograph (or several, as a moodboard).",
     )
     p.add_argument("images", nargs="+", help="image file(s): JPEG, PNG, WebP, TIFF, GIF, BMP ...")
-    p.add_argument("-n", "--count", type=int, default=6, help="number of colors, 1-16 (default 6)")
+    p.add_argument("-n", "--count", type=_count_arg, default="auto",
+                   help="number of colors, 1-16, or 'auto' to fit the photo (default: auto, 4-12)")
     p.add_argument("-s", "--style", choices=STYLES, default="clean",
                    help="finish: clean (default), natural (as captured), vivid, muted")
     p.add_argument("-f", "--format", choices=FORMATS, default="text", help="output format")

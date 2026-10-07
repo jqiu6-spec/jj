@@ -1,6 +1,6 @@
 {
   "name": "photo-palette",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Generate clean, perceptually balanced color palettes from photographs and images.",
   "keywords": ["color", "palette", "design", "photography", "css", "tailwind", "theme"],
   "skills": "./skills/",

@@ -38,7 +38,7 @@ python3 <this-skill-dir>/scripts/palette.py IMAGE [IMAGE ...] [options]
 
 | Option | Meaning |
 | --- | --- |
-| `-n, --count N` | Number of colors, 1–16 (default 6; 5–8 suits most photos). |
+| `-n, --count N` | `auto` (default) sizes the palette to the photo, 4–12 colors. Or a number from 1–16. |
 | `-s, --style` | `clean` (default): de-muddied, balanced. `natural`: as captured. `vivid`: punchier. `muted`: soft, desaturated. |
 | `-f, --format` | `text` (default), `json`, `css`, `scss`, `tailwind` (v4 `@theme`), `gpl`, `svg`. |
 | `--sort` | `weight` (coverage, default), `lightness`, `hue`. |
@@ -59,14 +59,20 @@ the photo. The extractor generated them as quiet tints of the photo's
 dominant hue, because photos rarely contain a usable page background or
 body-text color.
 
+`extras` lists notable colors that are in the photo but didn't make the
+palette (hex, name, share). The text format shows them as an
+"also in this photo:" line. This happens when a fixed `--count` is too small,
+or when the photo has more than 12 distinct colors.
+
 ## Workflow
 
 1. **Find the image file.** It must be on disk. If the user only attached the
    image in chat, ask for its path, or for permission to save it into the
    workspace. Don't guess colors by looking at the image yourself when the
    script can measure them.
-2. **Pick the settings from the request.** Use 6 colors and `clean` unless the
-   user asks for something else. "True to the photo" means `natural`.
+2. **Pick the settings from the request.** Leave the count on `auto` and the
+   style on `clean` unless the user asks for something else. If they want a
+   specific number of colors, pass it. "True to the photo" means `natural`.
    "Bold / poppy" means `vivid`. "Soft / pastel / calm / editorial" means
    `muted`. "Only the colors, no grays" means `--no-neutrals`.
 3. **Run it** with `-f json`, plus `--preview` when the user would benefit
@@ -75,7 +81,9 @@ body-text color.
    role. Mention which roles were derived. Point out anything useful, for
    example: "accent #CF251A is only 3.6% of the photo but carries its energy",
    or "primary fails 4.5:1 on the background, so use it for large text and
-   fills, not body copy".
+   fills, not body copy". If `extras` isn't empty, list those colors too
+   ("also in this photo") and offer to add them, so no color the user can see
+   is silently left out.
 5. **Export or apply it** if the user wants. Re-run with the format they need
    (`css`, `scss`, `tailwind`, `gpl`, `svg`), or write the variables straight
    into their stylesheet or theme file. Keep their existing naming
@@ -85,7 +93,8 @@ body-text color.
 
 - Results are deterministic, so the same image and options always give the
   same palette.
-- For a photo dominated by one tone (fog, snow, night), raise `--count`
-  or use `--no-neutrals` to bring out the smaller color accents.
+- If the user says a color is missing, check `extras` first, then re-run with
+  a larger `--count` (up to 16), or with `--no-neutrals` when grays are taking
+  up the slots.
 - If the user wants different colors, re-run with another `--style` or
   `--count`. Don't hand-edit hex values unless they ask you to.

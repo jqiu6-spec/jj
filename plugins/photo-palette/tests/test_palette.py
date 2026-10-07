@@ -142,12 +142,50 @@ class PaletteTests(unittest.TestCase):
         pal = P.extract_palette(self.save(Image.fromarray(arr), "deep.png"), count=3)
         self.assertGreaterEqual(pal["count"], 1)
 
+    def test_auto_count_fits_the_photo(self):
+        simple = self.save(photo([("#264653", 0.6), ("#E9C46A", 0.4)]), "simple.jpg")
+        busy = self.save(photo([(c, 0.1) for c in (
+            "#264653", "#2A9D8F", "#E9C46A", "#F4A261", "#E76F51",
+            "#6D597A", "#B56576", "#90BE6D", "#577590", "#F94144")]), "busy.jpg")
+        n_simple = P.extract_palette(simple)["count"]
+        n_busy = P.extract_palette(busy)["count"]
+        self.assertTrue(P.AUTO_MIN <= n_simple <= P.AUTO_MAX)
+        self.assertGreaterEqual(n_busy, 9)
+        self.assertGreater(n_busy, n_simple)
+        self.assertEqual(P.extract_palette(simple, count="AUTO")["count"], n_simple)
+
+    def test_shading_is_not_a_new_color(self):
+        # One gray wall under strong side light plus a skin-like patch: the
+        # patch must win a slot over a darker shade of the wall.
+        h, w = 400, 600
+        x = np.mgrid[0:h, 0:w][1] / w
+        arr = np.zeros((h, w, 3)) + P.hex_to_rgb8("#B9B6B2")
+        arr *= (1 - 0.35 * x)[..., None]
+        arr[150:250, 250:350] = P.hex_to_rgb8("#E4B497")
+        img = Image.fromarray(np.clip(arr + np.random.default_rng(1).normal(0, 4, arr.shape), 0, 255).astype(np.uint8))
+        pal = P.extract_palette(self.save(img, "shade.png"), count=2, style="natural")
+        self.assertLess(nearest_distance(pal, "#E4B497"), 0.06)
+
+    def test_extras_list_notable_leftovers(self):
+        path = self.save(photo([(c, 0.1) for c in (
+            "#264653", "#2A9D8F", "#E9C46A", "#F4A261", "#E76F51",
+            "#6D597A", "#B56576", "#90BE6D", "#577590", "#F94144")]), "extras.jpg")
+        pal = P.extract_palette(path, count=4)
+        self.assertGreaterEqual(len(pal["extras"]), 3)
+        palette_hex = {c["hex"] for c in pal["colors"]}
+        for e in pal["extras"]:
+            self.assertNotIn(e["hex"], palette_hex)
+            self.assertGreater(e["share"], 0)
+        self.assertIn("also in this photo:", P.render(pal, "text"))
+
     def test_rejects_bad_arguments(self):
         path = self.save(Image.new("RGB", (10, 10), "red"), "tiny.png")
         with self.assertRaises(ValueError):
             P.extract_palette(path, count=0)
         with self.assertRaises(ValueError):
             P.extract_palette(path, style="neon")
+        with self.assertRaises(ValueError):
+            P.extract_palette(path, count="lots")
 
     def test_formats(self):
         path = self.save(photo([("#003049", 0.5), ("#F77F00", 0.5)]), "f.jpg")
@@ -168,6 +206,7 @@ class PaletteTests(unittest.TestCase):
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             code = P.main([str(path), "-n", "3", "-f", "css", "-o", str(out),
                            "--preview", str(preview)])
+            self.assertEqual(P.main([str(path), "-n", "auto", "-o", str(self.dir / "a.txt")]), 0)
         self.assertEqual(code, 0)
         self.assertIn(":root", out.read_text())
         with Image.open(preview) as im:

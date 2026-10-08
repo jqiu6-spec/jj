@@ -7,6 +7,7 @@ A 3D model of the full-scale hinged sound box from *Hinged sound box: full-scale
 | File | Open with | What you get |
 | --- | --- | --- |
 | `index.html` | Any browser | The editor. Change the dimensions, open the lid, explode the parts, click a part to inspect or recolour it, read the fit checks and cut list, and export everything as a zip. |
+| `presentation/` | Any viewer, printer | Realistic orthographic renders, three A3 presentation sheets and a print-ready PDF. |
 | `rhino/*.3dm` | Rhino 8 | Your render scene (imported) and a complete copy with the missing baffle F1 added. |
 | `model/hinged_sound_box.3dm` | Rhino 7/8 | One closed polysurface per part, named `A Base` … `G Front lid flap`, on the layers *Shell*, *Baffles* and *Lid + flap*. Each object carries its cut size as user text. |
 | `model/hinged_sound_box.glb` | Blender, Rhino 8, KeyShot, web viewers | Named parts in three groups: *Body*, *Baffles* and *Lid hinge*. There are three materials, so the groups can be re-skinned separately. |
@@ -14,6 +15,20 @@ A 3D model of the full-scale hinged sound box from *Hinged sound box: full-scale
 | `model/hinged_sound_box.stl` | Slicers, mesh tools | The whole assembly as one mesh. |
 | `model/hinged_sound_box.scad` | OpenSCAD | Parametric source. Every dimension is a variable at the top and also appears in the Customizer. |
 | `model/parameters.json` | Anything | All dimensions, the fit checks and each part's box. |
+
+## Presentation drawings
+
+`presentation/` holds a presentation set made by the editor's **Presentation set (.zip)** button. The button rebuilds it from whatever you have set up: dimensions, lid hinge, finish and scene lighting.
+
+| File | What it shows |
+| --- | --- |
+| `presentation/hinged_sound_box_presentation_A3.pdf` | The three sheets below in one PDF. Print at A3, 100%. |
+| `presentation/sheets/sheet1_orthographic_views.png` | Plan, front, left-end and right-end elevations in third-angle projection at 1:2, with overall dimensions, a scale bar and a closed axonometric. |
+| `presentation/sheets/sheet2_lid_opening.png` | Left-end elevations at 1:3 with the lid closed, half open and fully open. The lid's front edge path is dashed and the tape hinge is marked. Underneath is the same sequence as axonometrics. |
+| `presentation/sheets/sheet3_how_it_works.png` | Plan with the lid removed at 1:2. Walls are cut solid and the sound path runs from the source bay past the five baffles to the outlet. Also the back elevation with the hinge axis, and an exploded axonometric tagged A–G with a parts list. |
+| `presentation/renders/*.png` | The 12 individual realistic renders on transparent backgrounds. All are orthographic (parallel projection) at 4 px per model mm, so plans and elevations share one scale. |
+
+Sheets are A3 landscape at 200 dpi. The axonometrics follow the imported Rhino camera and are not to scale. The orthographic toggle in the 3D view switches the live camera to parallel projection, so you can frame your own orthographic views.
 
 ## Rhino scene import
 

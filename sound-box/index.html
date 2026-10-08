@@ -65,7 +65,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
 .work { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 368px; gap: 16px; }
 .stage { position: relative; min-height: 0; border-radius: 10px; overflow: hidden; background: var(--stage); border: 1px solid var(--rule); }
 .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
-.labels { position: absolute; inset: 0; pointer-events: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
 .tag { font: 600 11px/1 var(--font-mono); padding: 3px 5px; border-radius: 4px; background: color-mix(in srgb, var(--panel) 90%, transparent); color: var(--ink); border: 1px solid var(--rule); white-space: nowrap; }
 .tag.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .tag.outlet { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
@@ -76,6 +76,8 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
 .ov-bottom { left: 12px; right: 12px; bottom: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; pointer-events: none; }
 .ov-bottom > * { pointer-events: auto; }
 .loading { inset: 0; margin: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); font: 500 13px/1.4 var(--font-mono); pointer-events: none; }
+.loading.busy { z-index: 5; background: color-mix(in srgb, var(--panel) 94%, transparent); color: var(--ink); pointer-events: auto; }
+.present-note { margin: 12px 0 0; }
 
 .seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--rule); border-radius: var(--r); overflow: hidden; background: var(--panel); }
 .seg button { font: 500 12.5px/1 var(--font-body); padding: 7px 11px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
@@ -215,6 +217,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
           <button type="button" class="chip" id="t-lid" aria-pressed="true">Lid</button>
           <button type="button" class="chip" id="t-labels" aria-pressed="true">Labels</button>
           <button type="button" class="chip" id="t-outlines" aria-pressed="false">Outlines</button>
+          <button type="button" class="chip" id="t-ortho" aria-pressed="false">Orthographic</button>
         </div>
       </div>
       <div class="ov ov-bottom">
@@ -363,7 +366,11 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
           <li><code>.scad</code><span>OpenSCAD source with these sizes as editable parameters.</span></li>
           <li><code>.json</code><span>Every dimension, fit check and part position.</span></li>
         </ul>
-        <button class="btn primary" id="btn-zip-2" type="button">Export model (.zip)</button>
+        <div class="row">
+          <button class="btn primary" id="btn-zip-2" type="button">Export model (.zip)</button>
+          <button class="btn" id="btn-present" type="button">Presentation set (.zip)</button>
+        </div>
+        <p class="note present-note">The presentation set has 12 realistic orthographic renders (plan, four elevations, axonometrics, lid at three openings, exploded) and three A3 sheets: orthographic views at 1:2, the lid opening, and how it works. You get them as PNGs plus one print-ready PDF.</p>
         <p class="status" id="export-status" role="status" aria-live="polite"></p>
       </section>
     </aside>
@@ -958,7 +965,7 @@ const rhinoView = () => (RHINO ? { studio: false, mat: false, view: 'rhino' } : 
 const STORE = 'hinged-sound-box/v2';
 const fresh = () => ({
   params: { ...core.DEFAULTS, ...rhinoPose() }, material: 'foam', byGroup: false, outlines: false, labels: true, mat: true,
-  style: 'real', light: 320, rigTurn: 0, studio: true, hidden: {}, overrides: {}, explode: 0, view: 'iso',
+  style: 'real', light: 320, rigTurn: 0, studio: true, ortho: false, hidden: {}, overrides: {}, explode: 0, view: 'iso',
   scene: RHINO ? 'rhino' : 'studio', ...rhinoView(),
 });
 function load() {
@@ -1002,15 +1009,23 @@ const has3D = !!renderer;
 window.__soundBoxReady = true;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(32, 1.5, 10, 20000);
+const perspCam = new THREE.PerspectiveCamera(32, 1.5, 10, 20000);
+const orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 30000);
+let camera = perspCam;
+let orthoHalf = 300; // orthographic half view height in mm at zoom 1
+let interacting = false;
+const pipes = new Map(); // camera -> { composer, ao }
 const modelRoot = new THREE.Group();
 modelRoot.rotation.x = -Math.PI / 2; // CAD Z-up -> three Y-up
 scene.add(modelRoot);
 const boards = new Map(); // part id -> group holding that board's meshes, outline and label
 let pickables = [];
 let hinge = null, controls = null, labelRenderer = null, matMesh = null, outletTag = null;
-let composer = null, aoPass = null, sun = null, hemi = null, catcher = null, sweep = null, gradientBg = null;
+let sun = null, hemi = null, catcher = null, sweep = null, gradientBg = null;
 let rig = [];
+// Ground-truth AO in millimetres: thickness well above the radius so seams and contact edges keep their samples.
+const AO_SETTINGS = { radius: 20, distanceExponent: 1.4, thickness: 40, distanceFallOff: 1, scale: 1, samples: 16 };
+const PD_SETTINGS = { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 };
 const edgeMat = new THREE.LineBasicMaterial({ color: 0x1b211e, transparent: true, opacity: 0.8 });
 const selEdgeMat = new THREE.LineBasicMaterial({ color: 0x2b6954 });
 let accent = '#2b6954';
@@ -1058,12 +1073,12 @@ function surfaceCanvas(size, seed, base, layers, grain) {
 }
 // Paper facing: near-white, faint mottling and short fibres.
 function paperCanvas() {
-  const { cv, g, r } = surfaceCanvas(512, 11, 247, [[6, 6], [24, 4], [96, 3]], 4);
+  const { cv, g, r } = surfaceCanvas(512, 11, 248, [[6, 3], [24, 2], [96, 3]], 3);
   g.lineCap = 'round';
-  for (let k = 0; k < 1100; k++) {
+  for (let k = 0; k < 500; k++) {
     const x = r() * 512, y = r() * 512, a = r() * Math.PI * 2, len = 5 + r() * 16, bend = (r() - 0.5) * 8;
-    g.strokeStyle = r() < 0.55 ? 'rgba(255,255,255,0.45)' : 'rgba(140,134,122,0.09)';
-    g.lineWidth = 0.5 + r() * 0.7;
+    g.strokeStyle = r() < 0.8 ? 'rgba(255,255,255,0.4)' : 'rgba(140,140,138,0.025)';
+    g.lineWidth = 0.3 + r() * 0.3;
     wrapped(512, (dx, dy) => {
       g.beginPath();
       g.moveTo(x + dx, y + dy);
@@ -1075,15 +1090,15 @@ function paperCanvas() {
 }
 // Polystyrene core: matte, slightly greyer, closed cells.
 function foamCanvas() {
-  const { cv, g, r } = surfaceCanvas(256, 23, 238, [[8, 8], [32, 6]], 7);
-  for (let k = 0; k < 1500; k++) {
-    const x = r() * 256, y = r() * 256, rad = 1.1 + r() * 2.8;
+  const { cv, g, r } = surfaceCanvas(256, 23, 246, [[8, 5], [32, 4]], 5);
+  for (let k = 0; k < 3000; k++) {
+    const x = r() * 256, y = r() * 256, rad = 0.6 + r() * 1.2;
     wrapped(256, (dx, dy) => {
       g.beginPath();
       g.arc(x + dx, y + dy, rad, 0, Math.PI * 2);
       g.fillStyle = 'rgba(255,255,255,0.16)';
       g.fill();
-      g.strokeStyle = 'rgba(110,106,96,0.15)';
+      g.strokeStyle = 'rgba(110,110,106,0.04)';
       g.lineWidth = 0.6;
       g.stroke();
     });
@@ -1103,8 +1118,8 @@ if (has3D) {
   const paper = paperCanvas(), foam = foamCanvas();
   surf.paper = tex(paper, 70, true);
   surf.paperBump = tex(paper, 70, false);
-  surf.foam = tex(foam, 16, true);
-  surf.foamBump = tex(foam, 16, false);
+  surf.foam = tex(foam, 24, true);
+  surf.foamBump = tex(foam, 24, false);
 }
 
 // UVs in millimetres, projected along each face's normal, so texture scale is the same on every board.
@@ -1125,25 +1140,25 @@ if (has3D) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.VSMShadowMap;
   renderer.toneMapping = THREE.NeutralToneMapping;
-  renderer.toneMappingExposure = 0.92;
+  renderer.toneMappingExposure = 0.86;
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.42;
-  hemi = new THREE.HemisphereLight(0xf4f6ff, 0xd9d6cf, 0.22);
+  scene.environmentIntensity = 0.7;
+  hemi = new THREE.HemisphereLight(0xffffff, 0xd8d8d8, 0.35);
   scene.add(hemi);
   RectAreaLightUniformsLib.init();
   // Key light: a large soft source, so shadows have wide, soft edges like a softbox.
-  sun = new THREE.DirectionalLight(0xfffdf8, 3.1);
+  sun = new THREE.DirectionalLight(0xffffff, 2.7);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -520, right: 520, top: 520, bottom: -520, near: 200, far: 2600 });
-  sun.shadow.radius = 9;
-  sun.shadow.blurSamples = 20;
+  sun.shadow.radius = 14;
+  sun.shadow.blurSamples = 24;
   sun.shadow.bias = -0.0006;
   scene.add(sun, sun.target);
 
-  catcher = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.ShadowMaterial({ opacity: 0.16 }));
+  catcher = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.ShadowMaterial({ opacity: 0.22 }));
   catcher.rotation.x = -Math.PI / 2;
   catcher.position.y = -2.1;
   catcher.receiveShadow = true;
@@ -1161,33 +1176,49 @@ if (has3D) {
   sg.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
   sg.setIndex(index);
   sg.computeVertexNormals();
-  sweep = new THREE.Mesh(sg, new THREE.MeshStandardMaterial({ color: '#d9d8d3', roughness: 1, metalness: 0 }));
+  sweep = new THREE.Mesh(sg, new THREE.MeshStandardMaterial({ color: '#a4a5a6', roughness: 1, metalness: 0 }));
   sweep.position.y = -2.2;
   sweep.receiveShadow = true;
   scene.add(sweep);
 
   controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
+  controls.dampingFactor = 0.12;
   controls.maxPolarAngle = Math.PI * 0.5;
   controls.minDistance = 40;
   controls.maxDistance = 8000;
-  controls.addEventListener('start', () => { tween = null; });
+  // Ambient occlusion pauses while dragging so orbiting stays smooth on slow GPUs.
+  controls.addEventListener('start', () => { tween = null; interacting = true; });
+  controls.addEventListener('end', () => { interacting = false; invalidate(); });
 
   labelRenderer = new CSS2DRenderer();
   labelRenderer.domElement.className = 'labels';
   stage.insertBefore(labelRenderer.domElement, stage.querySelector('.ov-top'));
 
-  // Post-processing: 4x MSAA, ground-truth ambient occlusion for seams and contact shadows, then tone mapping.
-  composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 }));
-  composer.setPixelRatio(renderer.getPixelRatio());
-  composer.addPass(new RenderPass(scene, camera));
-  aoPass = new GTAOPass(scene, camera, 4, 4);
-  aoPass.output = GTAOPass.OUTPUT.Default;
-  aoPass.blendIntensity = 0.9;
-  aoPass.updateGtaoMaterial({ radius: 26, distanceExponent: 1.4, thickness: 6, distanceFallOff: 1, scale: 1.1, samples: 16 });
-  aoPass.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
-  composer.addPass(aoPass);
+  pipeFor(perspCam);
+}
+
+// Post-processing per camera: 4x MSAA, ground-truth ambient occlusion for seams and contact shadows, then tone mapping.
+function makePipeline(cam, rnd) {
+  const composer = new EffectComposer(rnd, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 }));
+  composer.setPixelRatio(rnd.getPixelRatio());
+  composer.addPass(new RenderPass(scene, cam));
+  const ao = new GTAOPass(scene, cam, 4, 4);
+  ao.output = GTAOPass.OUTPUT.Default;
+  ao.blendIntensity = 1;
+  ao.updateGtaoMaterial(AO_SETTINGS);
+  ao.updatePdMaterial(PD_SETTINGS);
+  composer.addPass(ao);
   composer.addPass(new OutputPass());
+  return { composer, ao };
+}
+function pipeFor(cam) {
+  if (!pipes.has(cam)) {
+    const pipe = makePipeline(cam, renderer);
+    pipe.composer.setSize(Math.max(1, stage.clientWidth), Math.max(1, stage.clientHeight));
+    pipes.set(cam, pipe);
+  }
+  return pipes.get(cam);
 }
 
 const PAPER = [['A3', 420, 297], ['A2', 594, 420], ['A1', 841, 594], ['A0', 1189, 841]];
@@ -1250,8 +1281,8 @@ function makeBoard(part) {
   const center = part.min.map((v, i) => (v + part.max[i]) / 2);
   const mats = {
     solid: new THREE.MeshStandardMaterial({ metalness: 0 }),
-    paper: new THREE.MeshStandardMaterial({ metalness: 0, map: surf.paper, bumpMap: surf.paperBump, bumpScale: 0.25, roughness: 0.66 }),
-    core: new THREE.MeshStandardMaterial({ metalness: 0, color: '#ededed', map: surf.foam, bumpMap: surf.foamBump, bumpScale: 0.7, roughness: 0.97 }),
+    paper: new THREE.MeshStandardMaterial({ metalness: 0, map: surf.paper, bumpMap: surf.paperBump, bumpScale: 0.08, roughness: 0.86 }),
+    core: new THREE.MeshStandardMaterial({ metalness: 0, color: '#ededed', map: surf.foam, bumpMap: surf.foamBump, bumpScale: 0.25, roughness: 0.96 }),
   };
   const group = new THREE.Group();
   const box = new THREE.BoxGeometry(part.size[0], part.size[1], part.size[2]);
@@ -1350,9 +1381,10 @@ function applyLooks() {
     s.roughness = l.roughness;
     s.opacity = l.opacity;
     mats.paper.color.set(l.color);
+    mats.paper.roughness = l.roughness;
     for (const m of Object.values(mats)) {
       m.emissive.set(on ? accent : '#000000');
-      m.emissiveIntensity = on ? 0.28 : 0;
+      m.emissiveIntensity = on ? 0.55 : 0;
     }
     solid.visible = !sandwich;
     solid.castShadow = !wantClear;
@@ -1362,7 +1394,6 @@ function applyLooks() {
     label.element.classList.toggle('on', on);
   }
   edgeMat.opacity = (core.MATERIALS[state.material] || {}).opacity < 1 ? 0.45 : real ? 0.55 : 0.8;
-  if (aoPass) aoPass.enabled = real;
   updatePickables();
   invalidate();
 }
@@ -1392,6 +1423,10 @@ function applyVisibility() {
   labelRenderer.domElement.hidden = !state.labels;
   if (outletTag) outletTag.visible = state.labels;
   if (matMesh) matMesh.visible = state.mat;
+  // The box sits on the 2 mm mat when it is shown, otherwise straight on the floor.
+  sweep.position.y = state.mat ? -2.2 : -0.06;
+  catcher.position.y = state.mat ? -2.1 : -0.05;
+  if (outletTag) outletTag.visible = state.labels;
   updatePickables();
   invalidate();
 }
@@ -1433,12 +1468,12 @@ function applyLight() {
     const az = THREE.MathUtils.degToRad(state.light), el = THREE.MathUtils.degToRad(48), r = 1200;
     sun.position.set(r * Math.cos(el) * Math.sin(az), r * Math.sin(el), r * Math.cos(el) * Math.cos(az));
     sun.target.position.set(0, 0, 0);
-    sun.intensity = 3.1;
-    sun.shadow.radius = 9;
-    hemi.color.set(0xf4f6ff);
-    hemi.groundColor.set(0xd9d6cf);
-    hemi.intensity = 0.22;
-    scene.environmentIntensity = 0.42;
+    sun.intensity = 2.7;
+    sun.shadow.radius = 14;
+    hemi.color.set(0xffffff);
+    hemi.groundColor.set(0xd8d8d8);
+    hemi.intensity = 0.35;
+    scene.environmentIntensity = 0.7;
   }
   invalidate();
 }
@@ -1465,10 +1500,10 @@ function applyBackdrop() {
     catcher.material.opacity = 0.3;
   } else {
     const token = getComputedStyle(document.documentElement).getPropertyValue('--stage').trim() || '#e1e5e0';
-    const bg = state.studio ? '#cfcec9' : token;
+    const bg = state.studio ? '#a9aaab' : token;
     scene.background = new THREE.Color(bg);
     scene.fog = new THREE.Fog(bg, 3200, 8000);
-    catcher.material.opacity = 0.16;
+    catcher.material.opacity = 0.22;
   }
   sweep.visible = state.studio;
   catcher.visible = !state.studio;
@@ -1493,6 +1528,19 @@ function applyScene(name) {
 // Hide a part label when another board sits between it and the camera.
 const occRay = new THREE.Raycaster();
 const labelPos = new THREE.Vector3();
+const viewDir = new THREE.Vector3();
+// Boards (other than `self`) between the camera and a world point.
+function blockedFromCamera(point, self) {
+  if (camera.isOrthographicCamera) {
+    camera.getWorldDirection(viewDir);
+    occRay.set(point.clone().addScaledVector(viewDir, -8000), viewDir);
+    occRay.far = 8000;
+  } else {
+    occRay.set(camera.position, point.clone().sub(camera.position).normalize());
+    occRay.far = camera.position.distanceTo(point);
+  }
+  return occRay.intersectObjects(pickables, false).some(h => h.object.userData.partId !== self);
+}
 function updateOcclusion() {
   if (!state.labels) return;
   for (const [id, board] of boards) {
@@ -1501,15 +1549,21 @@ function updateOcclusion() {
     const lp = board.userData.label.position;
     labelPos.set(...[lp.x, lp.y, lp.z].map(c => Math.sign(c) * Math.max(0, Math.abs(c) - 7)));
     board.localToWorld(labelPos);
-    occRay.set(camera.position, labelPos.clone().sub(camera.position).normalize());
-    occRay.far = camera.position.distanceTo(labelPos);
-    const blocked = occRay.intersectObjects(pickables, false).some(h => h.object.userData.partId !== id);
-    board.userData.label.element.classList.toggle('behind', blocked && id !== selectedId);
+    board.userData.label.element.classList.toggle('behind', blockedFromCamera(labelPos, id) && id !== selectedId);
+  }
+  if (outletTag) {
+    const p = model.params;
+    const inside = cadPoint([p.length - p.thickness / 2, p.thickness + p.outletWidth / 2, p.height / 2]);
+    outletTag.element.classList.toggle('behind', blockedFromCamera(inside, 'E'));
   }
 }
 
 function render() {
-  if (composer) composer.render(); else renderer.render(scene, camera);
+  // The studio sweep turns to face the camera, so end views never see its open sides.
+  if (sweep.visible) sweep.rotation.y = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
+  const pipe = pipeFor(camera);
+  pipe.ao.enabled = state.style !== 'drawing' && !interacting;
+  pipe.composer.render();
   updateOcclusion();
   labelRenderer.render(scene, camera);
 }
@@ -1528,27 +1582,67 @@ function viewPose(name) {
   for (const b of boards.values()) if (b.visible) box.expandByObject(b);
   if (box.isEmpty()) box.setFromObject(modelRoot);
   const sphere = box.getBoundingSphere(new THREE.Sphere());
-  const vfov = THREE.MathUtils.degToRad(camera.fov);
-  const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
-  const dist = (sphere.radius / Math.sin(Math.min(vfov, hfov) / 2)) * 1.02;
+  const aspect = perspCam.aspect;
+  const vfov = THREE.MathUtils.degToRad(perspCam.fov);
+  const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
   const target = sphere.center.clone();
-  const pos = target.clone().add(new THREE.Vector3(...DIRS[name]).normalize().multiplyScalar(dist));
-  return { pos, target };
+  const dir = new THREE.Vector3(...DIRS[name]).normalize();
+  if (camera.isOrthographicCamera) {
+    const half = (sphere.radius * 1.04) / Math.min(1, aspect);
+    return { pos: target.clone().addScaledVector(dir, 4000), target, half };
+  }
+  const dist = (sphere.radius / Math.sin(Math.min(vfov, hfov) / 2)) * 1.02;
+  return { pos: target.clone().addScaledVector(dir, dist), target };
+}
+function updateFrustum() {
+  const a = perspCam.aspect;
+  orthoCam.left = -orthoHalf * a;
+  orthoCam.right = orthoHalf * a;
+  orthoCam.top = orthoHalf;
+  orthoCam.bottom = -orthoHalf;
+  orthoCam.updateProjectionMatrix();
+  perspCam.updateProjectionMatrix();
+}
+// Switch the live view between perspective and orthographic, keeping what is in frame.
+function setProjection(ortho) {
+  state.ortho = !!ortho;
+  $('#t-ortho').setAttribute('aria-pressed', String(state.ortho));
+  if (!has3D) return;
+  const next = state.ortho ? orthoCam : perspCam;
+  if (next === camera) return;
+  tween = null;
+  const target = controls.target.clone();
+  const dir = camera.position.clone().sub(target).normalize();
+  const tanHalf = Math.tan(THREE.MathUtils.degToRad(perspCam.fov / 2));
+  if (state.ortho) {
+    orthoHalf = camera.position.distanceTo(target) * tanHalf;
+    orthoCam.zoom = 1;
+    orthoCam.position.copy(target).addScaledVector(dir, 4000);
+  } else {
+    perspCam.position.copy(target).addScaledVector(dir, (orthoHalf / orthoCam.zoom) / tanHalf);
+  }
+  camera = next;
+  controls.object = camera;
+  updateFrustum();
+  controls.update();
+  invalidate();
 }
 function goView(name, instant) {
   state.view = name;
   for (const b of $$('[data-view]')) b.setAttribute('aria-pressed', String(b.dataset.view === name));
   if (!has3D) return;
-  const { pos, target } = viewPose(name);
+  const { pos, target, half } = viewPose(name);
+  if (camera.isOrthographicCamera) { orthoHalf /= orthoCam.zoom; orthoCam.zoom = 1; }
   if (instant || reduceMotion) {
     tween = null;
     camera.position.copy(pos);
     controls.target.copy(target);
+    if (half) { orthoHalf = half; updateFrustum(); }
     controls.update();
     invalidate();
     return;
   }
-  tween = { t0: performance.now(), p0: camera.position.clone(), p1: pos, q0: controls.target.clone(), q1: target };
+  tween = { t0: performance.now(), p0: camera.position.clone(), p1: pos, q0: controls.target.clone(), q1: target, h0: orthoHalf, h1: half };
 }
 function stepTween(now) {
   if (!tween) return false;
@@ -1556,19 +1650,21 @@ function stepTween(now) {
   const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
   camera.position.lerpVectors(tween.p0, tween.p1, e);
   controls.target.lerpVectors(tween.q0, tween.q1, e);
+  if (tween.h1) { orthoHalf = tween.h0 + (tween.h1 - tween.h0) * e; updateFrustum(); }
   if (k === 1) tween = null;
   return true;
 }
 
 function resize() {
   if (!has3D) return;
-  const r = stage.getBoundingClientRect();
-  if (!r.width || !r.height) return;
-  renderer.setSize(r.width, r.height, false);
-  composer.setSize(r.width, r.height);
-  labelRenderer.setSize(r.width, r.height);
-  camera.aspect = r.width / r.height;
-  camera.updateProjectionMatrix();
+  // Inner size, so the drawing buffer matches the displayed canvas pixel for pixel.
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  for (const pipe of pipes.values()) pipe.composer.setSize(w, h);
+  labelRenderer.setSize(w, h);
+  perspCam.aspect = w / h;
+  updateFrustum();
   invalidate();
 }
 
@@ -1730,6 +1826,7 @@ function syncControls() {
   $('#t-lid').setAttribute('aria-pressed', String(!state.hidden.B));
   $('#t-labels').setAttribute('aria-pressed', String(state.labels));
   $('#t-outlines').setAttribute('aria-pressed', String(state.outlines));
+  $('#t-ortho').setAttribute('aria-pressed', String(!!state.ortho));
   $('#lid').value = model.params.lidAngle;
   $('#lid-out').textContent = fmt(model.params.lidAngle) + '°';
   $('#explode').value = state.explode;
@@ -1831,6 +1928,7 @@ $('#t-front').addEventListener('click', () => toggleHidden(['C2'], !!state.hidde
 $('#t-lid').addEventListener('click', () => toggleHidden(['B', 'G'], !!state.hidden.B));
 $('#t-labels').addEventListener('click', () => { state.labels = !state.labels; applyVisibility(); syncControls(); save(); });
 $('#t-outlines').addEventListener('click', () => { state.outlines = !state.outlines; applyLooks(); syncControls(); save(); });
+$('#t-ortho').addEventListener('click', () => { setProjection(!state.ortho); goView(state.view, true); save(); });
 
 $('#lid').addEventListener('input', e => {
   state.params = { ...state.params, lidAngle: Number(e.target.value) };
@@ -1898,7 +1996,7 @@ async function offerFile(filename, blob) {
   await downloads.save({ filename, data: blob });
 }
 async function runExport(filename, makeBlob, done) {
-  const buttons = [$('#btn-zip'), $('#btn-zip-2'), $('#btn-png')];
+  const buttons = [$('#btn-zip'), $('#btn-zip-2'), $('#btn-png'), $('#btn-present')];
   buttons.forEach(b => { b.disabled = true; });
   setStatus('Preparing ' + filename + '…');
   try {
@@ -1937,19 +2035,559 @@ $('#btn-png').addEventListener('click', () => {
   runExport(`hinged_sound_box_${state.view}.png`, () => new Promise((res, rej) => {
     // Render one frame at up to ~2600 px wide, then return to the screen resolution.
     const prev = renderer.getPixelRatio();
-    const width = stage.getBoundingClientRect().width;
-    const ratio = Math.max(prev, Math.min(3, 2600 / width));
+    const width = stage.clientWidth, height = stage.clientHeight;
+    const maxPx = renderer.capabilities.maxTextureSize || 4096;
+    const ratio = Math.max(prev, Math.min(8, 2600 / width, maxPx / width, maxPx / height));
+    const pipe = pipeFor(camera);
     renderer.setPixelRatio(ratio);
-    composer.setPixelRatio(ratio);
+    pipe.composer.setPixelRatio(ratio);
     render();
     canvas.toBlob(b => {
       renderer.setPixelRatio(prev);
-      composer.setPixelRatio(prev);
+      pipe.composer.setPixelRatio(prev);
       invalidate();
       if (b) res(b); else rej({ message: 'the render was empty' });
     }, 'image/png');
   }), 'Saved the render as PNG.');
 });
+
+/* ---------- presentation set: orthographic renders and A3 drawing sheets ---------- */
+const PRES_PPM = 4;                                   // render pixels per model millimetre
+const MM = 200 / 25.4;                                // sheet pixels per paper millimetre (200 dpi)
+const SHEET_W = Math.round(420 * MM), SHEET_H = Math.round(297 * MM);   // A3 landscape
+const PX = mm => mm * MM;
+// Camera direction (target toward camera) and image-up, in CAD axes (X length, Y depth, Z up).
+const PVIEWS = {
+  front: { dir: [0, -1, 0], up: [0, 0, 1], title: 'Front elevation' },
+  back: { dir: [0, 1, 0], up: [0, 0, 1], title: 'Back elevation' },
+  left: { dir: [-1, 0, 0], up: [0, 0, 1], title: 'Left end elevation' },
+  right: { dir: [1, 0, 0], up: [0, 0, 1], title: 'Right end elevation' },
+  plan: { dir: [0, 0, 1], up: [0, 1, 0], title: 'Plan' },
+  axo: { dir: null, up: [0, 0, 1], title: 'Axonometric' },
+};
+// Axonometric direction: the imported Rhino render view (a parallel view), else isometric from the front right.
+const axoDir = () => (RHINO && RHINO.views.length ? RHINO.views[0].direction.map(v => -v) : [1, -1, 1]);
+
+function presentationShots() {
+  const open = Math.round(model.params.lidAngle >= 30 ? model.params.lidAngle : 95);
+  const mid = Math.round(open / 2);
+  return [
+    { id: 'axo_lid_closed', view: 'axo', lid: 0, caption: 'Lid closed' },
+    { id: `axo_lid_${mid}`, view: 'axo', lid: mid, caption: `Lid ${mid}°` },
+    { id: `axo_lid_${open}`, view: 'axo', lid: open, caption: `Lid open ${open}°` },
+    { id: 'axo_exploded', view: 'axo', lid: open, explode: 1, caption: 'Exploded' },
+    { id: 'plan_lid_closed', view: 'plan', lid: 0, caption: 'Lid closed' },
+    { id: 'plan_lid_removed', view: 'plan', lid: 0, hide: ['B', 'G'], caption: 'Lid removed' },
+    { id: 'front_lid_closed', view: 'front', lid: 0, caption: 'Lid closed' },
+    { id: 'back_lid_closed', view: 'back', lid: 0, caption: 'Lid closed' },
+    { id: 'left_lid_closed', view: 'left', lid: 0, caption: 'Lid closed' },
+    { id: `left_lid_${mid}`, view: 'left', lid: mid, caption: `Lid ${mid}°` },
+    { id: `left_lid_${open}`, view: 'left', lid: open, caption: `Lid open ${open}°` },
+    { id: 'right_lid_closed', view: 'right', lid: 0, caption: 'Lid closed' },
+  ];
+}
+
+// Its own renderer with a transparent background, so renders drop cleanly onto a white sheet.
+function presentationRenderer() {
+  const cv = document.createElement('canvas');
+  const rnd = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  rnd.setPixelRatio(1);
+  rnd.setClearColor(0x000000, 0); // transparent black keeps shadow edges correct in a premultiplied canvas
+  rnd.shadowMap.enabled = true;
+  rnd.shadowMap.type = renderer.shadowMap.type;
+  rnd.toneMapping = renderer.toneMapping;
+  rnd.toneMappingExposure = renderer.toneMappingExposure;
+  const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 50, 9000);
+  const pipe = makePipeline(cam, rnd);
+  return { cv, rnd, cam, pipe };
+}
+
+async function renderShot(pr, shot, fill) {
+  model = core.build({ ...state.params, lidAngle: shot.lid });
+  state.explode = (shot.explode || 0) * 100;
+  state.hidden = Object.fromEntries((shot.hide || []).map(id => [id, true]));
+  applyPose();
+  applyVisibility();
+  if (outletTag) outletTag.visible = false;
+  modelRoot.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  for (const b of boards.values()) if (b.visible) box.expandByObject(b);
+  const v = PVIEWS[shot.view];
+  const dir = cadDir(v.dir || axoDir()), up = cadDir(v.up);
+  const center = box.getCenter(new THREE.Vector3());
+  const cam = pr.cam;
+  cam.up.copy(up);
+  cam.position.copy(center).addScaledVector(dir, 4000);
+  cam.lookAt(center);
+  cam.updateMatrixWorld(true);
+  const right = new THREE.Vector3().crossVectors(up, dir).normalize();
+  fill.position.copy(center).addScaledVector(dir, 1000).addScaledVector(up, 420).addScaledVector(right, -300);
+  fill.target.position.copy(center);
+  fill.target.updateMatrixWorld();
+  // Frame the box exactly, plus a margin for soft shadows.
+  const inv = cam.matrixWorldInverse;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+    const q = new THREE.Vector3(x, y, z).applyMatrix4(inv);
+    x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
+  }
+  const m = 14;
+  Object.assign(cam, { left: x0 - m, right: x1 + m, top: y1 + m, bottom: y0 - m, zoom: 1 });
+  cam.updateProjectionMatrix();
+  const maxPx = Math.min(4096, pr.rnd.capabilities.maxTextureSize || 4096);
+  const ppm = Math.min(PRES_PPM, maxPx / (cam.right - cam.left), maxPx / (cam.top - cam.bottom));
+  const w = Math.round((cam.right - cam.left) * ppm), h = Math.round((cam.top - cam.bottom) * ppm);
+  pr.rnd.setSize(w, h, false);
+  pr.pipe.composer.setSize(w, h);
+  pr.pipe.ao.enabled = state.style !== 'drawing';
+  pr.pipe.composer.render();
+  const img = document.createElement('canvas');
+  img.width = w; img.height = h;
+  img.getContext('2d').drawImage(pr.cv, 0, 0);
+  const view = cam.matrixWorldInverse.clone(), proj = cam.projectionMatrix.clone();
+  const toImage = world => { const q = world.clone().applyMatrix4(view).applyMatrix4(proj); return [(q.x + 1) / 2 * w, (1 - q.y) / 2 * h]; };
+  const centers = {};
+  for (const [id, b] of boards) if (b.visible) centers[id] = toImage(b.getWorldPosition(new THREE.Vector3()));
+  return {
+    shot, img, w, h, ppm,
+    world: toImage,
+    cad: c => toImage(cadPoint(c)),
+    partCenter: id => centers[id] || null,
+    params: { ...model.params },
+  };
+}
+
+/* sheet drawing */
+const INK = '#1c2420', MUTED = '#6a736e', ACCENT = '#2b6954', RULE = '#c8cec9';
+const FONT = { display: '"Barlow Condensed", "Arial Narrow", Arial, sans-serif', body: 'Barlow, "Helvetica Neue", Arial, sans-serif', mono: '"IBM Plex Mono", Menlo, monospace' };
+function newSheet() {
+  const cv = document.createElement('canvas');
+  cv.width = SHEET_W; cv.height = SHEET_H;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, SHEET_W, SHEET_H);
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  return { cv, g };
+}
+function text(g, str, x, y, { size = 3, weight = 400, font = FONT.body, color = INK, align = 'left', base = 'alphabetic', spacing = 0 } = {}) {
+  g.font = `${weight} ${PX(size)}px ${font}`;
+  g.fillStyle = color;
+  g.textAlign = align;
+  g.textBaseline = base;
+  if ('letterSpacing' in g) g.letterSpacing = `${PX(spacing)}px`;
+  g.fillText(str, PX(x), PX(y));
+  if ('letterSpacing' in g) g.letterSpacing = '0px';
+}
+function line(g, pts, { width = 0.25, color = INK, dash = null } = {}) {
+  g.beginPath();
+  pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+  g.strokeStyle = color;
+  g.lineWidth = PX(width);
+  g.setLineDash(dash ? dash.map(PX) : []);
+  g.stroke();
+  g.setLineDash([]);
+}
+function arrowHead(g, [x0, y0], [x1, y1], color = ACCENT, size = 2.2) {
+  const a = Math.atan2(y1 - y0, x1 - x0), s = PX(size);
+  g.beginPath();
+  g.moveTo(x1, y1);
+  g.lineTo(x1 - s * Math.cos(a - 0.4), y1 - s * Math.sin(a - 0.4));
+  g.lineTo(x1 - s * Math.cos(a + 0.4), y1 - s * Math.sin(a + 0.4));
+  g.closePath();
+  g.fillStyle = color;
+  g.fill();
+}
+// Place a render so a CAD point lands on a sheet point (paper mm); scale is model mm per paper mm.
+function place(g, r, cadRef, at, scale) {
+  const k = MM / scale / r.ppm;
+  const [rx, ry] = r.cad(cadRef);
+  const ox = PX(at[0]) - rx * k, oy = PX(at[1]) - ry * k;
+  g.drawImage(r.img, ox, oy, r.w * k, r.h * k);
+  const map = ([px, py]) => [ox + px * k, oy + py * k];
+  return { k, ox, oy, map, cad: c => map(r.cad(c)), part: id => { const q = r.partCenter(id); return q && map(q); }, box: [ox, oy, r.w * k, r.h * k] };
+}
+// Fit a render (not to scale) inside a box in paper mm, centred.
+function fit(g, r, [x, y, w, h]) {
+  const k = Math.min(PX(w) / r.w, PX(h) / r.h);
+  const ox = PX(x) + (PX(w) - r.w * k) / 2, oy = PX(y) + (PX(h) - r.h * k) / 2;
+  g.drawImage(r.img, ox, oy, r.w * k, r.h * k);
+  const map = ([px, py]) => [ox + px * k, oy + py * k];
+  return { k, map, cad: c => map(r.cad(c)), part: id => { const q = r.partCenter(id); return q && map(q); }, box: [ox, oy, r.w * k, r.h * k] };
+}
+function viewTitle(g, x, y, title, sub, align = 'left') {
+  text(g, title.toUpperCase(), x, y, { size: 3.6, weight: 700, font: FONT.display, spacing: 0.25, align });
+  const w = g.measureText(title.toUpperCase()).width / MM;
+  const lx = align === 'center' ? x - w / 2 : x;
+  line(g, [[PX(lx), PX(y + 1.4)], [PX(lx + Math.min(w, 22)), PX(y + 1.4)]], { width: 0.5, color: ACCENT });
+  if (sub) text(g, sub, x, y + 5, { size: 2.3, font: FONT.mono, color: MUTED, align });
+}
+function groundLine(g, view, x0mm, x1mm) {
+  const [, gy] = view.cad([0, 0, 0]);
+  line(g, [[PX(x0mm), gy], [PX(x1mm), gy]], { width: 0.35 });
+}
+// Architectural dimension: line with slash ticks and the value centred.
+function dim(g, a, b, label, offset, { textSide = -1 } = {}) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
+  const nx = -uy * PX(offset), ny = ux * PX(offset);
+  const p = [a[0] + nx, a[1] + ny], q = [b[0] + nx, b[1] + ny];
+  line(g, [a, [p[0] + nx * 0.12, p[1] + ny * 0.12]], { width: 0.15, color: MUTED });
+  line(g, [b, [q[0] + nx * 0.12, q[1] + ny * 0.12]], { width: 0.15, color: MUTED });
+  line(g, [p, q], { width: 0.2, color: INK });
+  const t = PX(1.2);
+  for (const c of [p, q]) line(g, [[c[0] - t * (ux + uy) * 0.7, c[1] - t * (uy - ux) * 0.7], [c[0] + t * (ux + uy) * 0.7, c[1] + t * (uy - ux) * 0.7]], { width: 0.35 });
+  g.save();
+  g.translate((p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+  let ang = Math.atan2(dy, dx);
+  if (ang > Math.PI / 2 || ang < -Math.PI / 2) ang += Math.PI;
+  g.rotate(ang);
+  g.font = `500 ${PX(2.4)}px ${FONT.mono}`;
+  g.fillStyle = INK;
+  g.textAlign = 'center';
+  g.textBaseline = textSide < 0 ? 'bottom' : 'top';
+  g.fillText(label, 0, textSide * PX(0.8));
+  g.restore();
+}
+function scaleBar(g, x, y, scale, lengthMm = 100) {
+  const L = lengthMm / scale;
+  for (let i = 0; i < 4; i++) {
+    g.fillStyle = i % 2 ? '#ffffff' : INK;
+    g.fillRect(PX(x + (L / 4) * i), PX(y), PX(L / 4), PX(1.2));
+  }
+  g.strokeStyle = INK;
+  g.lineWidth = PX(0.2);
+  g.strokeRect(PX(x), PX(y), PX(L), PX(1.2));
+  for (const [v, xx] of [[0, x], [lengthMm / 2, x + L / 2], [lengthMm, x + L]]) text(g, String(v), xx, y + 4.4, { size: 2.2, font: FONT.mono, align: 'center' });
+  text(g, `mm · 1:${scale}`, x + L + 2.5, y + 1.3, { size: 2.2, font: FONT.mono, color: MUTED });
+}
+function titleBlock(g, n, total, sheetTitle, scaleText, notes) {
+  line(g, [[PX(10), PX(10)], [PX(410), PX(10)], [PX(410), PX(287)], [PX(10), PX(287)], [PX(10), PX(10)]], { width: 0.5 });
+  line(g, [[PX(10), PX(265)], [PX(410), PX(265)]], { width: 0.35 });
+  for (const x of [140, 292, 336, 372]) line(g, [[PX(x), PX(265)], [PX(x), PX(287)]], { width: 0.2, color: RULE });
+  text(g, 'HINGED SOUND BOX', 14, 276, { size: 6.4, weight: 700, font: FONT.display, spacing: 0.3 });
+  text(g, 'Full-scale assembly · presentation drawings', 14, 282.5, { size: 2.6, color: MUTED });
+  text(g, sheetTitle, 144, 274.5, { size: 4, weight: 600, font: FONT.display, spacing: 0.15 });
+  text(g, notes, 144, 281.5, { size: 2.2, font: FONT.mono, color: MUTED });
+  text(g, 'SCALE', 296, 271, { size: 1.9, font: FONT.mono, color: MUTED, spacing: 0.2 });
+  text(g, scaleText, 296, 280, { size: 3.4, weight: 600, font: FONT.display });
+  text(g, 'SHEET', 340, 271, { size: 1.9, font: FONT.mono, color: MUTED, spacing: 0.2 });
+  text(g, `${n} / ${total}`, 340, 280, { size: 3.4, weight: 600, font: FONT.display });
+  text(g, 'DATE', 376, 271, { size: 1.9, font: FONT.mono, color: MUTED, spacing: 0.2 });
+  text(g, new Date().toISOString().slice(0, 10), 376, 280, { size: 2.8, font: FONT.mono });
+}
+function callout(g, from, to, label, { color = INK, align = 'left', sub = null } = {}) {
+  line(g, [from, to], { width: 0.2, color });
+  g.beginPath();
+  g.arc(from[0], from[1], PX(0.6), 0, Math.PI * 2);
+  g.fillStyle = color;
+  g.fill();
+  const tx = to[0] / MM + (align === 'left' ? 1 : -1), ty = to[1] / MM + 0.9;
+  text(g, label, tx, ty, { size: 2.6, weight: 600, align });
+  if (sub) text(g, sub, tx, ty + 3.4, { size: 2.1, font: FONT.mono, color: MUTED, align });
+}
+
+// The labyrinth: from the source bay, round each baffle's free end, out through the outlet. CAD points at mid height.
+function soundPath(p) {
+  const t = p.thickness, W = p.depth, L = p.length, z = p.height / 2;
+  const gapY = side => (side === 'back' ? t + p.baffleGap / 2 : W - t - p.baffleGap / 2);
+  const baffles = model.parts.filter(q => q.kind === 'F');
+  const pts = [[t + p.baffleOffset / 2, W / 2, z]];
+  let x = t + p.baffleOffset / 2;
+  for (let i = 0; i < baffles.length; i++) {
+    const b = baffles[i], y = gapY(b.side);
+    const next = baffles[i + 1];
+    const xNext = next ? (b.max[0] + next.min[0]) / 2 : (b.max[0] + L - t) / 2;
+    pts.push([x, y, z], [xNext, y, z]);
+    x = xNext;
+  }
+  const outY = t + p.outletWidth / 2;
+  pts.push([x, outY, z], [L + 24, outY, z]);
+  return pts;
+}
+function drawPath(g, pts, color = ACCENT) {
+  g.beginPath();
+  pts.forEach(([x, y], i) => {
+    if (i === 0) return g.moveTo(x, y);
+    const [px, py] = pts[i - 1];
+    if (i < pts.length - 1) {
+      const [nx, ny] = pts[i + 1];
+      const r = Math.min(PX(5), Math.hypot(x - px, y - py) / 2, Math.hypot(nx - x, ny - y) / 2);
+      g.arcTo(x, y, nx, ny, r);
+    } else g.lineTo(x, y);
+  });
+  g.strokeStyle = color;
+  g.lineWidth = PX(0.6);
+  g.setLineDash([PX(1.6), PX(1.1)]);
+  g.stroke();
+  g.setLineDash([]);
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+    if (Math.hypot(x1 - x0, y1 - y0) > PX(8)) arrowHead(g, [x0, y0], [(x0 + x1) / 2 + (x1 - x0) * 0.08, (y0 + y1) / 2 + (y1 - y0) * 0.08], color, 2);
+  }
+  arrowHead(g, pts[pts.length - 2], pts[pts.length - 1], color, 2.6);
+}
+// Path of the lid's front edge (flap bottom corner) as the lid opens, in CAD (left end elevation).
+function lidArc(p, deg, steps = 40) {
+  const t = p.thickness, c = p.flapClearance, H = p.height;
+  const pivotZ = p.hingeAxis === 'lid' ? H : H - t, pivotY = p.depth;
+  const corner = [-(t + c), p.flapHeight > 0 ? H - t - p.flapHeight : H - t];
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const a = THREE.MathUtils.degToRad((deg * i) / steps), cs = Math.cos(a), sn = Math.sin(a);
+    const dy = corner[0] - pivotY, dz = corner[1] - pivotZ;
+    pts.push([0, pivotY + dy * cs + dz * sn, pivotZ - dy * sn + dz * cs]);
+  }
+  return { pts, pivot: [0, pivotY, pivotZ] };
+}
+
+function sheetOrthographic(R) {
+  const { cv, g } = newSheet();
+  const p = R.front_lid_closed.params, s = 2, L = p.length, W = p.depth, front = -(p.thickness + p.flapClearance);
+  // Third-angle projection: plan above the front elevation, end elevations either side.
+  const gap = 18, frontX = 10 + (400 - (W - front) / s * 2 - L / s - 2 * gap) / 2 + (W - front) / s + gap;
+  const groundY = 214, planFrontY = groundY - p.height / s - 24;
+  const fr = place(g, R.front_lid_closed, [0, 0, 0], [frontX, groundY], s);
+  const pl = place(g, R.plan_lid_closed, [0, front, p.height], [frontX, planFrontY], s);
+  const le = place(g, R.left_lid_closed, [0, front, 0], [frontX - gap, groundY], s);
+  const ri = place(g, R.right_lid_closed, [L, front, 0], [frontX + L / s + gap, groundY], s);
+  for (const v of [fr, le, ri]) {
+    const [x, , w] = v.box;
+    groundLine(g, v, x / MM + 3, (x + w) / MM - 3);
+  }
+  // Overall dimensions
+  dim(g, pl.cad([0, W, p.height]), pl.cad([L, W, p.height]), fmt(L), -6);
+  dim(g, pl.cad([L, W, p.height]), pl.cad([L, front, p.height]), fmt(W - front), -6);
+  dim(g, fr.cad([0, 0, 0]), fr.cad([0, 0, p.height]), fmt(p.height), -6);
+  dim(g, ri.cad([L, front, p.height]), ri.cad([L, W, p.height]), fmt(W - front), -6);
+  const under = groundY + 9;
+  viewTitle(g, frontX + L / s / 2, under, 'Front elevation', 'Lid closed · 1:2', 'center');
+  viewTitle(g, le.box[0] / MM + le.box[2] / MM / 2, under, 'Left end', 'Lid closed · 1:2', 'center');
+  viewTitle(g, ri.box[0] / MM + ri.box[2] / MM / 2, under, 'Right end', 'Outlet end · 1:2', 'center');
+  viewTitle(g, frontX - 26, planFrontY - (W - front) / s / 2, 'Plan', 'Lid closed · 1:2', 'right');
+  // Axonometric, not to scale, in the free corner
+  const ax = fit(g, R.axo_lid_closed, [frontX + L / s + 14, 22, 410 - (frontX + L / s + 14) - 6, planFrontY - 32]);
+  viewTitle(g, (ax.box[0] + ax.box[2] / 2) / MM, (ax.box[1] + ax.box[3]) / MM + 6, 'Axonometric', 'Lid closed · not to scale', 'center');
+  scaleBar(g, 20, 252, s);
+  text(g, 'Third-angle projection. Realistic render: 5 mm white foamboard, imported Rhino lighting.', 410 - 4, 258, { size: 2.1, font: FONT.mono, color: MUTED, align: 'right' });
+  titleBlock(g, 1, 3, 'Orthographic views', '1:2', `${fmt(p.thickness)} mm foamboard · dimensions in mm · closed ${dims(L, W - front, p.height)}`);
+  return cv;
+}
+
+function sheetLidOpening(R, shots) {
+  const { cv, g } = newSheet();
+  const lefts = shots.filter(q => q.view === 'left'), axos = shots.filter(q => q.view === 'axo' && !q.explode);
+  const s = 3, groundY = 128, p = R[lefts[0].id].params, front = -(p.thickness + p.flapClearance);
+  const xs = [104, 228, 352];
+  lefts.forEach((shot, i) => {
+    const r = R[shot.id];
+    const v = place(g, r, [0, front, 0], [xs[i], groundY], s);
+    groundLine(g, v, xs[i] - (p.depth + 70) / s, xs[i] + 8);
+    if (shot.lid > 0) {
+      const arc = lidArc(r.params, shot.lid);
+      const pts = arc.pts.map(c => v.cad(c));
+      line(g, pts, { width: 0.35, color: ACCENT, dash: [1.4, 1] });
+      arrowHead(g, pts[pts.length - 3], pts[pts.length - 1], ACCENT, 2);
+      const pv = v.cad(arc.pivot);
+      g.beginPath();
+      g.arc(pv[0], pv[1], PX(1.1), 0, Math.PI * 2);
+      g.fillStyle = '#ffffff'; g.fill();
+      g.strokeStyle = ACCENT; g.lineWidth = PX(0.45); g.stroke();
+      const mid = pts[Math.round(pts.length / 2)];
+      text(g, `${shot.lid}°`, mid[0] / MM + 2.5, mid[1] / MM, { size: 3, weight: 700, font: FONT.display, color: ACCENT });
+      if (i === lefts.length - 1) callout(g, pv, [pv[0] - PX(20), pv[1] + PX(16)], 'Tape hinge', { color: ACCENT, align: 'right', sub: r.params.hingeAxis === 'lid' ? 'lid top rear edge' : 'back wall top edge' });
+    }
+    viewTitle(g, xs[i] - p.depth / s / 2, groundY + 9, 'Left end', `${shot.caption} · 1:3`, 'center');
+  });
+  axos.forEach((shot, i) => {
+    const a = fit(g, R[shot.id], [18 + i * 128, 146, 120, 92]);
+    viewTitle(g, (a.box[0] + a.box[2] / 2) / MM, 248, 'Axonometric', `${shot.caption} · not to scale`, 'center');
+  });
+  scaleBar(g, 20, 255, s);
+  titleBlock(g, 2, 3, 'Lid opening', '1:3 / NTS', `Front edge path shown dashed · flap stays ${fmt(p.flapClearance)} mm clear of the front wall`);
+  return cv;
+}
+
+function sheetHowItWorks(R) {
+  const { cv, g } = newSheet();
+  const r = R.plan_lid_removed, p = r.params, s = 2, L = p.length, W = p.depth, t = p.thickness;
+  // Plan with the lid removed, the sound path and the main callouts.
+  const pl = place(g, r, [0, 0, p.height], [52, 146], s);
+  // Plan cut at mid height: walls and baffles shown solid, the usual plan convention.
+  g.fillStyle = 'rgba(28,36,32,0.82)';
+  for (const part of model.parts.filter(q => /^[CDEF]/.test(q.kind))) {
+    const [ax, ay] = pl.cad([part.min[0], part.min[1], p.height]), [bx, by] = pl.cad([part.max[0], part.max[1], p.height]);
+    g.fillRect(Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay));
+  }
+  drawPath(g, soundPath(p).map(c => pl.cad(c)));
+  const baffles = model.parts.filter(q => q.kind === 'F');
+  baffles.forEach((b, i) => {
+    const y = b.side === 'back' ? W - t - 12 : t + 12;
+    const [bx, by] = pl.cad([(b.min[0] + b.max[0]) / 2, y, p.height]);
+    g.beginPath(); g.arc(bx, by, PX(2.1), 0, Math.PI * 2); g.fillStyle = '#ffffff'; g.fill();
+    g.strokeStyle = INK; g.lineWidth = PX(0.25); g.stroke();
+    text(g, String(i + 1), bx / MM, by / MM + 1.05, { size: 2.8, weight: 700, font: FONT.display, align: 'center' });
+  });
+  const bay = pl.cad([t + p.baffleOffset / 2, W - t - 8, p.height]);
+  callout(g, bay, [bay[0] - PX(4), PX(30)], 'Source bay', { align: 'right', sub: `${fmt(p.baffleOffset)} mm · check player fit` });
+  const out = pl.cad([L, t + p.outletWidth / 2, p.height]);
+  callout(g, out, [out[0] + PX(10), out[1] + PX(16)], 'Sound outlet', { color: ACCENT, sub: `${dims(p.outletWidth, p.height - 2 * t)} mm` });
+  if (baffles.length > 1) {
+    const b0 = baffles[0], b1 = baffles[1];
+    const a = pl.cad([b0.max[0], W / 2, p.height]), b = pl.cad([b1.min[0], W / 2, p.height]);
+    dim(g, a, b, `${fmt(p.bafflePitch - t)} clear`, 0.01);
+  }
+  if (baffles.length) {
+    const b = baffles[0], gy0 = b.side === 'back' ? t : W - t - p.baffleGap, gy1 = gy0 + p.baffleGap;
+    dim(g, pl.cad([b.min[0], gy0, p.height]), pl.cad([b.min[0], gy1, p.height]), `${fmt(p.baffleGap)} gap`, -5);
+  }
+  dim(g, pl.cad([0, 0, p.height]), pl.cad([L, 0, p.height]), fmt(L), 7, { textSide: 1 });
+  viewTitle(g, 52, 146 + 17, 'Plan · lid removed', `Sound path past ${baffles.length} baffles · 1:2`);
+  // Back elevation with the hinge axis.
+  const bk = place(g, R.back_lid_closed, [L, W, 0], [52, 236], s);
+  groundLine(g, bk, 48, 52 + L / s + 4);
+  const pz = p.hingeAxis === 'lid' ? p.height : p.height - t;
+  const h0 = bk.cad([L, W, pz]), h1 = bk.cad([0, W, pz]);
+  line(g, [[h0[0] - PX(4), h0[1]], [h1[0] + PX(4), h1[1]]], { width: 0.5, color: ACCENT, dash: [2.4, 1.2] });
+  callout(g, [h1[0] - PX(10), h1[1]], [h1[0] - PX(16), h1[1] - PX(9)], 'Cloth tape hinge axis', { color: ACCENT, align: 'right', sub: p.hingeAxis === 'lid' ? `lid top rear edge · z ${fmt(pz)}` : `back wall top edge · z ${fmt(pz)}` });
+  viewTitle(g, 52, 236 + 9, 'Back elevation', 'Lid closed · 1:2');
+  // Exploded axonometric with part tags.
+  const ex = fit(g, R.axo_exploded, [196, 16, 210, 172]);
+  const [cx, cy] = [ex.box[0] + ex.box[2] / 2, ex.box[1] + ex.box[3] / 2];
+  for (const part of model.parts) {
+    const q = ex.part(part.id);
+    if (!q) continue;
+    const dx = q[0] - cx, dy = q[1] - cy, n = Math.hypot(dx, dy) || 1;
+    const tag = [q[0] + (dx / n) * PX(9), q[1] + (dy / n) * PX(9)];
+    line(g, [q, tag], { width: 0.2, color: MUTED });
+    g.beginPath(); g.arc(q[0], q[1], PX(0.55), 0, Math.PI * 2); g.fillStyle = INK; g.fill();
+    g.font = `700 ${PX(2.6)}px ${FONT.display}`;
+    const tw = g.measureText(part.id).width + PX(2.2);
+    g.fillStyle = '#ffffff'; g.strokeStyle = INK; g.lineWidth = PX(0.25);
+    g.beginPath(); g.roundRect ? g.roundRect(tag[0] - tw / 2, tag[1] - PX(2.1), tw, PX(4.2), PX(1)) : g.rect(tag[0] - tw / 2, tag[1] - PX(2.1), tw, PX(4.2));
+    g.fill(); g.stroke();
+    text(g, part.id, tag[0] / MM, tag[1] / MM + 0.95, { size: 2.6, weight: 700, font: FONT.display, align: 'center' });
+  }
+  viewTitle(g, 200, 196, 'Exploded axonometric', 'Not to scale');
+  // Parts legend from the cut list.
+  const kinds = [];
+  for (const part of model.parts) {
+    const k = kinds.find(x => x.kind === part.kind);
+    if (k) k.ids.push(part.id); else kinds.push({ kind: part.kind, ids: [part.id], cut: part.cut });
+  }
+  kinds.forEach((k, i) => {
+    const col = i < 4 ? 0 : 1, row = i % 4, x = 200 + col * 104, y = 212 + row * 6.6;
+    const ids = k.ids.length > 2 ? `${k.ids[0]}–${k.ids[k.ids.length - 1]}` : k.ids.join(' / ');
+    text(g, ids, x, y, { size: 2.7, weight: 700, font: FONT.display });
+    text(g, core.KINDS[k.kind], x + 17, y, { size: 2.5 });
+    text(g, `${dims(...k.cut)} ×${k.ids.length}`, x + 98, y, { size: 2.3, font: FONT.mono, color: MUTED, align: 'right' });
+  });
+  scaleBar(g, 200, 254, s);
+  titleBlock(g, 3, 3, 'How it works', '1:2 / NTS', `Labyrinth: source bay → 5 baffles → outlet · ${model.parts.length} parts`);
+  return cv;
+}
+
+// Minimal PDF: one JPEG per A3 landscape page.
+function sheetsToPDF(pages) {
+  const enc = new TextEncoder(), parts = [], offsets = [];
+  let len = 0;
+  const push = b => { const u = typeof b === 'string' ? enc.encode(b) : b; parts.push(u); len += u.length; };
+  const obj = (id, ...body) => { offsets[id] = len; push(`${id} 0 obj\n`); body.forEach(push); push('\nendobj\n'); };
+  const W = (420 * 72 / 25.4).toFixed(2), H = (297 * 72 / 25.4).toFixed(2);
+  push('%PDF-1.4\n%âãÏÓ\n');
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, `<< /Type /Pages /Kids [${pages.map((_, i) => `${3 + 3 * i} 0 R`).join(' ')}] /Count ${pages.length} >>`);
+  pages.forEach((pg, i) => {
+    const id = 3 + 3 * i, content = `q ${W} 0 0 ${H} 0 0 cm /Im${i} Do Q`;
+    obj(id, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im${i} ${id + 2} 0 R >> >> /Contents ${id + 1} 0 R >>`);
+    obj(id + 1, `<< /Length ${content.length} >>\nstream\n`, content, '\nendstream');
+    obj(id + 2, `<< /Type /XObject /Subtype /Image /Width ${pg.w} /Height ${pg.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${pg.jpeg.length} >>\nstream\n`, pg.jpeg, '\nendstream');
+  });
+  const xref = len, count = 3 + 3 * pages.length;
+  push(`xref\n0 ${count}\n0000000000 65535 f \n`);
+  for (let i = 1; i < count; i++) push(`${String(offsets[i]).padStart(10, '0')} 00000 n \n`);
+  push(`trailer\n<< /Size ${count} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  const out = new Uint8Array(len);
+  let o = 0;
+  for (const u of parts) { out.set(u, o); o += u.length; }
+  return out;
+}
+
+const canvasBlob = (cv, type, q) => new Promise((res, rej) => cv.toBlob(b => (b ? res(b) : rej({ message: 'a sheet could not be encoded' })), type, q));
+const busy = msg => { const el = $('#loading'); el.hidden = !msg; el.classList.toggle('busy', !!msg); if (msg) el.textContent = msg; };
+
+async function buildPresentation() {
+  if (!has3D) throw { message: 'the 3D view is off in this browser' };
+  if (document.fonts) {
+    await Promise.all(['700 40px "Barlow Condensed"', '600 40px "Barlow Condensed"', '400 40px Barlow', '600 40px Barlow', '500 40px "IBM Plex Mono"'].map(f => document.fonts.load(f).catch(() => null)));
+  }
+  const keep = { params: state.params, explode: state.explode, hidden: state.hidden, studio: state.studio, mat: state.mat };
+  const keepBg = scene.background, keepFog = scene.fog, keepCatcher = catcher.material.opacity;
+  const pr = presentationRenderer();
+  const shots = presentationShots();
+  // Fill from the camera side, as a photographer lights the face being shot.
+  const fill = new THREE.DirectionalLight(0xffffff, 1.25);
+  scene.add(fill, fill.target);
+  const R = {};
+  try {
+    // Clean studio for drawings: no backdrop or mat, soft shadow on a transparent ground.
+    state.studio = false; state.mat = false;
+    scene.background = null; scene.fog = null;
+    sweep.visible = false; catcher.visible = true; catcher.material.opacity = 0.26;
+    for (let i = 0; i < shots.length; i++) {
+      busy(`Rendering view ${i + 1} of ${shots.length}…`);
+      await new Promise(r => setTimeout(r, 30));
+      R[shots[i].id] = await renderShot(pr, shots[i], fill);
+    }
+    busy('Laying out the A3 sheets…');
+    await new Promise(r => setTimeout(r, 30));
+    model = core.build(keep.params);
+    const sheets = [
+      ['sheet1_orthographic_views', sheetOrthographic(R)],
+      ['sheet2_lid_opening', sheetLidOpening(R, shots)],
+      ['sheet3_how_it_works', sheetHowItWorks(R)],
+    ];
+    const enc = new TextEncoder();
+    const files = [];
+    for (const shot of shots) files.push({ name: `renders/${shot.id}.png`, data: new Uint8Array(await (await canvasBlob(R[shot.id].img, 'image/png')).arrayBuffer()) });
+    const pages = [];
+    for (const [name, cv] of sheets) {
+      files.push({ name: `sheets/${name}.png`, data: new Uint8Array(await (await canvasBlob(cv, 'image/png')).arrayBuffer()) });
+      pages.push({ w: cv.width, h: cv.height, jpeg: new Uint8Array(await (await canvasBlob(cv, 'image/jpeg', 0.92)).arrayBuffer()) });
+    }
+    files.push({ name: 'hinged_sound_box_presentation_A3.pdf', data: sheetsToPDF(pages) });
+    files.push({ name: 'README.txt', data: enc.encode([
+      'Hinged sound box - presentation set',
+      `Generated ${new Date().toISOString().slice(0, 10)} from the Hinged Sound Box editor.`,
+      '',
+      'renders/  Orthographic (parallel-projection) realistic renders, transparent background.',
+      `          ${PRES_PPM} px per model mm, so 1 px = ${fmt(1 / PRES_PPM)} mm. Elevations and plans share that scale.`,
+      ...shots.map(q => `          ${q.id}.png  ${PVIEWS[q.view].title}, ${q.caption}`),
+      'sheets/   A3 landscape at 200 dpi: 1 orthographic views (1:2), 2 lid opening (1:3), 3 how it works (1:2).',
+      'hinged_sound_box_presentation_A3.pdf  The three sheets as one PDF for printing at A3, 100% scale.',
+      '',
+      'Axonometrics follow the imported Rhino render view and are not to scale.',
+    ].join('\n') + '\n') });
+    return { blob: new Blob([core.zip(files)], { type: 'application/zip' }) };
+  } finally {
+    Object.assign(state, keep);
+    model = core.build(state.params);
+    catcher.material.opacity = keepCatcher;
+    scene.background = keepBg; scene.fog = keepFog;
+    applyPose();
+    applyVisibility();
+    applyBackdrop();
+    scene.remove(fill, fill.target);
+    fill.dispose();
+    pr.pipe.composer.dispose();
+    pr.rnd.dispose();
+    pr.rnd.forceContextLoss();
+    busy(null);
+    invalidate();
+  }
+}
+$('#btn-present').addEventListener('click', () => runExport('hinged_sound_box_presentation.zip', async () => (await buildPresentation()).blob,
+  'Saved the presentation set: 12 orthographic renders, 3 A3 sheets and a PDF.'));
+
 
 /* ---------- start ---------- */
 if (state.scene === 'rhino' && !RHINO) state.scene = 'studio';
@@ -1958,6 +2596,7 @@ rebuild();
 if (has3D) {
   resize();
   new ResizeObserver(resize).observe(stage);
+  if (state.ortho) setProjection(true);
   goView(state.view in DIRS ? state.view : 'iso', true);
   // Draw only when the view or the model changed; damping keeps controls.update() true while it settles.
   const loop = now => {

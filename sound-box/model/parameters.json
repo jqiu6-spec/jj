@@ -1,0 +1,409 @@
+{
+  "name": "Hinged sound box",
+  "source": "Hinged sound box - full-scale assembly and cutting templates (8 October 2026)",
+  "exported": "2026-10-08",
+  "units": "mm",
+  "axes": "Z up. X = length, left to right. Y = depth, front to back. Origin = outer front-left-bottom corner of base A.",
+  "parameters": {
+    "length": 260,
+    "depth": 200,
+    "height": 100,
+    "thickness": 5,
+    "flapHeight": 30,
+    "flapClearance": 1,
+    "outletWidth": 40,
+    "baffleCount": 5,
+    "baffleOffset": 30,
+    "bafflePitch": 40,
+    "baffleGap": 40,
+    "firstBaffle": "back",
+    "lidAngle": 95
+  },
+  "derived": {
+    "innerL": 250,
+    "innerW": 190,
+    "wallH": 90,
+    "outletPanel": 150,
+    "baffleLen": 150,
+    "baffles": 5,
+    "envelope": [
+      260,
+      206,
+      100
+    ],
+    "area": 258260,
+    "count": 12
+  },
+  "hinge": {
+    "pivot_mm": [
+      0,
+      200,
+      95
+    ],
+    "axis": "X",
+    "open_angle_deg": 95,
+    "note": "Hinged parts are listed closed. To pose them, rotate about the X axis through pivot_mm by -open_angle_deg."
+  },
+  "checks": [
+    {
+      "level": "ok",
+      "label": "Clear interior",
+      "value": "250 x 190 x 90",
+      "note": "200 - 5 - 5 = 190 mm inside width"
+    },
+    {
+      "level": "ok",
+      "label": "Closed envelope",
+      "value": "260 x 206 x 100",
+      "note": "Lid projects 6 mm past the body: 5 flap + 1 clearance"
+    },
+    {
+      "level": "ok",
+      "label": "Outlet",
+      "value": "40 x 90",
+      "note": "Panel E is 150 mm and touches the back wall"
+    },
+    {
+      "level": "ok",
+      "label": "Free-end gap",
+      "value": "40 mm",
+      "note": "Baffles are 150 mm long"
+    },
+    {
+      "level": "ok",
+      "label": "Baffle spacing",
+      "value": "35 mm clear",
+      "note": "40 mm pitch - 5 mm board"
+    },
+    {
+      "level": "ok",
+      "label": "Past baffle 5",
+      "value": "55 mm clear",
+      "note": "To the inside face of the outlet end"
+    },
+    {
+      "level": "warn",
+      "label": "Source bay",
+      "value": "30 mm deep",
+      "note": "Fit is not confirmed. Measure your cassette player before cutting."
+    },
+    {
+      "level": "ok",
+      "label": "Front flap",
+      "value": "1 mm gap",
+      "note": "Not scaled with the box. Glue, tape and coating can reduce it."
+    }
+  ],
+  "parts": [
+    {
+      "id": "A",
+      "name": "Base",
+      "group": "shell",
+      "min_mm": [
+        0,
+        0,
+        0
+      ],
+      "max_mm": [
+        260,
+        200,
+        5
+      ],
+      "size_mm": [
+        260,
+        200,
+        5
+      ],
+      "cut_size_mm": "260 x 200",
+      "hinged": false,
+      "color": "#f1f0ea",
+      "opacity": 1,
+      "material": "Shell - Foamboard"
+    },
+    {
+      "id": "B",
+      "name": "Lid",
+      "group": "lid",
+      "min_mm": [
+        0,
+        -6,
+        95
+      ],
+      "max_mm": [
+        260,
+        200,
+        100
+      ],
+      "size_mm": [
+        260,
+        206,
+        5
+      ],
+      "cut_size_mm": "260 x 206",
+      "hinged": true,
+      "color": "#f1f0ea",
+      "opacity": 1,
+      "material": "Lid - Foamboard"
+    },
+    {
+      "id": "C1",
+      "name": "Back wall",
+      "group": "shell",
+      "min_mm": [
+        0,
+        195,
+        5
+      ],
+      "max_mm": [
+        260,
+        200,
+        95
+      ],
+      "size_mm": [
+        260,
+        5,
+        90
+      ],
+      "cut_size_mm": "260 x 90",
+      "hinged": false,
+      "color": "#f1f0ea",
+      "opacity": 1,
+      "material": "Shell - Foamboard"
+    },
+    {
+      "id": "C2",
+      "name": "Front wall",
+      "group": "shell",
+      "min_mm": [
+        0,
+        0,
+        5
+      ],
+      "max_mm": [
+        260,
+        5,
+        95
+      ],
+      "size_mm": [
+        260,
+        5,
+        90
+      ],
+      "cut_size_mm": "260 x 90",
+      "hinged": false,
+      "color": "#f1f0ea",
+      "opacity": 1,
+      "material": "Shell - Foamboard"
+    },
+    {
+      "id": "D",
+      "name": "Closed end",
+      "group": "shell",
+      "min_mm": [
+        0,
+        5,
+        5
+      ],
+      "max_mm": [
+        5,
+        195,
+        95
+      ],
+      "size_mm": [
+        5,
+        190,
+        90
+      ],
+      "cut_size_mm": "190 x 90",
+      "hinged": false,
+      "color": "#f1f0ea",
+      "opacity": 1,
+      "material": "Shell - Foamboard"
+    },
+    {
+      "id": "E",
+      "name": "Outlet end panel",
+      "group": "shell",
+      "min_mm": [
+        255,
+        45,
+        5
+      ],
+      "max_mm": [
+        260,
+        195,
+        95
+      ],
+      "size_mm": [
+        5,
+        150,
+        90
+      ],
+      "cut_size_mm": "150 x 90",
+      "hinged": false,
+      "color": "#f1f0ea",
+      "opacity": 1,
+      "material": "Shell - Foamboard"
+    },
+    {
+      "id": "F1",
+      "name": "Baffle 1",
+      "group": "baffle",
+      "min_mm": [
+        35,
+        45,
+        5
+      ],
+      "max_mm": [
+        40,
+        195,
+        95
+      ],
+      "size_mm": [
+        5,
+        150,
+        90
+      ],
+      "cut_size_mm": "150 x 90",
+      "hinged": false,
+      "color": "#f1f0ea",
+      "opacity": 1,
+      "material": "Baffles - Foamboard",
+      "attached_to": "back",
+      "left_face_from_inside_left_mm": 30
+    },
+    {
+      "id": "F2",
+      "name": "Baffle 2",
+      "group": "baffle",
+      "min_mm": [
+        75,
+        5,
+        5
+      ],
+      "max_mm": [
+        80,
+        155,
+        95
+      ],
+      "size_mm": [
+        5,
+        150,
+        90
+      ],
+      "cut_size_mm": "150 x 90",
+      "hinged": false,
+      "color": "#f1f0ea",
+      "opacity": 1,
+      "material": "Baffles - Foamboard",
+      "attached_to": "front",
+      "left_face_from_inside_left_mm": 70
+    },
+    {
+      "id": "F3",
+      "name": "Baffle 3",
+      "group": "baffle",
+      "min_mm": [
+        115,
+        45,
+        5
+      ],
+      "max_mm": [
+        120,
+        195,
+        95
+      ],
+      "size_mm": [
+        5,
+        150,
+        90
+      ],
+      "cut_size_mm": "150 x 90",
+      "hinged": false,
+      "color": "#f1f0ea",
+      "opacity": 1,
+      "material": "Baffles - Foamboard",
+      "attached_to": "back",
+      "left_face_from_inside_left_mm": 110
+    },
+    {
+      "id": "F4",
+      "name": "Baffle 4",
+      "group": "baffle",
+      "min_mm": [
+        155,
+        5,
+        5
+      ],
+      "max_mm": [
+        160,
+        155,
+        95
+      ],
+      "size_mm": [
+        5,
+        150,
+        90
+      ],
+      "cut_size_mm": "150 x 90",
+      "hinged": false,
+      "color": "#f1f0ea",
+      "opacity": 1,
+      "material": "Baffles - Foamboard",
+      "attached_to": "front",
+      "left_face_from_inside_left_mm": 150
+    },
+    {
+      "id": "F5",
+      "name": "Baffle 5",
+      "group": "baffle",
+      "min_mm": [
+        195,
+        45,
+        5
+      ],
+      "max_mm": [
+        200,
+        195,
+        95
+      ],
+      "size_mm": [
+        5,
+        150,
+        90
+      ],
+      "cut_size_mm": "150 x 90",
+      "hinged": false,
+      "color": "#f1f0ea",
+      "opacity": 1,
+      "material": "Baffles - Foamboard",
+      "attached_to": "back",
+      "left_face_from_inside_left_mm": 190
+    },
+    {
+      "id": "G",
+      "name": "Front lid flap",
+      "group": "lid",
+      "min_mm": [
+        0,
+        -6,
+        65
+      ],
+      "max_mm": [
+        260,
+        -1,
+        95
+      ],
+      "size_mm": [
+        260,
+        5,
+        30
+      ],
+      "cut_size_mm": "260 x 30",
+      "hinged": true,
+      "color": "#f1f0ea",
+      "opacity": 1,
+      "material": "Lid - Foamboard"
+    }
+  ]
+}

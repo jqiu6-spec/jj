@@ -1,0 +1,1482 @@
+<title>Hinged Sound Box</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root {
+  /* Layout: drafting-table app. Live 3D stage on the left, spec rail on the right; the rail drops under the stage on phones. */
+  --bg: #edefeb;
+  --panel: #fbfcfa;
+  --ink: #17201b;
+  --muted: #5a665e;
+  --rule: #d4dad4;
+  --stage: #e1e5e0;
+  --accent: #2b6954;
+  --accent-ink: #ffffff;
+  --accent-soft: #d9e9e1;
+  --ok: #2b784b;
+  --ok-soft: #dfeee4;
+  --warn: #965800;
+  --warn-soft: #f4e8d2;
+  --bad: #b3261e;
+  --bad-soft: #f7dfdb;
+  --font-display: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+  --font-body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1311; --panel: #151b18; --ink: #e3e9e5; --muted: #93a198; --rule: #28312c; --stage: #1a211e;
+    --accent: #6dbf9d; --accent-ink: #0b1310; --accent-soft: #1d3a2f;
+    --ok: #6cc18e; --ok-soft: #173226; --warn: #e2a54c; --warn-soft: #3a2c14; --bad: #f08a7e; --bad-soft: #3d1c19;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1311; --panel: #151b18; --ink: #e3e9e5; --muted: #93a198; --rule: #28312c; --stage: #1a211e;
+  --accent: #6dbf9d; --accent-ink: #0b1310; --accent-soft: #1d3a2f;
+  --ok: #6cc18e; --ok-soft: #173226; --warn: #e2a54c; --warn-soft: #3a2c14; --bad: #f08a7e; --bad-soft: #3d1c19;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.45 var(--font-body); }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; padding-inline: 16px; padding-block: 12px 16px; }
+
+/* Header */
+.bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 20px; }
+.eyebrow { font: 500 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 5px; }
+h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+.spec { font: 400 12.5px/1.3 var(--font-mono); color: var(--muted); margin: 0 0 2px; font-variant-numeric: tabular-nums; }
+.actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { font: 600 13.5px/1 var(--font-body); padding: 9px 14px; border-radius: var(--r); border: 1px solid var(--rule); background: var(--panel); color: var(--ink); cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ghost { background: transparent; }
+.btn:disabled { opacity: .55; cursor: progress; }
+
+/* Work area */
+.work { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 368px; gap: 16px; }
+.stage { position: relative; min-height: 0; border-radius: 10px; overflow: hidden; background: var(--stage); border: 1px solid var(--rule); }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.labels { position: absolute; inset: 0; pointer-events: none; }
+.tag { font: 600 11px/1 var(--font-mono); padding: 3px 5px; border-radius: 4px; background: color-mix(in srgb, var(--panel) 90%, transparent); color: var(--ink); border: 1px solid var(--rule); white-space: nowrap; }
+.tag.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.ov { position: absolute; z-index: 2; }
+.ov-top { top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none; }
+.ov-top > * { pointer-events: auto; }
+.ov-bottom { left: 12px; right: 12px; bottom: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; pointer-events: none; }
+.ov-bottom > * { pointer-events: auto; }
+.loading { inset: 0; margin: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); font: 500 13px/1.4 var(--font-mono); pointer-events: none; }
+
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--rule); border-radius: var(--r); overflow: hidden; background: var(--panel); }
+.seg button { font: 500 12.5px/1 var(--font-body); padding: 7px 11px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.chip { font: 500 12.5px/1 var(--font-body); padding: 7px 10px; border-radius: 999px; border: 1px solid var(--rule); background: var(--panel); color: var(--muted); cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid currentColor; }
+.chip[aria-pressed="true"] { color: var(--ink); border-color: var(--muted); }
+.chip[aria-pressed="true"]::before { background: var(--accent); border-color: var(--accent); }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip.sw::before { width: 12px; height: 12px; background: var(--sw); border: 1px solid var(--rule); }
+.chip.sw[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.chip.sw[aria-pressed="true"]::before { background: var(--sw); border-color: var(--ink); }
+
+.sliders { width: 100%; display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; padding: 10px 14px; border-radius: 8px; background: color-mix(in srgb, var(--panel) 93%, transparent); border: 1px solid var(--rule); }
+.slider { display: flex; align-items: center; gap: 10px; flex: 1 1 220px; min-width: 0; }
+.slider label { font: 600 11.5px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); min-width: 7.5ch; }
+.slider input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.slider output { font: 500 13px/1 var(--font-mono); min-width: 4.5ch; text-align: right; font-variant-numeric: tabular-nums; }
+
+.sel { width: min(340px, 100%); background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; display: grid; gap: 8px; }
+.sel-head { display: flex; align-items: center; gap: 8px; }
+.sel-id { font: 600 12px/1 var(--font-mono); padding: 4px 6px; border-radius: 4px; background: var(--accent); color: var(--accent-ink); }
+.sel-name { font: 700 17px/1 var(--font-display); letter-spacing: .02em; flex: 1; min-width: 0; }
+.x { border: 0; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+.x:hover { color: var(--ink); }
+.sel dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13px; }
+.sel dt { color: var(--muted); }
+.sel dd { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.sel-note { margin: 0; font-size: 13px; color: var(--muted); }
+.sel-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mini { font: 500 12.5px/1 var(--font-body); padding: 6px 9px; border-radius: var(--r); border: 1px solid var(--rule); background: var(--bg); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.mini:hover { border-color: var(--muted); }
+.mini input[type="color"] { width: 18px; height: 18px; padding: 0; border: 1px solid var(--rule); border-radius: 3px; background: none; cursor: pointer; }
+
+/* Rail */
+.rail { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 4px; }
+.block { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 14px 16px; }
+.block h2 { font: 700 15.5px/1 var(--font-display); letter-spacing: .07em; text-transform: uppercase; margin: 0 0 12px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.block h2 small { font: 400 11.5px/1 var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--muted); }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field > span:first-child { font-size: 13px; font-weight: 600; }
+.inp { display: flex; align-items: center; border: 1px solid var(--rule); border-radius: var(--r); background: var(--bg); }
+.inp:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.inp input { flex: 1; min-width: 0; border: 0; background: transparent; font: 500 14px/1 var(--font-mono); padding: 8px; font-variant-numeric: tabular-nums; }
+.inp input:focus-visible { outline: none; }
+.inp em { font: 400 11.5px/1 var(--font-mono); color: var(--muted); font-style: normal; padding-right: 8px; }
+.field small { font-size: 12px; color: var(--muted); line-height: 1.3; }
+.wide { grid-column: 1 / -1; }
+.row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.row > span { font-size: 13px; font-weight: 600; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.stack { display: grid; gap: 10px; }
+
+.summary { margin: 0 0 12px; font-size: 13.5px; font-weight: 600; }
+.summary.is-ok { color: var(--ok); }
+.summary.is-warn { color: var(--warn); }
+.summary.is-error { color: var(--bad); }
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.chk { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: start; }
+.pill { font: 600 10.5px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; padding: 4px 0; border-radius: 4px; width: 8.6ch; text-align: center; margin-top: 1px; }
+.is-ok .pill { background: var(--ok-soft); color: var(--ok); }
+.is-warn .pill { background: var(--warn-soft); color: var(--warn); }
+.is-error .pill { background: var(--bad-soft); color: var(--bad); }
+.chk-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; }
+.chk b { font-weight: 600; font-size: 13.5px; }
+.chk .val { font: 500 12.5px/1.5 var(--font-mono); font-variant-numeric: tabular-nums; }
+.chk small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; }
+
+.table-wrap { overflow-x: auto; }
+.cut { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cut th { font: 600 10.5px/1 var(--font-mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); text-align: left; padding: 0 12px 7px 0; border-bottom: 1px solid var(--rule); }
+.cut td { padding: 7px 12px 7px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.cut .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.cut th:last-child, .cut td:last-child { padding-right: 0; }
+.ids { display: flex; flex-wrap: wrap; gap: 4px; }
+.idb { font: 600 11.5px/1 var(--font-mono); padding: 4px 6px; border-radius: 4px; border: 1px solid var(--rule); background: var(--bg); color: var(--ink); cursor: pointer; }
+.idb:hover { border-color: var(--muted); }
+.idb.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.idb.off { text-decoration: line-through; color: var(--muted); }
+.foot { margin: 10px 0 0; font: 400 12px/1.4 var(--font-mono); color: var(--muted); }
+
+.files { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 7px; font-size: 13px; }
+.files li { display: grid; grid-template-columns: 6.5ch minmax(0, 1fr); gap: 8px; }
+.files code { font: 600 11.5px/1.6 var(--font-mono); color: var(--accent); }
+.note { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+.status { margin: 10px 0 0; font-size: 13px; min-height: 1.2em; }
+
+@media (max-width: 860px) {
+  html, body { height: auto; }
+  .app { height: auto; }
+  .work { grid-template-columns: minmax(0, 1fr); }
+  .stage { height: 64svh; min-height: 380px; }
+  .rail { overflow: visible; }
+  .actions { margin-left: 0; }
+  h1 { font-size: 27px; }
+}
+@media (max-width: 420px) {
+  .fields { grid-template-columns: minmax(0, 1fr); }
+  .slider { flex-basis: 100%; }
+}
+</style>
+
+<div class="app">
+  <header class="bar">
+    <div>
+      <p class="eyebrow">Sound box · full-scale assembly</p>
+      <h1>Hinged Sound Box</h1>
+    </div>
+    <p class="spec" id="spec">5 mm stock · 12 parts · 260 × 206 × 100 mm closed</p>
+    <div class="actions">
+      <button class="btn ghost" id="btn-reset" type="button">Reset to drawing</button>
+      <button class="btn" id="btn-png" type="button">Save PNG</button>
+      <button class="btn primary" id="btn-zip" type="button">Export model (.zip)</button>
+    </div>
+  </header>
+
+  <main class="work">
+    <section class="stage" id="stage" aria-label="3D model. Drag to orbit, scroll or pinch to zoom, click a part to inspect it.">
+      <canvas id="view"></canvas>
+      <p class="ov loading" id="loading">Loading the 3D view…</p>
+      <div class="ov ov-top">
+        <div class="seg" role="group" aria-label="Camera">
+          <button type="button" data-view="iso" aria-pressed="true">3D</button>
+          <button type="button" data-view="front" aria-pressed="false">Front</button>
+          <button type="button" data-view="top" aria-pressed="false">Top</button>
+          <button type="button" data-view="side" aria-pressed="false">Section side</button>
+        </div>
+        <div class="chips" role="group" aria-label="Show in view">
+          <button type="button" class="chip" id="t-front" aria-pressed="false">Front wall</button>
+          <button type="button" class="chip" id="t-lid" aria-pressed="true">Lid</button>
+          <button type="button" class="chip" id="t-labels" aria-pressed="true">Labels</button>
+          <button type="button" class="chip" id="t-outlines" aria-pressed="true">Outlines</button>
+        </div>
+      </div>
+      <div class="ov ov-bottom">
+        <div class="sel" id="sel" hidden>
+          <div class="sel-head">
+            <span class="sel-id" id="sel-id">C1</span>
+            <span class="sel-name" id="sel-name">Back wall</span>
+            <button type="button" class="x" id="sel-close" aria-label="Clear selection">×</button>
+          </div>
+          <dl>
+            <dt>Cut size</dt><dd id="sel-cut"></dd>
+            <dt>Corner at</dt><dd id="sel-pos"></dd>
+          </dl>
+          <p class="sel-note" id="sel-note"></p>
+          <div class="sel-actions">
+            <label class="mini" for="sel-color"><input type="color" id="sel-color" value="#f1f0ea">Part colour</label>
+            <button type="button" class="mini" id="sel-reset">Reset colour</button>
+            <button type="button" class="mini" id="sel-hide">Hide part</button>
+          </div>
+        </div>
+        <div class="sliders">
+          <div class="slider">
+            <label for="lid">Lid</label>
+            <input id="lid" type="range" min="0" max="180" step="1" value="95">
+            <output id="lid-out" for="lid">95°</output>
+          </div>
+          <div class="slider">
+            <label for="explode">Explode</label>
+            <input id="explode" type="range" min="0" max="100" step="1" value="0">
+            <output id="explode-out" for="explode">0%</output>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="rail" aria-label="Model settings">
+      <section class="block" aria-labelledby="h-checks">
+        <h2 id="h-checks">Fit checks <small id="checks-count"></small></h2>
+        <p class="summary" id="check-sum" aria-live="polite"></p>
+        <ul class="checks" id="checks"></ul>
+      </section>
+
+      <section class="block" aria-labelledby="h-body">
+        <h2 id="h-body">Body <small>outer sizes</small></h2>
+        <div class="fields">
+          <label class="field"><span>Length</span><span class="inp"><input id="p-length" data-param="length" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Left to right</small></label>
+          <label class="field"><span>Depth</span><span class="inp"><input id="p-depth" data-param="depth" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Body, back to front</small></label>
+          <label class="field"><span>Height</span><span class="inp"><input id="p-height" data-param="height" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Closed, base to lid top</small></label>
+          <label class="field"><span>Board</span><span class="inp"><input id="p-thickness" data-param="thickness" type="number" inputmode="decimal" step="0.5"><em>mm</em></span><small>Stock thickness</small></label>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="h-baffles">
+        <h2 id="h-baffles">Baffles + outlet <small>from inside faces</small></h2>
+        <div class="fields">
+          <label class="field"><span>Baffles</span><span class="inp"><input id="p-baffleCount" data-param="baffleCount" type="number" inputmode="numeric" step="1"><em>pcs</em></span><small>Alternate back and front</small></label>
+          <label class="field"><span>First baffle</span><span class="inp"><input id="p-baffleOffset" data-param="baffleOffset" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Source bay depth</small></label>
+          <label class="field"><span>Pitch</span><span class="inp"><input id="p-bafflePitch" data-param="bafflePitch" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Left face to left face</small></label>
+          <label class="field"><span>Free-end gap</span><span class="inp"><input id="p-baffleGap" data-param="baffleGap" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Air path at each tip</small></label>
+          <label class="field"><span>Outlet</span><span class="inp"><input id="p-outletWidth" data-param="outletWidth" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Opening beside front wall</small></label>
+          <div class="field">
+            <span id="first-label">Baffle 1 on</span>
+            <div class="seg" role="group" aria-labelledby="first-label">
+              <button type="button" data-first="back" aria-pressed="true">Back</button>
+              <button type="button" data-first="front" aria-pressed="false">Front</button>
+            </div>
+            <small>Wall it attaches to</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="h-lid">
+        <h2 id="h-lid">Lid + flap <small>tape hinge at back</small></h2>
+        <div class="fields">
+          <label class="field"><span>Flap drop</span><span class="inp"><input id="p-flapHeight" data-param="flapHeight" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Hangs under the lid front</small></label>
+          <label class="field"><span>Clearance</span><span class="inp"><input id="p-flapClearance" data-param="flapClearance" type="number" inputmode="decimal" step="0.5"><em>mm</em></span><small>Flap to front wall</small></label>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="h-finish">
+        <h2 id="h-finish">Finish</h2>
+        <div class="stack">
+          <div class="swatches" role="group" aria-label="Board material" id="materials">
+            <button type="button" class="chip sw" style="--sw: #f1f0ea" data-material="foam" aria-pressed="true">Foamboard</button>
+            <button type="button" class="chip sw" style="--sw: #8f938d" data-material="grey" aria-pressed="false">Greyboard</button>
+            <button type="button" class="chip sw" style="--sw: #c39b6d" data-material="kraft" aria-pressed="false">Kraft card</button>
+            <button type="button" class="chip sw" style="--sw: #dcc39c" data-material="birch" aria-pressed="false">Birch ply</button>
+            <button type="button" class="chip sw" style="--sw: #d3e8ec" data-material="acrylic" aria-pressed="false">Clear acrylic</button>
+          </div>
+          <label class="check" for="by-group"><input type="checkbox" id="by-group">Colour by part group (shell, baffles, lid)</label>
+          <label class="check" for="show-mat"><input type="checkbox" id="show-mat" checked>Cutting mat with 10 mm grid</label>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="h-cut">
+        <h2 id="h-cut">Cut list <small>click a part to inspect</small></h2>
+        <div class="table-wrap">
+          <table class="cut">
+            <thead><tr><th>Part</th><th>Piece</th><th class="num">Size</th><th class="num">Qty</th></tr></thead>
+            <tbody id="cut"></tbody>
+          </table>
+        </div>
+        <p class="foot" id="cut-foot"></p>
+      </section>
+
+      <section class="block" aria-labelledby="h-export">
+        <h2 id="h-export">Export</h2>
+        <p class="note">The zip holds the assembly at the current lid angle, with every part included even if it is hidden in the view.</p>
+        <ul class="files">
+          <li><code>.glb</code><span>Blender, Rhino 8, KeyShot. Named parts; rotate the “Lid hinge” node on X to open.</span></li>
+          <li><code>.obj</code><span>Any 3D app, one object per part with colours. Millimetres, Y up.</span></li>
+          <li><code>.stl</code><span>Slicers and mesh tools. Millimetres, Z up.</span></li>
+          <li><code>.scad</code><span>OpenSCAD source with these sizes as editable parameters.</span></li>
+          <li><code>.json</code><span>Every dimension, fit check and part position.</span></li>
+        </ul>
+        <button class="btn primary" id="btn-zip-2" type="button">Export model (.zip)</button>
+        <p class="status" id="export-status" role="status" aria-live="polite"></p>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<script>
+// ---- SOUNDBOX CORE START · geometry, checks and exporters. Shared with tools/export-models.mjs; keep it dependency-free. ----
+(function (root) {
+  'use strict';
+
+  // Drawing values from "Hinged sound box - full-scale assembly" (8 October 2026). Millimetres.
+  const DEFAULTS = Object.freeze({
+    length: 260, depth: 200, height: 100, thickness: 5,
+    flapHeight: 30, flapClearance: 1, outletWidth: 40,
+    baffleCount: 5, baffleOffset: 30, bafflePitch: 40, baffleGap: 40, firstBaffle: 'back',
+    lidAngle: 95,
+  });
+
+  const LIMITS = Object.freeze({
+    length: [60, 1500], depth: [40, 1000], height: [20, 600], thickness: [0.5, 30],
+    flapHeight: [0, 300], flapClearance: [0, 20], outletWidth: [1, 1000],
+    baffleCount: [0, 20], baffleOffset: [0, 1500], bafflePitch: [1, 500], baffleGap: [1, 1000],
+    lidAngle: [0, 180],
+  });
+
+  const MATERIALS = Object.freeze({
+    foam: { label: 'Foamboard', color: '#f1f0ea', roughness: 0.92, opacity: 1 },
+    grey: { label: 'Greyboard', color: '#8f938d', roughness: 0.95, opacity: 1 },
+    kraft: { label: 'Kraft card', color: '#c39b6d', roughness: 0.9, opacity: 1 },
+    birch: { label: 'Birch ply', color: '#dcc39c', roughness: 0.7, opacity: 1 },
+    acrylic: { label: 'Clear acrylic', color: '#d3e8ec', roughness: 0.12, opacity: 0.4 },
+  });
+
+  const GROUPS = Object.freeze({
+    shell: { label: 'Shell', tint: '#e6e1d5' },
+    baffle: { label: 'Baffles', tint: '#93c4ae' },
+    lid: { label: 'Lid', tint: '#a7bdd8' },
+  });
+
+  const KINDS = Object.freeze({
+    A: 'Base', B: 'Lid', C: 'Back / front walls', D: 'Closed end',
+    E: 'Outlet end panel', F: 'Internal baffles', G: 'Front lid flap',
+  });
+  const ORDER = 'ABCDEFG';
+
+  const fmt = v => { const r = Math.round(v * 100) / 100; return Object.is(r, -0) ? '0' : String(r); };
+  const dims = (...a) => a.map(fmt).join(' × ');
+  const ascii = s => String(s).replace(/×/g, 'x').replace(/−/g, '-').replace(/°/g, ' deg');
+
+  function normalize(input) {
+    const p = Object.assign({}, DEFAULTS, input || {});
+    for (const k of Object.keys(LIMITS)) {
+      let v = Number(p[k]);
+      if (!Number.isFinite(v)) v = DEFAULTS[k];
+      p[k] = Math.round(Math.min(LIMITS[k][1], Math.max(LIMITS[k][0], v)) * 100) / 100;
+    }
+    p.baffleCount = Math.round(p.baffleCount);
+    p.firstBaffle = p.firstBaffle === 'front' ? 'front' : 'back';
+    return p;
+  }
+
+  // CAD frame: X = length (left to right), Y = depth (front to back), Z = up.
+  // Origin = outer front-left-bottom corner of base A. Hinged parts are stored closed.
+  function build(input) {
+    const p = normalize(input);
+    const L = p.length, W = p.depth, H = p.height, t = p.thickness, c = p.flapClearance;
+    const innerL = L - 2 * t, innerW = W - 2 * t, wallH = H - 2 * t;
+    const outletPanel = innerW - p.outletWidth;
+    const baffleLen = innerW - p.baffleGap;
+    const wallsOk = wallH > 0 && innerL > 0 && innerW > 0;
+    const parts = [];
+    const add = (id, kind, name, group, min, max, extra) => {
+      const size = [0, 1, 2].map(i => max[i] - min[i]);
+      const faces = size.slice().sort((a, b) => b - a);
+      parts.push(Object.assign({ id, kind, name, group, min, max, size, cut: [faces[0], faces[1]], hinged: false }, extra || {}));
+    };
+
+    add('A', 'A', 'Base', 'shell', [0, 0, 0], [L, W, t]);
+    add('B', 'B', 'Lid', 'lid', [0, -(t + c), H - t], [L, W, H], { hinged: true });
+    if (wallsOk) {
+      add('C1', 'C', 'Back wall', 'shell', [0, W - t, t], [L, W, H - t]);
+      add('C2', 'C', 'Front wall', 'shell', [0, 0, t], [L, t, H - t]);
+      add('D', 'D', 'Closed end', 'shell', [0, t, t], [t, W - t, H - t]);
+      if (outletPanel > 0) add('E', 'E', 'Outlet end panel', 'shell', [L - t, W - t - outletPanel, t], [L, W - t, H - t]);
+      if (baffleLen > 0) {
+        for (let i = 0; i < p.baffleCount; i++) {
+          const x0 = t + p.baffleOffset + i * p.bafflePitch;
+          const back = (i % 2 === 0) === (p.firstBaffle === 'back');
+          const y0 = back ? W - t - baffleLen : t;
+          add('F' + (i + 1), 'F', 'Baffle ' + (i + 1), 'baffle', [x0, y0, t], [x0 + t, y0 + baffleLen, H - t],
+            { side: back ? 'back' : 'front', leftFace: p.baffleOffset + i * p.bafflePitch });
+        }
+      }
+    }
+    if (p.flapHeight > 0) add('G', 'G', 'Front lid flap', 'lid', [0, -(t + c), H - t - p.flapHeight], [L, -c, H - t], { hinged: true });
+    parts.sort((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind) || a.id.localeCompare(b.id, 'en', { numeric: true }));
+
+    const checks = [];
+    const chk = (level, label, value, note) => checks.push({ level, label, value, note });
+    if (!wallsOk) chk('error', 'Walls', 'none', 'Height, length and depth must each be more than two board thicknesses.');
+    else chk('ok', 'Clear interior', dims(innerL, innerW, wallH), `${fmt(W)} − ${fmt(t)} − ${fmt(t)} = ${fmt(innerW)} mm inside width`);
+    chk('ok', 'Closed envelope', dims(L, W + t + c, H), `Lid projects ${fmt(t + c)} mm past the body: ${fmt(t)} flap + ${fmt(c)} clearance`);
+    if (wallsOk) {
+      if (outletPanel > 0) chk('ok', 'Outlet', dims(p.outletWidth, wallH), `Panel E is ${fmt(outletPanel)} mm and touches the back wall`);
+      else chk('error', 'Outlet', `${fmt(p.outletWidth)} mm`, 'The outlet is as wide as the interior, so panel E disappears.');
+    }
+    const nB = parts.filter(q => q.kind === 'F').length;
+    if (wallsOk && p.baffleCount > 0) {
+      if (baffleLen <= 0) chk('error', 'Free-end gap', `${fmt(p.baffleGap)} mm`, 'The gap is as wide as the interior, so the baffles disappear.');
+      else chk('ok', 'Free-end gap', `${fmt(p.baffleGap)} mm`, `Baffles are ${fmt(baffleLen)} mm long`);
+      if (p.baffleCount > 1) {
+        const clear = p.bafflePitch - t;
+        if (clear > 0) chk('ok', 'Baffle spacing', `${fmt(clear)} mm clear`, `${fmt(p.bafflePitch)} mm pitch − ${fmt(t)} mm board`);
+        else chk('error', 'Baffle spacing', `${fmt(clear)} mm clear`, 'The pitch is not larger than the board, so the baffles overlap.');
+      }
+      const endClear = innerL - (p.baffleOffset + (p.baffleCount - 1) * p.bafflePitch + t);
+      if (endClear > 0) chk('ok', `Past baffle ${p.baffleCount}`, `${fmt(endClear)} mm clear`, 'To the inside face of the outlet end');
+      else chk('error', `Past baffle ${p.baffleCount}`, `${fmt(endClear)} mm`, 'The last baffle runs into the outlet end wall.');
+      chk('warn', 'Source bay', `${fmt(p.baffleOffset)} mm deep`, 'Fit is not confirmed. Measure your cassette player before cutting.');
+    }
+    if (p.flapHeight > 0) {
+      if (p.flapHeight <= H - t) chk(c >= 0.5 ? 'ok' : 'warn', 'Front flap', `${fmt(c)} mm gap`,
+        c >= 0.5 ? 'Not scaled with the box. Glue, tape and coating can reduce it.' : 'Tape and coating can close a gap this small.');
+      else chk('error', 'Front flap', `${fmt(p.flapHeight)} mm drop`, 'The flap hangs below the base.');
+    }
+
+    const area = parts.reduce((s, q) => s + q.cut[0] * q.cut[1], 0);
+    return {
+      params: p, parts, checks,
+      pivot: [0, W, H - t],
+      derived: { innerL, innerW, wallH, outletPanel, baffleLen, baffles: nB, envelope: [L, W + t + c, H], area, count: parts.length },
+    };
+  }
+
+  function looks(model, opts) {
+    const o = opts || {};
+    const m = MATERIALS[o.material] || MATERIALS.foam;
+    const out = {};
+    for (const part of model.parts) {
+      const g = GROUPS[part.group];
+      const custom = o.overrides && o.overrides[part.id];
+      out[part.id] = {
+        name: custom ? `Part ${part.id}` : `${g.label} - ${m.label}`,
+        color: custom || (o.byGroup ? g.tint : m.color),
+        roughness: m.roughness, opacity: m.opacity, custom: !!custom,
+      };
+    }
+    return out;
+  }
+
+  // Six outward-facing quads (counter-clockwise seen from outside) for an axis-aligned box.
+  function boxQuads(min, max) {
+    const quads = [];
+    for (let a = 0; a < 3; a++) {
+      for (const s of [-1, 1]) {
+        const u = (a + 1) % 3, v = (a + 2) % 3;
+        const uv = [[0, 0], [1, 0], [1, 1], [0, 1]];
+        if (s < 0) uv.reverse();
+        const n = [0, 0, 0]; n[a] = s;
+        quads.push({ n, v: uv.map(([i, j]) => { const q = [0, 0, 0]; q[a] = s > 0 ? max[a] : min[a]; q[u] = i ? max[u] : min[u]; q[v] = j ? max[v] : min[v]; return q; }) });
+      }
+    }
+    return quads;
+  }
+
+  // Quads in the CAD frame with the lid posed: rotate about X through the hinge pivot by -lidAngle.
+  function partQuads(model, part) {
+    const quads = boxQuads(part.min, part.max);
+    const deg = model.params.lidAngle;
+    if (!part.hinged || !deg) return quads;
+    const a = deg * Math.PI / 180, cs = Math.cos(a), sn = Math.sin(a);
+    const py = model.pivot[1], pz = model.pivot[2];
+    const rot = (q, ox, oz) => { const y = q[1] - ox, z = q[2] - oz; return [q[0], ox + y * cs + z * sn, oz - y * sn + z * cs]; };
+    return quads.map(q => ({ n: rot(q.n, 0, 0), v: q.v.map(x => rot(x, py, pz)) }));
+  }
+
+  const hexRGB = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+  const toLinear = c => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const num = v => { const r = Math.round(v * 10000) / 10000; return Object.is(r, -0) ? '0' : String(r); };
+  const slug = s => s.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const yUp = q => [q[0], q[2], -q[1]];
+  const today = () => new Date().toISOString().slice(0, 10);
+
+  function concat(arrs) {
+    const out = new Uint8Array(arrs.reduce((s, a) => s + a.length, 0));
+    let o = 0;
+    for (const a of arrs) { out.set(a, o); o += a.length; }
+    return out;
+  }
+
+  function toOBJ(model, lk, base) {
+    const name = base || 'hinged_sound_box';
+    const lines = [
+      '# Hinged sound box - ' + ascii(summary(model)),
+      '# Units: millimetres. Y up; the front of the box faces +Z. Origin: outer front-left-bottom corner of base A.',
+      `mtllib ${name}.mtl`,
+    ];
+    let vi = 1, ni = 1;
+    for (const part of model.parts) {
+      const quads = partQuads(model, part).map(q => ({ n: yUp(q.n), v: q.v.map(yUp) }));
+      lines.push(`o ${part.id}_${slug(part.name)}`, `usemtl ${slug(lk[part.id].name)}`);
+      for (const q of quads) for (const v of q.v) lines.push(`v ${num(v[0])} ${num(v[1])} ${num(v[2])}`);
+      for (const q of quads) lines.push(`vn ${num(q.n[0])} ${num(q.n[1])} ${num(q.n[2])}`);
+      quads.forEach((q, k) => { const b = vi + k * 4, n = ni + k; lines.push(`f ${b}//${n} ${b + 1}//${n} ${b + 2}//${n} ${b + 3}//${n}`); });
+      vi += 24; ni += 6;
+    }
+    const mtl = ['# Hinged sound box materials'];
+    const seen = new Set();
+    for (const part of model.parts) {
+      const l = lk[part.id], id = slug(l.name);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const [r, g, b] = hexRGB(l.color);
+      mtl.push('', `newmtl ${id}`, `Kd ${num(r)} ${num(g)} ${num(b)}`, 'Ka 0 0 0', 'Ks 0.04 0.04 0.04',
+        `Ns ${num((1 - l.roughness) * 200 + 4)}`, `d ${num(l.opacity)}`, 'illum 2');
+    }
+    return { obj: lines.join('\n') + '\n', mtl: mtl.join('\n') + '\n' };
+  }
+
+  function toSTL(model) {
+    const quads = model.parts.flatMap(part => partQuads(model, part));
+    const tris = quads.length * 2;
+    const dv = new DataView(new ArrayBuffer(84 + tris * 50));
+    const head = ascii(`Hinged sound box | mm | Z up | lid ${fmt(model.params.lidAngle)} deg`);
+    for (let i = 0; i < 80; i++) dv.setUint8(i, i < head.length ? head.charCodeAt(i) & 0x7f : 0x20);
+    dv.setUint32(80, tris, true);
+    let o = 84;
+    for (const q of quads) {
+      for (const tri of [[0, 1, 2], [0, 2, 3]]) {
+        for (const x of q.n) { dv.setFloat32(o, x, true); o += 4; }
+        for (const k of tri) for (const x of q.v[k]) { dv.setFloat32(o, x, true); o += 4; }
+        dv.setUint16(o, 0, true); o += 2;
+      }
+    }
+    return new Uint8Array(dv.buffer);
+  }
+
+  // glTF 2.0 binary. Metres, Y up. Groups: Body, Baffles, Lid hinge (pivot node; rotate on X to open).
+  function toGLB(model, lk) {
+    const M = 0.001;
+    const g = q => [q[0] * M, q[2] * M, -q[1] * M];
+    const p = model.params;
+    const json = {
+      asset: { version: '2.0', generator: 'Hinged Sound Box editor' },
+      scene: 0,
+      scenes: [{ name: 'Hinged sound box', nodes: [0] }],
+      nodes: [{ name: 'Hinged sound box', children: [], extras: { units: 'metres', parameters_mm: p } }],
+      meshes: [], materials: [], accessors: [], bufferViews: [], buffers: [],
+    };
+    const bins = [];
+    let size = 0;
+    const view = (arr, target) => {
+      const bytes = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+      json.bufferViews.push({ buffer: 0, byteOffset: size, byteLength: bytes.length, target });
+      bins.push(bytes); size += bytes.length;
+      const pad = (4 - (size % 4)) % 4;
+      if (pad) { bins.push(new Uint8Array(pad)); size += pad; }
+      return json.bufferViews.length - 1;
+    };
+    const accessor = (bufferView, componentType, count, type, min, max) => {
+      json.accessors.push(Object.assign({ bufferView, componentType, count, type }, min ? { min, max } : {}));
+      return json.accessors.length - 1;
+    };
+    const mats = new Map();
+    const material = l => {
+      if (mats.has(l.name)) return mats.get(l.name);
+      const [r, gg, b] = hexRGB(l.color).map(toLinear);
+      json.materials.push({
+        name: l.name,
+        pbrMetallicRoughness: { baseColorFactor: [r, gg, b, l.opacity], metallicFactor: 0, roughnessFactor: l.roughness },
+        alphaMode: l.opacity < 1 ? 'BLEND' : 'OPAQUE',
+      });
+      mats.set(l.name, json.materials.length - 1);
+      return json.materials.length - 1;
+    };
+    const group = (name, extra) => {
+      const node = Object.assign({ name, children: [] }, extra || {});
+      json.nodes.push(node);
+      json.nodes[0].children.push(json.nodes.length - 1);
+      return node;
+    };
+    const body = group('Body');
+    const baffles = model.parts.some(q => q.group === 'baffle') ? group('Baffles') : null;
+    const half = -p.lidAngle * Math.PI / 360;
+    const hinge = group('Lid hinge', {
+      translation: g(model.pivot),
+      rotation: [Math.sin(half), 0, 0, Math.cos(half)],
+      extras: { open_angle_deg: p.lidAngle, note: 'Tape hinge at the outside rear corner. Rotation about X: 0 is closed, negative opens.' },
+    });
+
+    for (const part of model.parts) {
+      const center = part.min.map((v, i) => (v + part.max[i]) / 2);
+      const quads = boxQuads(part.min.map((v, i) => v - center[i]), part.max.map((v, i) => v - center[i]));
+      const pos = new Float32Array(72), nor = new Float32Array(72), idx = new Uint16Array(36);
+      quads.forEach((q, k) => {
+        q.v.forEach((v, j) => { pos.set(g(v), (k * 4 + j) * 3); nor.set([q.n[0], q.n[2], -q.n[1]], (k * 4 + j) * 3); });
+        idx.set([k * 4, k * 4 + 1, k * 4 + 2, k * 4, k * 4 + 2, k * 4 + 3], k * 6);
+      });
+      const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+      for (let i = 0; i < 72; i++) { lo[i % 3] = Math.min(lo[i % 3], pos[i]); hi[i % 3] = Math.max(hi[i % 3], pos[i]); }
+      const pa = accessor(view(pos, 34962), 5126, 24, 'VEC3', lo, hi);
+      const na = accessor(view(nor, 34962), 5126, 24, 'VEC3');
+      const ia = accessor(view(idx, 34963), 5123, 36, 'SCALAR');
+      const label = `${part.id} ${part.name}`;
+      json.meshes.push({ name: label, primitives: [{ attributes: { POSITION: pa, NORMAL: na }, indices: ia, material: material(lk[part.id]) }] });
+      json.nodes.push({
+        name: label, mesh: json.meshes.length - 1,
+        translation: g(part.hinged ? center.map((v, i) => v - model.pivot[i]) : center),
+        extras: { part: part.id, cut_size_mm: `${fmt(part.cut[0])} x ${fmt(part.cut[1])}`, thickness_mm: p.thickness },
+      });
+      (part.hinged ? hinge : part.group === 'baffle' ? baffles : body).children.push(json.nodes.length - 1);
+    }
+
+    const bin = concat(bins);
+    json.buffers.push({ byteLength: bin.length });
+    let js = new TextEncoder().encode(JSON.stringify(json));
+    const jpad = (4 - (js.length % 4)) % 4;
+    if (jpad) js = concat([js, new Uint8Array(jpad).fill(0x20)]);
+    const head = new DataView(new ArrayBuffer(20));
+    head.setUint32(0, 0x46546c67, true);
+    head.setUint32(4, 2, true);
+    head.setUint32(8, 12 + 8 + js.length + 8 + bin.length, true);
+    head.setUint32(12, js.length, true);
+    head.setUint32(16, 0x4e4f534a, true);
+    const binHead = new DataView(new ArrayBuffer(8));
+    binHead.setUint32(0, bin.length, true);
+    binHead.setUint32(4, 0x004e4942, true);
+    return concat([new Uint8Array(head.buffer), js, new Uint8Array(binHead.buffer), bin]);
+  }
+
+  function toSCAD(model, lk) {
+    const p = model.params;
+    const groupColor = grp => {
+      const q = model.parts.find(x => x.group === grp && !lk[x.id].custom);
+      return (q ? lk[q.id] : lk.A).color;
+    };
+    const col = (id, v) => (lk[id] && lk[id].custom ? `"${lk[id].color}"` : v);
+    const baffles = model.parts.filter(q => q.kind === 'F');
+    const baffleColors = baffles.some(q => lk[q.id].custom) ? '[' + baffles.map(q => `"${lk[q.id].color}"`).join(', ') + ']' : '[]';
+    return `// Hinged sound box - parametric OpenSCAD model
+// Exported from the Hinged Sound Box editor on ${today()}.
+// Units: millimetres. Z is up. X runs left to right, Y runs front to back.
+// Origin: outer front-left-bottom corner of base A.
+// Edit the values below, or use Window > Customizer in OpenSCAD.
+
+/* [Body] */
+// Outer length, left to right
+length = ${fmt(p.length)};
+// Outer depth of the body, front to back (the lid adds the flap and clearance)
+depth = ${fmt(p.depth)};
+// Closed height: base + walls + lid
+height = ${fmt(p.height)};
+// Board thickness
+t = ${fmt(p.thickness)};
+
+/* [Lid and flap] */
+// Lid opening angle in degrees; 0 is closed
+lid_angle = ${fmt(p.lidAngle)}; // [0:1:180]
+// Drop of the front flap under the lid
+flap_height = ${fmt(p.flapHeight)};
+// Gap between the flap and the fixed front wall (does not scale with the box)
+flap_clearance = ${fmt(p.flapClearance)};
+
+/* [Outlet and baffles] */
+// Opening beside the front wall at the right-hand end
+outlet_width = ${fmt(p.outletWidth)};
+// Number of internal baffles
+baffle_count = ${p.baffleCount}; // [0:1:20]
+// Left face of baffle 1, measured from the inside face of the left end wall
+baffle_offset = ${fmt(p.baffleOffset)};
+// Distance from one baffle's left face to the next
+baffle_pitch = ${fmt(p.bafflePitch)};
+// Air gap at the free end of each baffle
+baffle_gap = ${fmt(p.baffleGap)};
+// Baffle 1 attaches to the back wall; the rest alternate
+first_baffle_back = ${p.firstBaffle === 'back'};
+
+/* [Display] */
+show_front_wall = true;
+show_lid = true;
+
+/* [Hidden] */
+shell_color = "${groupColor('shell')}";
+baffle_color = "${baffles.length ? groupColor('baffle') : groupColor('shell')}";
+lid_color = "${groupColor('lid')}";
+board_alpha = ${fmt(lk.A.opacity)};
+baffle_colors = ${baffleColors};
+
+inner_l = length - 2 * t;
+inner_w = depth - 2 * t;
+wall_h = height - 2 * t;
+outlet_panel = inner_w - outlet_width;
+baffle_len = inner_w - baffle_gap;
+end_clear = inner_l - (baffle_offset + (baffle_count - 1) * baffle_pitch + t);
+
+echo(str("Clear interior: ", inner_l, " x ", inner_w, " x ", wall_h, " mm"));
+echo(str("Closed envelope: ", length, " x ", depth + t + flap_clearance, " x ", height, " mm"));
+if (baffle_count > 0) echo(str("Clear past the last baffle: ", end_clear, " mm"));
+if (wall_h <= 0) echo("WARNING: height must be more than two board thicknesses");
+if (outlet_panel <= 0) echo("WARNING: outlet_width is as wide as the interior, so panel E is left out");
+if (baffle_count > 0 && baffle_len <= 0) echo("WARNING: baffle_gap is as wide as the interior, so the baffles are left out");
+if (baffle_count > 1 && baffle_pitch <= t) echo("WARNING: baffle_pitch is not larger than t, so the baffles overlap");
+if (baffle_count > 0 && end_clear <= 0) echo("WARNING: the last baffle runs into the outlet end wall");
+
+module board(c, pos, size) color(c, board_alpha) translate(pos) cube(size);
+
+// A  Base: every upright panel sits on it
+board(${col('A', 'shell_color')}, [0, 0, 0], [length, depth, t]);
+
+if (wall_h > 0) {
+  // C1  Back wall, outside face flush with the base edge
+  board(${col('C1', 'shell_color')}, [0, depth - t, t], [length, t, wall_h]);
+  // C2  Front wall
+  if (show_front_wall) board(${col('C2', 'shell_color')}, [0, 0, t], [length, t, wall_h]);
+  // D  Closed end, between the long walls at the left
+  board(${col('D', 'shell_color')}, [0, t, t], [t, inner_w, wall_h]);
+  // E  Outlet end panel: touches the back wall and leaves the outlet beside the front wall
+  if (outlet_panel > 0) board(${col('E', 'shell_color')}, [length - t, depth - t - outlet_panel, t], [t, outlet_panel, wall_h]);
+  // F  Internal baffles, alternating back / front
+  if (baffle_count > 0 && baffle_len > 0)
+    for (i = [0 : baffle_count - 1]) {
+      back = (i % 2 == 0) == first_baffle_back;
+      board(i < len(baffle_colors) ? baffle_colors[i] : baffle_color,
+            [t + baffle_offset + i * baffle_pitch, back ? depth - t - baffle_len : t, t],
+            [t, baffle_len, wall_h]);
+    }
+}
+
+// B  Lid and G front flap, hinged with tape on the outside top edge of the back wall
+if (show_lid)
+  translate([0, depth, height - t]) rotate([-lid_angle, 0, 0]) translate([0, -depth, -(height - t)]) {
+    board(${col('B', 'lid_color')}, [0, -(t + flap_clearance), height - t], [length, depth + t + flap_clearance, t]);
+    if (flap_height > 0)
+      board(${col('G', 'lid_color')}, [0, -(t + flap_clearance), height - t - flap_height], [length, t, flap_height]);
+  }
+`;
+  }
+
+  function toJSON(model, lk) {
+    return JSON.stringify({
+      name: 'Hinged sound box',
+      source: 'Hinged sound box - full-scale assembly and cutting templates (8 October 2026)',
+      exported: today(),
+      units: 'mm',
+      axes: 'Z up. X = length, left to right. Y = depth, front to back. Origin = outer front-left-bottom corner of base A.',
+      parameters: model.params,
+      derived: model.derived,
+      hinge: {
+        pivot_mm: model.pivot, axis: 'X', open_angle_deg: model.params.lidAngle,
+        note: 'Hinged parts are listed closed. To pose them, rotate about the X axis through pivot_mm by -open_angle_deg.',
+      },
+      checks: model.checks.map(c => ({ level: c.level, label: c.label, value: ascii(c.value), note: ascii(c.note) })),
+      parts: model.parts.map(q => Object.assign({
+        id: q.id, name: q.name, group: q.group, min_mm: q.min, max_mm: q.max, size_mm: q.size,
+        cut_size_mm: `${fmt(q.cut[0])} x ${fmt(q.cut[1])}`, hinged: q.hinged,
+        color: lk[q.id].color, opacity: lk[q.id].opacity, material: lk[q.id].name,
+      }, q.side ? { attached_to: q.side, left_face_from_inside_left_mm: q.leftFace } : {})),
+    }, null, 2) + '\n';
+  }
+
+  function summary(model) {
+    const d = model.derived;
+    return `${dims(...d.envelope)} mm closed, ${fmt(model.params.thickness)} mm stock, ${d.count} parts, lid open ${fmt(model.params.lidAngle)}°`;
+  }
+
+  function readme(model) {
+    const pill = { ok: 'OK      ', warn: 'CHECK   ', error: 'CONFLICT' };
+    return ascii([
+      'Hinged sound box - 3D model',
+      `Exported ${today()} from the Hinged Sound Box editor.`,
+      summary(model),
+      '',
+      'Units: millimetres (the .glb is in metres, the glTF standard).',
+      'Origin: outer front-left-bottom corner of base A.',
+      '',
+      'Files',
+      '  hinged_sound_box.glb   Named parts in three groups: Body, Baffles, Lid hinge.',
+      '                         Rotate the "Lid hinge" node about X to open or close the lid (0 = closed).',
+      '  hinged_sound_box.obj   One object per part with .mtl colours. Y up.',
+      '  hinged_sound_box.stl   The whole assembly as one mesh. Z up.',
+      '  hinged_sound_box.scad  Parametric OpenSCAD source. Edit the values at the top or use the Customizer.',
+      '  parameters.json        Dimensions, fit checks and every part box.',
+      '',
+      'Fit checks',
+      ...model.checks.map(c => `  ${pill[c.level]}  ${c.label}: ${c.value}. ${c.note}`),
+      '',
+      'Sketch-model dimensions, not a tested acoustic design. Dry-fit every part with the actual board;',
+      'the CAD checks closed fit, and the flexible tape hinge still needs a physical test.',
+      '',
+    ].join('\n'));
+  }
+
+  const CRC = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+    return t;
+  })();
+  function crc32(b) { let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+
+  // Stored (uncompressed) zip archive. files: [{ name, data: Uint8Array }]
+  function zip(files, when) {
+    const d = when || new Date();
+    const enc = new TextEncoder();
+    const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+    const date = ((Math.max(1980, d.getFullYear()) - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    const out = [], dir = [];
+    let offset = 0;
+    for (const f of files) {
+      const name = enc.encode(f.name), data = f.data, crc = crc32(data);
+      const lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+      lh.setUint16(10, time, true); lh.setUint16(12, date, true); lh.setUint32(14, crc, true);
+      lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true);
+      out.push(new Uint8Array(lh.buffer), name, data);
+      const cd = new DataView(new ArrayBuffer(46));
+      cd.setUint32(0, 0x02014b50, true); cd.setUint16(4, 20, true); cd.setUint16(6, 20, true); cd.setUint16(8, 0x0800, true);
+      cd.setUint16(12, time, true); cd.setUint16(14, date, true); cd.setUint32(16, crc, true);
+      cd.setUint32(20, data.length, true); cd.setUint32(24, data.length, true); cd.setUint16(28, name.length, true);
+      cd.setUint32(42, offset, true);
+      dir.push(new Uint8Array(cd.buffer), name);
+      offset += 30 + name.length + data.length;
+    }
+    const dirSize = dir.reduce((s, a) => s + a.length, 0);
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+    end.setUint32(12, dirSize, true); end.setUint32(16, offset, true);
+    return concat([...out, ...dir, new Uint8Array(end.buffer)]);
+  }
+
+  root.SoundBoxCore = Object.freeze({
+    DEFAULTS, LIMITS, MATERIALS, GROUPS, KINDS,
+    fmt, dims, normalize, build, looks, boxQuads, partQuads, summary,
+    toOBJ, toSTL, toGLB, toSCAD, toJSON, readme, zip,
+  });
+})(typeof window !== 'undefined' ? window : globalThis);
+// ---- SOUNDBOX CORE END ----
+
+setTimeout(() => {
+  if (!window.__soundBoxReady) document.getElementById('loading').textContent = 'The 3D view did not load. Check your connection and reload the page.';
+}, 12000);
+</script>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const core = window.SoundBoxCore;
+const { fmt, dims } = core;
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- state (kept per viewer in browser storage) ---------- */
+const STORE = 'hinged-sound-box/v1';
+const fresh = () => ({
+  params: { ...core.DEFAULTS }, material: 'foam', byGroup: false, outlines: true, labels: true, mat: true,
+  hidden: { C2: true }, overrides: {}, explode: 0, view: 'iso',
+});
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (s && s.params) return { ...fresh(), ...s, params: core.normalize(s.params) };
+  } catch (e) { /* storage blocked */ }
+  return fresh();
+}
+let state = load();
+let saveTimer = 0;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) { /* storage blocked */ } }, 300);
+}
+
+let model = core.build(state.params);
+let looks = core.looks(model, state);
+let selectedId = null;
+
+/* ---------- three.js scene ---------- */
+const stage = $('#stage');
+const canvas = $('#view');
+let renderer = null;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+} catch (e) {
+  $('#loading').textContent = 'This browser could not start WebGL, so the 3D view is off. Settings, checks and export still work.';
+}
+const has3D = !!renderer;
+window.__soundBoxReady = true;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, 1.5, 10, 20000);
+const modelRoot = new THREE.Group();
+modelRoot.rotation.x = -Math.PI / 2; // CAD Z-up -> three Y-up
+scene.add(modelRoot);
+const meshes = new Map();
+let hinge = null, controls = null, labelRenderer = null, matMesh = null;
+const edgeMat = new THREE.LineBasicMaterial({ color: 0x1b211e, transparent: true, opacity: 0.8 });
+const selEdgeMat = new THREE.LineBasicMaterial({ color: 0x2b6954 });
+let accent = '#2b6954';
+
+if (has3D) {
+  $('#loading').hidden = true;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.NeutralToneMapping;
+
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.5;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xc4cfc8, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.1);
+  sun.position.set(-360, 640, 460);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -700, right: 700, top: 700, bottom: -700, near: 50, far: 2600 });
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.8;
+  scene.add(sun);
+  const catcher = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.ShadowMaterial({ opacity: 0.16 }));
+  catcher.rotation.x = -Math.PI / 2;
+  catcher.position.y = -0.6;
+  catcher.receiveShadow = true;
+  scene.add(catcher);
+
+  controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.maxPolarAngle = Math.PI * 0.5;
+  controls.minDistance = 80;
+  controls.maxDistance = 8000;
+  controls.addEventListener('start', () => { tween = null; });
+
+  labelRenderer = new CSS2DRenderer();
+  labelRenderer.domElement.className = 'labels';
+  stage.insertBefore(labelRenderer.domElement, stage.querySelector('.ov-top'));
+}
+
+const PAPER = [['A3', 420, 297], ['A2', 594, 420], ['A1', 841, 594], ['A0', 1189, 841]];
+function buildMat() {
+  if (!has3D) return;
+  if (matMesh) { scene.remove(matMesh); matMesh.geometry.dispose(); matMesh.material.map.dispose(); matMesh.material.dispose(); }
+  const p = model.params;
+  const needW = p.length + 150, needD = p.depth + p.thickness + p.flapClearance + 110;
+  const [paper, w, d] = PAPER.find(([, pw, pd]) => pw >= needW && pd >= needD) || ['Large', Math.ceil(needW / 10) * 10, Math.ceil(needD / 10) * 10];
+  const ppm = Math.min(3, 2400 / w);
+  const cv = document.createElement('canvas');
+  cv.width = Math.round(w * ppm); cv.height = Math.round(d * ppm);
+  const g = cv.getContext('2d');
+  g.fillStyle = '#2d5a4b'; g.fillRect(0, 0, cv.width, cv.height);
+  const line = (x0, y0, x1, y1, a, wpx) => { g.strokeStyle = `rgba(214,240,228,${a})`; g.lineWidth = wpx; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); };
+  for (let x = 0; x <= w; x += 10) line(x * ppm, 0, x * ppm, cv.height, x % 50 ? 0.16 : 0.36, x % 50 ? 1 : 1.6);
+  for (let y = 0; y <= d; y += 10) line(0, y * ppm, cv.width, y * ppm, y % 50 ? 0.16 : 0.36, y % 50 ? 1 : 1.6);
+  line(0, cv.height, Math.min(cv.width, cv.height), cv.height - Math.min(cv.width, cv.height), 0.22, 1.2);
+  g.fillStyle = 'rgba(226,244,235,0.62)';
+  g.font = `500 ${Math.round(3.4 * ppm)}px "IBM Plex Mono", ui-monospace, monospace`;
+  g.textBaseline = 'top';
+  for (let x = 50; x < w; x += 50) g.fillText(String(x / 10), x * ppm + 1.2 * ppm, 1.4 * ppm);
+  for (let y = 50; y < d; y += 50) g.fillText(String(y / 10), 1.4 * ppm, y * ppm + 1.2 * ppm);
+  g.textAlign = 'right'; g.textBaseline = 'bottom';
+  g.font = `600 ${Math.round(4.2 * ppm)}px "IBM Plex Mono", ui-monospace, monospace`;
+  g.fillText(`${paper} CUTTING MAT · 10 MM GRID`, cv.width - 6 * ppm, cv.height - 5 * ppm);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  matMesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.96 }));
+  matMesh.rotation.x = -Math.PI / 2;
+  matMesh.receiveShadow = true;
+  // Line the grid up with the outer front-left corner of the base.
+  const snap = (want, base) => { let r = (((base - want) % 10) + 10) % 10; if (r > 5) r -= 10; return want + r; };
+  const cx = snap(0, -p.length / 2 + w / 2);
+  const cz = snap(-15, -p.depth / 2 + d / 2);
+  matMesh.position.set(cx, -0.3, cz);
+  matMesh.visible = state.mat;
+  scene.add(matMesh);
+}
+
+function disposeModel() {
+  modelRoot.traverse(o => {
+    if (o.isCSS2DObject) o.element.remove();
+    if (o.geometry) o.geometry.dispose();
+    if (o.material && o.material !== edgeMat && o.material !== selEdgeMat) o.material.dispose();
+  });
+  modelRoot.clear();
+  meshes.clear();
+}
+
+function buildScene() {
+  if (!has3D) return;
+  disposeModel();
+  const p = model.params;
+  modelRoot.position.set(-p.length / 2, 0, p.depth / 2);
+  const body = new THREE.Group();
+  hinge = new THREE.Group();
+  modelRoot.add(body, hinge);
+  for (const part of model.parts) {
+    const center = part.min.map((v, i) => (v + part.max[i]) / 2);
+    const geo = new THREE.BoxGeometry(part.size[0], part.size[1], part.size[2]);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ metalness: 0 }));
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat);
+    mesh.add(edges);
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = part.id;
+    const label = new CSS2DObject(tag);
+    if (part.kind === 'G') label.position.set(0, -part.size[1] / 2 - 6, 0);
+    else label.position.set(0, 0, part.size[2] / 2 + 5);
+    mesh.add(label);
+    mesh.userData = { part, edges, label, home: part.hinged ? center.map((v, i) => v - model.pivot[i]) : center };
+    (part.hinged ? hinge : body).add(mesh);
+    meshes.set(part.id, mesh);
+  }
+  buildMat();
+  applyLooks();
+  applyPose();
+  applyVisibility();
+}
+
+function applyLooks() {
+  looks = core.looks(model, state);
+  for (const [id, mesh] of meshes) {
+    const l = looks[id], m = mesh.material, on = id === selectedId;
+    m.color.set(l.color);
+    m.roughness = l.roughness;
+    m.opacity = l.opacity;
+    m.transparent = l.opacity < 1;
+    m.depthWrite = l.opacity >= 1;
+    m.emissive.set(on ? accent : '#000000');
+    m.emissiveIntensity = on ? 0.32 : 0;
+    m.needsUpdate = true;
+    mesh.castShadow = l.opacity >= 1;
+    mesh.receiveShadow = true;
+    mesh.userData.edges.material = on ? selEdgeMat : edgeMat;
+    mesh.userData.edges.visible = state.outlines || on;
+    mesh.userData.label.element.classList.toggle('on', on);
+  }
+  edgeMat.opacity = (core.MATERIALS[state.material] || {}).opacity < 1 ? 0.45 : 0.8;
+}
+
+const EXPLODE = { A: [0, 0, -45], C1: [0, 75, 0], C2: [0, -75, 0], D: [-75, 0, 0], E: [75, 0, 0], F: [0, 0, 125], lid: [0, 60, 210] };
+function applyPose() {
+  if (!has3D) return;
+  const e = state.explode / 100;
+  for (const mesh of meshes.values()) {
+    const { part, home } = mesh.userData;
+    const off = part.hinged ? [0, 0, 0] : EXPLODE[part.id] || EXPLODE[part.kind] || [0, 0, 0];
+    mesh.position.set(home[0] + off[0] * e, home[1] + off[1] * e, home[2] + off[2] * e);
+  }
+  hinge.position.set(model.pivot[0] + EXPLODE.lid[0] * e, model.pivot[1] + EXPLODE.lid[1] * e, model.pivot[2] + EXPLODE.lid[2] * e);
+  hinge.rotation.x = -THREE.MathUtils.degToRad(model.params.lidAngle);
+}
+
+function applyVisibility() {
+  if (!has3D) return;
+  for (const [id, mesh] of meshes) {
+    mesh.visible = !state.hidden[id];
+    mesh.userData.label.visible = mesh.visible && state.labels;
+  }
+  labelRenderer.domElement.hidden = !state.labels;
+  if (matMesh) matMesh.visible = state.mat;
+}
+
+/* ---------- camera ---------- */
+const DIRS = { iso: [0.6, 0.62, 1], front: [0, 0.14, 1], top: [0, 1, 0.015], side: [-1, 0.1, 0] };
+let tween = null;
+function viewPose(name) {
+  modelRoot.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  for (const m of meshes.values()) if (m.visible) box.expandByObject(m);
+  if (box.isEmpty()) box.setFromObject(modelRoot);
+  const sphere = box.getBoundingSphere(new THREE.Sphere());
+  const vfov = THREE.MathUtils.degToRad(camera.fov);
+  const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
+  const dist = (sphere.radius / Math.sin(Math.min(vfov, hfov) / 2)) * 1.02;
+  const target = sphere.center.clone();
+  const pos = target.clone().add(new THREE.Vector3(...DIRS[name]).normalize().multiplyScalar(dist));
+  return { pos, target };
+}
+function goView(name, instant) {
+  state.view = name;
+  for (const b of $$('[data-view]')) b.setAttribute('aria-pressed', String(b.dataset.view === name));
+  if (!has3D) return;
+  const { pos, target } = viewPose(name);
+  if (instant || reduceMotion) {
+    tween = null;
+    camera.position.copy(pos);
+    controls.target.copy(target);
+    controls.update();
+    return;
+  }
+  tween = { t0: performance.now(), p0: camera.position.clone(), p1: pos, q0: controls.target.clone(), q1: target };
+}
+function stepTween(now) {
+  if (!tween) return;
+  const k = Math.min(1, (now - tween.t0) / 520);
+  const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  camera.position.lerpVectors(tween.p0, tween.p1, e);
+  controls.target.lerpVectors(tween.q0, tween.q1, e);
+  if (k === 1) tween = null;
+}
+
+function resize() {
+  if (!has3D) return;
+  const r = stage.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  renderer.setSize(r.width, r.height, false);
+  labelRenderer.setSize(r.width, r.height);
+  camera.aspect = r.width / r.height;
+  camera.updateProjectionMatrix();
+}
+
+function readTheme() {
+  const cs = getComputedStyle(document.documentElement);
+  accent = cs.getPropertyValue('--accent').trim() || '#2b6954';
+  if (!has3D) return;
+  const bg = cs.getPropertyValue('--stage').trim() || '#e1e5e0';
+  scene.background = new THREE.Color(bg);
+  scene.fog = new THREE.Fog(bg, 2600, 7000);
+  selEdgeMat.color.set(accent);
+  applyLooks();
+}
+
+/* ---------- picking ---------- */
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+function pick(e) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects([...meshes.values()].filter(m => m.visible), false);
+  return hits.length ? hits[0].object : null;
+}
+if (has3D) {
+  let down = null;
+  canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  canvas.addEventListener('pointerup', e => {
+    if (!down) return;
+    const moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]);
+    down = null;
+    if (moved > 5) return;
+    const hit = pick(e);
+    select(hit ? hit.userData.part.id : null);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (e.buttons) { canvas.style.cursor = 'grabbing'; return; }
+    canvas.style.cursor = pick(e) ? 'pointer' : 'grab';
+  });
+}
+
+function select(id) {
+  selectedId = id && model.parts.some(q => q.id === id) ? id : null;
+  applyLooks();
+  renderSel();
+  for (const b of $$('.idb')) b.classList.toggle('on', b.dataset.part === selectedId);
+}
+
+/* ---------- panel ---------- */
+const PILL = { ok: 'OK', warn: 'Check', error: 'Conflict' };
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+function renderChecks() {
+  const list = model.checks;
+  const errs = list.filter(c => c.level === 'error').length;
+  const warns = list.filter(c => c.level === 'warn').length;
+  const sum = $('#check-sum');
+  sum.className = 'summary ' + (errs ? 'is-error' : warns ? 'is-warn' : 'is-ok');
+  sum.textContent = errs
+    ? `${errs} conflict${errs > 1 ? 's' : ''} to fix before cutting.`
+    : warns ? `Every part fits. ${warns} item${warns > 1 ? 's' : ''} to confirm by hand.` : 'Every part fits.';
+  $('#checks-count').textContent = `${list.length - errs - warns} of ${list.length} OK`;
+  $('#checks').replaceChildren(...list.map(c => {
+    const li = el('li', 'chk is-' + c.level);
+    li.append(el('span', 'pill', PILL[c.level]));
+    const body = el('div');
+    const line = el('div', 'chk-line');
+    line.append(el('b', null, c.label), el('span', 'val', c.value));
+    body.append(line, el('small', null, c.note));
+    li.append(body);
+    return li;
+  }));
+}
+
+function renderCutList() {
+  const byKind = new Map();
+  for (const part of model.parts) {
+    if (!byKind.has(part.kind)) byKind.set(part.kind, []);
+    byKind.get(part.kind).push(part);
+  }
+  const rows = [];
+  for (const [kind, parts] of byKind) {
+    const tr = el('tr');
+    const ids = el('div', 'ids');
+    for (const part of parts) {
+      const b = el('button', 'idb' + (part.id === selectedId ? ' on' : '') + (state.hidden[part.id] ? ' off' : ''), part.id);
+      b.type = 'button';
+      b.dataset.part = part.id;
+      b.title = `${part.name}${state.hidden[part.id] ? ' (hidden in view)' : ''}`;
+      ids.append(b);
+    }
+    const td0 = el('td'); td0.append(ids);
+    let name = core.KINDS[kind];
+    if (kind === 'F' && parts.length === 1) name = 'Internal baffle';
+    tr.append(td0, el('td', null, name), el('td', 'num', dims(...parts[0].cut)), el('td', 'num qty', '×' + parts.length));
+    rows.push(tr);
+  }
+  $('#cut').replaceChildren(...rows);
+  const d = model.derived;
+  $('#cut-foot').textContent = `${d.count} pieces · ${fmt(model.params.thickness)} mm stock · ${fmt(d.area / 100)} cm² of board`;
+}
+
+function partNote(part) {
+  const p = model.params, d = model.derived;
+  switch (part.kind) {
+    case 'A': return 'Every upright panel sits on the base, not beside it.';
+    case 'B': return `Tape hinge on the outside rear corner. Rear edge flush with the back wall; projects ${fmt(p.thickness + p.flapClearance)} mm past the front.`;
+    case 'C': return part.id === 'C1' ? 'Outside face flush with the back edge of the base. Carries the tape hinge.' : 'Outside face flush with the front edge of the base. The flap closes over it.';
+    case 'D': return 'Fits between the long walls at the left end.';
+    case 'E': return `Touches the back wall and leaves a ${dims(p.outletWidth, d.wallH)} mm outlet beside the front wall.`;
+    case 'F': return `Left face ${fmt(part.leftFace)} mm from the inside of the left wall, attached to the ${part.side} wall. Keep removable until the source fit is tested.`;
+    case 'G': return `Glued under the front edge of the lid, ${fmt(p.flapClearance)} mm clear of the front wall. Moves with the lid.`;
+    default: return '';
+  }
+}
+
+function renderSel() {
+  const card = $('#sel');
+  const part = selectedId && model.parts.find(q => q.id === selectedId);
+  if (!part) { card.hidden = true; return; }
+  card.hidden = false;
+  $('#sel-id').textContent = part.id;
+  $('#sel-name').textContent = part.name;
+  $('#sel-cut').textContent = `${dims(...part.cut)} × ${fmt(model.params.thickness)} mm`;
+  $('#sel-pos').textContent = `x ${fmt(part.min[0])} · y ${fmt(part.min[1])} · z ${fmt(part.min[2])}${part.hinged ? ' (closed)' : ''}`;
+  $('#sel-note').textContent = partNote(part);
+  $('#sel-color').value = looks[part.id].color;
+  $('#sel-reset').hidden = !state.overrides[part.id];
+  $('#sel-hide').textContent = state.hidden[part.id] ? 'Show part' : 'Hide part';
+}
+
+function renderSpec() {
+  const d = model.derived;
+  $('#spec').textContent = `${fmt(model.params.thickness)} mm stock · ${d.count} parts · ${dims(...d.envelope)} mm closed`;
+}
+
+function syncControls() {
+  for (const input of $$('[data-param]')) {
+    if (document.activeElement !== input) input.value = model.params[input.dataset.param];
+    const [lo, hi] = core.LIMITS[input.dataset.param];
+    input.min = lo; input.max = hi;
+  }
+  for (const b of $$('[data-first]')) b.setAttribute('aria-pressed', String(b.dataset.first === model.params.firstBaffle));
+  for (const b of $$('[data-material]')) b.setAttribute('aria-pressed', String(b.dataset.material === state.material));
+  $('#by-group').checked = state.byGroup;
+  $('#show-mat').checked = state.mat;
+  $('#t-front').setAttribute('aria-pressed', String(!state.hidden.C2));
+  $('#t-lid').setAttribute('aria-pressed', String(!state.hidden.B));
+  $('#t-labels').setAttribute('aria-pressed', String(state.labels));
+  $('#t-outlines').setAttribute('aria-pressed', String(state.outlines));
+  $('#lid').value = model.params.lidAngle;
+  $('#lid-out').textContent = fmt(model.params.lidAngle) + '°';
+  $('#explode').value = state.explode;
+  $('#explode-out').textContent = state.explode + '%';
+}
+
+function renderPanel() {
+  renderChecks();
+  renderCutList();
+  renderSpec();
+  renderSel();
+  syncControls();
+}
+
+function rebuild() {
+  model = core.build(state.params);
+  state.params = model.params;
+  if (selectedId && !model.parts.some(q => q.id === selectedId)) selectedId = null;
+  buildScene();
+  if (!has3D) looks = core.looks(model, state);
+  renderPanel();
+  save();
+}
+
+/* ---------- events ---------- */
+for (const input of $$('[data-param]')) {
+  const key = input.dataset.param;
+  const apply = v => { state.params = { ...state.params, [key]: v }; rebuild(); };
+  // Live while the typed value is in range; out-of-range values wait for Enter or blur, then clamp.
+  input.addEventListener('input', () => {
+    const v = parseFloat(input.value);
+    const [lo, hi] = core.LIMITS[key];
+    if (Number.isFinite(v) && v >= lo && v <= hi) apply(v);
+  });
+  input.addEventListener('change', () => {
+    const v = parseFloat(input.value);
+    if (Number.isFinite(v)) apply(v);
+    input.value = model.params[key];
+  });
+}
+for (const b of $$('[data-first]')) b.addEventListener('click', () => { state.params = { ...state.params, firstBaffle: b.dataset.first }; rebuild(); });
+for (const b of $$('[data-material]')) b.addEventListener('click', () => { state.material = b.dataset.material; applyLooks(); renderSel(); syncControls(); save(); });
+for (const b of $$('[data-view]')) b.addEventListener('click', () => { goView(b.dataset.view); save(); });
+$('#by-group').addEventListener('change', e => { state.byGroup = e.target.checked; applyLooks(); renderSel(); save(); });
+$('#show-mat').addEventListener('change', e => { state.mat = e.target.checked; applyVisibility(); save(); });
+
+function toggleHidden(ids, show) {
+  for (const id of ids) { if (show) delete state.hidden[id]; else state.hidden[id] = true; }
+  applyVisibility(); renderCutList(); renderSel(); syncControls(); save();
+}
+$('#t-front').addEventListener('click', () => toggleHidden(['C2'], !!state.hidden.C2));
+$('#t-lid').addEventListener('click', () => toggleHidden(['B', 'G'], !!state.hidden.B));
+$('#t-labels').addEventListener('click', () => { state.labels = !state.labels; applyVisibility(); syncControls(); save(); });
+$('#t-outlines').addEventListener('click', () => { state.outlines = !state.outlines; applyLooks(); syncControls(); save(); });
+
+$('#lid').addEventListener('input', e => {
+  state.params = { ...state.params, lidAngle: Number(e.target.value) };
+  model = core.build(state.params);
+  applyPose();
+  $('#lid-out').textContent = e.target.value + '°';
+  renderSpec(); save();
+});
+$('#explode').addEventListener('input', e => {
+  state.explode = Number(e.target.value);
+  applyPose();
+  $('#explode-out').textContent = state.explode + '%';
+  save();
+});
+
+$('#cut').addEventListener('click', e => {
+  const b = e.target.closest('.idb');
+  if (b) select(b.dataset.part === selectedId ? null : b.dataset.part);
+});
+$('#sel-close').addEventListener('click', () => select(null));
+$('#sel-color').addEventListener('input', e => {
+  if (!selectedId) return;
+  state.overrides = { ...state.overrides, [selectedId]: e.target.value };
+  applyLooks(); $('#sel-reset').hidden = false; save();
+});
+$('#sel-reset').addEventListener('click', () => {
+  if (!selectedId) return;
+  const { [selectedId]: _drop, ...rest } = state.overrides;
+  state.overrides = rest;
+  applyLooks(); renderSel(); save();
+});
+$('#sel-hide').addEventListener('click', () => {
+  if (!selectedId) return;
+  const ids = selectedId === 'B' || selectedId === 'G' ? ['B', 'G'] : [selectedId];
+  toggleHidden(ids, !!state.hidden[selectedId]);
+});
+
+$('#btn-reset').addEventListener('click', () => {
+  state = fresh();
+  selectedId = null;
+  rebuild();
+  goView('iso');
+  setStatus('Reset to the drawing dimensions.');
+});
+
+/* ---------- export ---------- */
+function setStatus(text) { $('#export-status').textContent = text; }
+const SAVE_ERRORS = {
+  declined: 'Save cancelled.',
+  rate_limited: 'A save prompt is already open. Finish that one first.',
+  too_large: 'The file is too large for this destination.',
+};
+async function offerFile(filename, blob) {
+  const host = window.claude && typeof window.claude.use === 'function';
+  if (!host) {
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return;
+  }
+  const downloads = await window.claude.use('downloads').catch(() => null);
+  if (!downloads) throw { code: 'unavailable' };
+  await downloads.save({ filename, data: blob });
+}
+async function runExport(filename, makeBlob, done) {
+  const buttons = [$('#btn-zip'), $('#btn-zip-2'), $('#btn-png')];
+  buttons.forEach(b => { b.disabled = true; });
+  setStatus('Preparing ' + filename + '…');
+  try {
+    const blob = await makeBlob();
+    await offerFile(filename, blob);
+    setStatus(done);
+  } catch (err) {
+    const code = err && err.code;
+    setStatus(SAVE_ERRORS[code] || (code === 'unavailable' || code === 'not_granted'
+      ? 'Saving files is not available in this view. Open the page in a browser to download.'
+      : 'Could not save the file: ' + ((err && err.message) || 'unknown error') + '.'));
+  } finally {
+    buttons.forEach(b => { b.disabled = false; });
+  }
+}
+function buildZip() {
+  const lk = core.looks(model, state);
+  const enc = new TextEncoder();
+  const { obj, mtl } = core.toOBJ(model, lk);
+  const files = [
+    { name: 'hinged_sound_box.glb', data: core.toGLB(model, lk) },
+    { name: 'hinged_sound_box.obj', data: enc.encode(obj) },
+    { name: 'hinged_sound_box.mtl', data: enc.encode(mtl) },
+    { name: 'hinged_sound_box.stl', data: core.toSTL(model) },
+    { name: 'hinged_sound_box.scad', data: enc.encode(core.toSCAD(model, lk)) },
+    { name: 'parameters.json', data: enc.encode(core.toJSON(model, lk)) },
+    { name: 'README.txt', data: enc.encode(core.readme(model)) },
+  ];
+  return new Blob([core.zip(files)], { type: 'application/zip' });
+}
+const exportZip = () => runExport('hinged_sound_box_model.zip', buildZip, 'Saved hinged_sound_box_model.zip (GLB, OBJ, STL, SCAD, JSON).');
+$('#btn-zip').addEventListener('click', exportZip);
+$('#btn-zip-2').addEventListener('click', exportZip);
+$('#btn-png').addEventListener('click', () => {
+  if (!has3D) { setStatus('The 3D view is off in this browser, so there is no render to save.'); return; }
+  runExport(`hinged_sound_box_${state.view}.png`, () => new Promise((res, rej) => {
+    renderer.render(scene, camera);
+    canvas.toBlob(b => (b ? res(b) : rej({ message: 'the render was empty' })), 'image/png');
+  }), 'Saved the render as PNG.');
+});
+
+/* ---------- start ---------- */
+readTheme();
+rebuild();
+if (has3D) {
+  resize();
+  new ResizeObserver(resize).observe(stage);
+  goView(state.view in DIRS ? state.view : 'iso', true);
+  const loop = now => {
+    requestAnimationFrame(loop);
+    stepTween(now);
+    controls.update();
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+  };
+  requestAnimationFrame(loop);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(buildMat);
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+</script>

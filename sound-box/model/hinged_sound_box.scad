@@ -59,6 +59,7 @@ echo(str("Closed envelope: ", length, " x ", depth + t + flap_clearance, " x ", 
 if (baffle_count > 0) echo(str("Clear past the last baffle: ", end_clear, " mm"));
 if (wall_h <= 0) echo("WARNING: height must be more than two board thicknesses");
 if (outlet_panel <= 0) echo("WARNING: outlet_width is as wide as the interior, so panel E is left out");
+if (outlet_width == 0) echo("NOTE: outlet_width is 0, so panel E closes the whole right end");
 if (baffle_count > 0 && baffle_len <= 0) echo("WARNING: baffle_gap is as wide as the interior, so the baffles are left out");
 if (baffle_count > 1 && baffle_pitch <= t) echo("WARNING: baffle_pitch is not larger than t, so the baffles overlap");
 if (baffle_count > 0 && end_clear <= 0) echo("WARNING: the last baffle runs into the outlet end wall");

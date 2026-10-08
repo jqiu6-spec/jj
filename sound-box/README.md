@@ -37,6 +37,7 @@ pip install rhino3dm && python3 tools/export_3dm.py   # Rhino .3dm from paramete
 ## Notes carried over from the drawing
 
 - **Source bay:** the inherited baffle positions leave a 30 mm source bay. Measure your cassette player before cutting. The editor keeps this item flagged as *Check*.
-- **Front wall:** the editor hides the front wall by default to match the PDF's cutaway view. It is always part of the model and of every export.
+- **Closed box:** all four walls are on by default. Turn off *Front wall* in the editor to get the PDF's cutaway view of the baffles; every export always includes it.
+- **Outlet:** per the drawing, panel E leaves a 40 × 90 mm opening beside the front wall at the right end. That opening is the sound outlet, not a missing panel. Set *Outlet* to 0 to close the end completely.
 - **Flap clearance:** the 1 mm gap between the flap and the front wall does not scale with the box. Glue, tape and coating can close it.
 - **Sketch model:** these are sketch-model dimensions, not a tested acoustic design. Dry-fit every part with the actual board. The tape hinge still needs a physical test.

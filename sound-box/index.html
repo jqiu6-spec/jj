@@ -207,7 +207,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
           <button type="button" data-view="side" aria-pressed="false">Section side</button>
         </div>
         <div class="chips" role="group" aria-label="Show in view">
-          <button type="button" class="chip" id="t-front" aria-pressed="false">Front wall</button>
+          <button type="button" class="chip" id="t-front" aria-pressed="true">Front wall</button>
           <button type="button" class="chip" id="t-lid" aria-pressed="true">Lid</button>
           <button type="button" class="chip" id="t-labels" aria-pressed="true">Labels</button>
           <button type="button" class="chip" id="t-outlines" aria-pressed="true">Outlines</button>
@@ -348,7 +348,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
 
   const LIMITS = Object.freeze({
     length: [60, 1500], depth: [40, 1000], height: [20, 600], thickness: [0.5, 30],
-    flapHeight: [0, 300], flapClearance: [0, 20], outletWidth: [1, 1000],
+    flapHeight: [0, 300], flapClearance: [0, 20], outletWidth: [0, 1000],
     baffleCount: [0, 20], baffleOffset: [0, 1500], bafflePitch: [1, 500], baffleGap: [1, 1000],
     lidAngle: [0, 180],
   });
@@ -431,7 +431,8 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
     else chk('ok', 'Clear interior', dims(innerL, innerW, wallH), `${fmt(W)} − ${fmt(t)} − ${fmt(t)} = ${fmt(innerW)} mm inside width`);
     chk('ok', 'Closed envelope', dims(L, W + t + c, H), `Lid projects ${fmt(t + c)} mm past the body: ${fmt(t)} flap + ${fmt(c)} clearance`);
     if (wallsOk) {
-      if (outletPanel > 0) chk('ok', 'Outlet', dims(p.outletWidth, wallH), `Panel E is ${fmt(outletPanel)} mm and touches the back wall`);
+      if (outletPanel > 0 && p.outletWidth === 0) chk('warn', 'Outlet', 'closed', `Panel E spans the whole ${fmt(innerW)} mm end, so the baffle path has no exit.`);
+      else if (outletPanel > 0) chk('ok', 'Outlet', dims(p.outletWidth, wallH), `Panel E is ${fmt(outletPanel)} mm and touches the back wall`);
       else chk('error', 'Outlet', `${fmt(p.outletWidth)} mm`, 'The outlet is as wide as the interior, so panel E disappears.');
     }
     const nB = parts.filter(q => q.kind === 'F').length;
@@ -728,6 +729,7 @@ echo(str("Closed envelope: ", length, " x ", depth + t + flap_clearance, " x ", 
 if (baffle_count > 0) echo(str("Clear past the last baffle: ", end_clear, " mm"));
 if (wall_h <= 0) echo("WARNING: height must be more than two board thicknesses");
 if (outlet_panel <= 0) echo("WARNING: outlet_width is as wide as the interior, so panel E is left out");
+if (outlet_width == 0) echo("NOTE: outlet_width is 0, so panel E closes the whole right end");
 if (baffle_count > 0 && baffle_len <= 0) echo("WARNING: baffle_gap is as wide as the interior, so the baffles are left out");
 if (baffle_count > 1 && baffle_pitch <= t) echo("WARNING: baffle_pitch is not larger than t, so the baffles overlap");
 if (baffle_count > 0 && end_clear <= 0) echo("WARNING: the last baffle runs into the outlet end wall");
@@ -890,10 +892,10 @@ const $$ = s => [...document.querySelectorAll(s)];
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- state (kept per viewer in browser storage) ---------- */
-const STORE = 'hinged-sound-box/v1';
+const STORE = 'hinged-sound-box/v2';
 const fresh = () => ({
   params: { ...core.DEFAULTS }, material: 'foam', byGroup: false, outlines: true, labels: true, mat: true,
-  hidden: { C2: true }, overrides: {}, explode: 0, view: 'iso',
+  hidden: {}, overrides: {}, explode: 0, view: 'iso',
 });
 function load() {
   try {
@@ -1257,7 +1259,7 @@ function partNote(part) {
     case 'B': return `Tape hinge on the outside rear corner. Rear edge flush with the back wall; projects ${fmt(p.thickness + p.flapClearance)} mm past the front.`;
     case 'C': return part.id === 'C1' ? 'Outside face flush with the back edge of the base. Carries the tape hinge.' : 'Outside face flush with the front edge of the base. The flap closes over it.';
     case 'D': return 'Fits between the long walls at the left end.';
-    case 'E': return `Touches the back wall and leaves a ${dims(p.outletWidth, d.wallH)} mm outlet beside the front wall.`;
+    case 'E': return p.outletWidth === 0 ? 'Closes the whole right end. Set an outlet width to open the sound path.' : `Touches the back wall and leaves a ${dims(p.outletWidth, d.wallH)} mm outlet beside the front wall.`;
     case 'F': return `Left face ${fmt(part.leftFace)} mm from the inside of the left wall, attached to the ${part.side} wall. Keep removable until the source fit is tested.`;
     case 'G': return `Glued under the front edge of the lid, ${fmt(p.flapClearance)} mm clear of the front wall. Moves with the lid.`;
     default: return '';

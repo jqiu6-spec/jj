@@ -17,7 +17,8 @@
     "bafflePitch": 40,
     "baffleGap": 40,
     "firstBaffle": "back",
-    "lidAngle": 95
+    "lidAngle": 95,
+    "hingeAxis": "wall"
   },
   "derived": {
     "innerL": 250,
@@ -116,7 +117,7 @@
       ],
       "cut_size_mm": "260 x 200",
       "hinged": false,
-      "color": "#f6f6f3",
+      "color": "#f2f2f2",
       "opacity": 1,
       "material": "Shell - Foamboard"
     },
@@ -141,7 +142,7 @@
       ],
       "cut_size_mm": "260 x 206",
       "hinged": true,
-      "color": "#f6f6f3",
+      "color": "#f2f2f2",
       "opacity": 1,
       "material": "Lid - Foamboard"
     },
@@ -166,7 +167,7 @@
       ],
       "cut_size_mm": "260 x 90",
       "hinged": false,
-      "color": "#f6f6f3",
+      "color": "#f2f2f2",
       "opacity": 1,
       "material": "Shell - Foamboard"
     },
@@ -191,7 +192,7 @@
       ],
       "cut_size_mm": "260 x 90",
       "hinged": false,
-      "color": "#f6f6f3",
+      "color": "#f2f2f2",
       "opacity": 1,
       "material": "Shell - Foamboard"
     },
@@ -216,7 +217,7 @@
       ],
       "cut_size_mm": "190 x 90",
       "hinged": false,
-      "color": "#f6f6f3",
+      "color": "#f2f2f2",
       "opacity": 1,
       "material": "Shell - Foamboard"
     },
@@ -241,7 +242,7 @@
       ],
       "cut_size_mm": "150 x 90",
       "hinged": false,
-      "color": "#f6f6f3",
+      "color": "#f2f2f2",
       "opacity": 1,
       "material": "Shell - Foamboard"
     },
@@ -266,7 +267,7 @@
       ],
       "cut_size_mm": "150 x 90",
       "hinged": false,
-      "color": "#f6f6f3",
+      "color": "#f2f2f2",
       "opacity": 1,
       "material": "Baffles - Foamboard",
       "attached_to": "back",
@@ -293,7 +294,7 @@
       ],
       "cut_size_mm": "150 x 90",
       "hinged": false,
-      "color": "#f6f6f3",
+      "color": "#f2f2f2",
       "opacity": 1,
       "material": "Baffles - Foamboard",
       "attached_to": "front",
@@ -320,7 +321,7 @@
       ],
       "cut_size_mm": "150 x 90",
       "hinged": false,
-      "color": "#f6f6f3",
+      "color": "#f2f2f2",
       "opacity": 1,
       "material": "Baffles - Foamboard",
       "attached_to": "back",
@@ -347,7 +348,7 @@
       ],
       "cut_size_mm": "150 x 90",
       "hinged": false,
-      "color": "#f6f6f3",
+      "color": "#f2f2f2",
       "opacity": 1,
       "material": "Baffles - Foamboard",
       "attached_to": "front",
@@ -374,7 +375,7 @@
       ],
       "cut_size_mm": "150 x 90",
       "hinged": false,
-      "color": "#f6f6f3",
+      "color": "#f2f2f2",
       "opacity": 1,
       "material": "Baffles - Foamboard",
       "attached_to": "back",
@@ -401,7 +402,7 @@
       ],
       "cut_size_mm": "260 x 30",
       "hinged": true,
-      "color": "#f6f6f3",
+      "color": "#f2f2f2",
       "opacity": 1,
       "material": "Lid - Foamboard"
     }

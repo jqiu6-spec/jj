@@ -117,7 +117,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
 .rail { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 4px; }
 .block { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 14px 16px; }
 .block h2 { font: 700 15.5px/1 var(--font-display); letter-spacing: .07em; text-transform: uppercase; margin: 0 0 12px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.block h2 small { font: 400 11.5px/1 var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--muted); }
+.block h2 small { font: 400 11.5px/1.3 var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--muted); text-align: right; overflow-wrap: anywhere; min-width: 0; }
 .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .field > span:first-child { font-size: 13px; font-weight: 600; }
@@ -147,7 +147,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
 .chk-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; }
 .chk b { font-weight: 600; font-size: 13.5px; }
 .chk .val { font: 500 12.5px/1.5 var(--font-mono); font-variant-numeric: tabular-nums; }
-.chk small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; }
+.chk small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
 
 .table-wrap { overflow-x: auto; }
 .cut { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -208,6 +208,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
           <button type="button" data-view="top" aria-pressed="false">Top</button>
           <button type="button" data-view="left" aria-pressed="false">Left end</button>
           <button type="button" data-view="right" aria-pressed="false">Right end</button>
+          <button type="button" data-view="rhino" aria-pressed="false" hidden>Rhino view</button>
         </div>
         <div class="chips" role="group" aria-label="Show in view">
           <button type="button" class="chip" id="t-front" aria-pressed="true">Front wall</button>
@@ -229,7 +230,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
           </dl>
           <p class="sel-note" id="sel-note"></p>
           <div class="sel-actions">
-            <label class="mini" for="sel-color"><input type="color" id="sel-color" value="#f6f6f3">Part colour</label>
+            <label class="mini" for="sel-color"><input type="color" id="sel-color" value="#f2f2f2">Part colour</label>
             <button type="button" class="mini" id="sel-reset">Reset colour</button>
             <button type="button" class="mini" id="sel-hide">Hide part</button>
           </div>
@@ -290,12 +291,27 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
         <div class="fields">
           <label class="field"><span>Flap drop</span><span class="inp"><input id="p-flapHeight" data-param="flapHeight" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Hangs under the lid front</small></label>
           <label class="field"><span>Clearance</span><span class="inp"><input id="p-flapClearance" data-param="flapClearance" type="number" inputmode="decimal" step="0.5"><em>mm</em></span><small>Flap to front wall</small></label>
+          <div class="field wide">
+            <span id="hinge-label">Hinge axis</span>
+            <div class="seg" role="group" aria-labelledby="hinge-label">
+              <button type="button" data-hinge="wall" aria-pressed="true">Back wall top edge</button>
+              <button type="button" data-hinge="lid" aria-pressed="false">Lid top rear edge</button>
+            </div>
+            <small>Where the cloth tape folds when the lid opens</small>
+          </div>
         </div>
       </section>
 
       <section class="block" aria-labelledby="h-finish">
         <h2 id="h-finish">Finish + light</h2>
         <div class="stack">
+          <div class="row" id="scene-row" hidden>
+            <span id="scene-label">Scene</span>
+            <div class="seg" role="group" aria-labelledby="scene-label">
+              <button type="button" data-scene="rhino" aria-pressed="true">Rhino scene</button>
+              <button type="button" data-scene="studio" aria-pressed="false">Studio</button>
+            </div>
+          </div>
           <div class="row">
             <span id="style-label">Render</span>
             <div class="seg" role="group" aria-labelledby="style-label">
@@ -304,7 +320,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
             </div>
           </div>
           <div class="swatches" role="group" aria-label="Board material" id="materials">
-            <button type="button" class="chip sw" style="--sw: #f6f6f3" data-material="foam" aria-pressed="true">Foamboard</button>
+            <button type="button" class="chip sw" style="--sw: #f2f2f2" data-material="foam" aria-pressed="true">Foamboard</button>
             <button type="button" class="chip sw" style="--sw: #8f938d" data-material="grey" aria-pressed="false">Greyboard</button>
             <button type="button" class="chip sw" style="--sw: #c39b6d" data-material="kraft" aria-pressed="false">Kraft card</button>
             <button type="button" class="chip sw" style="--sw: #dcc39c" data-material="birch" aria-pressed="false">Birch ply</button>
@@ -312,13 +328,18 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
           </div>
           <label class="check" for="by-group"><input type="checkbox" id="by-group">Colour by part group (shell, baffles, lid)</label>
           <div class="slider">
-            <label for="light">Light</label>
+            <label for="light" id="light-label">Light</label>
             <input id="light" type="range" min="0" max="359" step="1" value="320">
             <output id="light-out" for="light">320°</output>
           </div>
           <label class="check" for="show-studio"><input type="checkbox" id="show-studio" checked>Photo studio backdrop</label>
           <label class="check" for="show-mat"><input type="checkbox" id="show-mat" checked>Cutting mat with 10 mm grid</label>
         </div>
+      </section>
+
+      <section class="block" aria-labelledby="h-rhino" id="rhino-block" hidden>
+        <h2 id="h-rhino">Rhino import <small id="rhino-file"></small></h2>
+        <ul class="checks" id="rhino-notes"></ul>
       </section>
 
       <section class="block" aria-labelledby="h-cut">
@@ -359,7 +380,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
     length: 260, depth: 200, height: 100, thickness: 5,
     flapHeight: 30, flapClearance: 1, outletWidth: 40,
     baffleCount: 5, baffleOffset: 30, bafflePitch: 40, baffleGap: 40, firstBaffle: 'back',
-    lidAngle: 95,
+    lidAngle: 95, hingeAxis: 'wall',
   });
 
   const LIMITS = Object.freeze({
@@ -370,7 +391,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
   });
 
   const MATERIALS = Object.freeze({
-    foam: { label: 'Foamboard', color: '#f6f6f3', roughness: 0.92, opacity: 1 },
+    foam: { label: 'Foamboard', color: '#f2f2f2', roughness: 0.86, opacity: 1 },
     grey: { label: 'Greyboard', color: '#8f938d', roughness: 0.95, opacity: 1 },
     kraft: { label: 'Kraft card', color: '#c39b6d', roughness: 0.9, opacity: 1 },
     birch: { label: 'Birch ply', color: '#dcc39c', roughness: 0.7, opacity: 1 },
@@ -402,6 +423,8 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
     }
     p.baffleCount = Math.round(p.baffleCount);
     p.firstBaffle = p.firstBaffle === 'front' ? 'front' : 'back';
+    // Tape hinge axis: outside top edge of the back wall, or top rear edge of the lid.
+    p.hingeAxis = p.hingeAxis === 'lid' ? 'lid' : 'wall';
     return p;
   }
 
@@ -474,7 +497,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
     const area = parts.reduce((s, q) => s + q.cut[0] * q.cut[1], 0);
     return {
       params: p, parts, checks,
-      pivot: [0, W, H - t],
+      pivot: [0, W, p.hingeAxis === 'lid' ? H : H - t],
       derived: { innerL, innerW, wallH, outletPanel, baffleLen, baffles: nB, envelope: [L, W + t + c, H], area, count: parts.length },
     };
   }
@@ -632,7 +655,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
     const hinge = group('Lid hinge', {
       translation: g(model.pivot),
       rotation: [Math.sin(half), 0, 0, Math.cos(half)],
-      extras: { open_angle_deg: p.lidAngle, note: 'Tape hinge at the outside rear corner. Rotation about X: 0 is closed, negative opens.' },
+      extras: { open_angle_deg: p.lidAngle, hinge_axis: p.hingeAxis, note: 'Tape hinge at the back. Rotation about X: 0 is closed, negative opens.' },
     });
 
     for (const part of model.parts) {
@@ -707,6 +730,8 @@ lid_angle = ${fmt(p.lidAngle)}; // [0:1:180]
 flap_height = ${fmt(p.flapHeight)};
 // Gap between the flap and the fixed front wall (does not scale with the box)
 flap_clearance = ${fmt(p.flapClearance)};
+// Hinge axis: false = outside top edge of the back wall, true = top rear edge of the lid
+hinge_on_lid_top = ${p.hingeAxis === 'lid'};
 
 /* [Outlet and baffles] */
 // Opening beside the front wall at the right-hand end
@@ -736,6 +761,7 @@ baffle_colors = ${baffleColors};
 inner_l = length - 2 * t;
 inner_w = depth - 2 * t;
 wall_h = height - 2 * t;
+hinge_z = hinge_on_lid_top ? height : height - t;
 outlet_panel = inner_w - outlet_width;
 baffle_len = inner_w - baffle_gap;
 end_clear = inner_l - (baffle_offset + (baffle_count - 1) * baffle_pitch + t);
@@ -774,9 +800,9 @@ if (wall_h > 0) {
     }
 }
 
-// B  Lid and G front flap, hinged with tape on the outside top edge of the back wall
+// B  Lid and G front flap, hinged with tape at the back (see hinge_on_lid_top)
 if (show_lid)
-  translate([0, depth, height - t]) rotate([-lid_angle, 0, 0]) translate([0, -depth, -(height - t)]) {
+  translate([0, depth, hinge_z]) rotate([-lid_angle, 0, 0]) translate([0, -depth, -hinge_z]) {
     board(${col('B', 'lid_color')}, [0, -(t + flap_clearance), height - t], [length, depth + t + flap_clearance, t]);
     if (flap_height > 0)
       board(${col('G', 'lid_color')}, [0, -(t + flap_clearance), height - t - flap_height], [length, t, flap_height]);
@@ -888,6 +914,11 @@ setTimeout(() => {
 }, 12000);
 </script>
 
+<!-- Rhino scene imported by tools/import_3dm.py; regenerate with that script, do not edit by hand. -->
+<script type="application/json" id="rhino-scene">
+{"source":"sound_box_foamboard_Rhino_scene.3dm","units":"Millimeters","parts":[{"part":"A","status":"ok","error_mm":0.0,"name_in_scene":"A_Base","layer":"Base"},{"part":"B","status":"ok","error_mm":0.0,"name_in_scene":"B_Lid","layer":"Moving_lid"},{"part":"C1","status":"ok","error_mm":0.0,"name_in_scene":"C1_Back","layer":"Outer_walls"},{"part":"C2","status":"ok","error_mm":0.0,"name_in_scene":"C2_Front","layer":"Outer_walls"},{"part":"D","status":"ok","error_mm":0.0,"name_in_scene":"D_Left_end","layer":"Outer_walls"},{"part":"E","status":"ok","error_mm":0.0,"name_in_scene":"E_Outlet_end","layer":"Outer_walls"},{"part":"F1","status":"missing","note":"Baffle 1 is not in the scene"},{"part":"F2","status":"ok","error_mm":0.0,"name_in_scene":"F2_Baffle","layer":"Baffles"},{"part":"F3","status":"ok","error_mm":0.0,"name_in_scene":"F3_Baffle","layer":"Baffles"},{"part":"F4","status":"ok","error_mm":0.0,"name_in_scene":"F4_Baffle","layer":"Baffles"},{"part":"F5","status":"ok","error_mm":0.0,"name_in_scene":"F5_Baffle","layer":"Baffles"},{"part":"G","status":"ok","error_mm":0.0,"name_in_scene":"G_Front_flap","layer":"Moving_lid"}],"missing":["F1"],"lid":{"hinge_axis":"lid","pivot_mm":[0,200,100],"open_angle_deg":105.0,"fit_error_mm":0.0},"lights":[{"name":"Softbox - main front left","style":"WorldRectangular","center_mm":[105.0,-120.0,650.0],"size_mm":[550.0,500.0],"length_vec_mm":[550.0,0.0,0.0],"width_vec_mm":[0.0,-500.0,0.0],"direction":[0.0,0.0,-1.0],"intensity":0.5,"color":"#fffeff","enabled":true},{"name":"Softbox - right fill","style":"WorldRectangular","center_mm":[500.0,70.0,250.0],"size_mm":[380.0,300.0],"length_vec_mm":[0.0,380.0,0.0],"width_vec_mm":[0.0,0.0,-300.0],"direction":[-1.0,0.0,0.0],"intensity":0.15,"color":"#fffeff","enabled":true}],"views":[{"name":"Foamboard studio render","perspective":false,"location_mm":[600.0,-800.0,710.0],"direction":[-470.0,913.0,-573.0],"target_mm":[130.0,113.0,137.0],"up":[0.0,0.0,1.0]},{"name":"Sound box - assembly","perspective":false,"location_mm":[650.0,-720.0,620.0],"direction":[-520.0,830.0,-490.0],"target_mm":[130.0,110.0,130.0],"up":[0.0,0.0,1.0]}],"materials":{"Glossy opaque white acrylic":{"name":"Glossy opaque white acrylic","base_color":"#f0f0f0","roughness":0.18,"metallic":0.0,"specular":0.48406477314882,"bump_on":false},"Foamboard - matte white paper faces":{"name":"Foamboard - matte white paper faces","base_color":"#f2f2f2","roughness":0.86,"metallic":0.0,"specular":0.25,"bump_on":true},"Foamboard - fine white cut core":{"name":"Foamboard - fine white cut core","base_color":"#ededed","roughness":0.96,"metallic":0.0,"specular":0.25,"bump_on":true},"Studio floor - neutral gray":{"name":"Studio floor - neutral gray","base_color":"#afafaf","roughness":0.9,"metallic":0.0,"specular":0.25,"bump_on":false}},"environment":{"name":"Studio","color":"#a0a0a0"},"background":{"top":"#cdd1d5","bottom":"#dcdfe2"},"ground_plane":{"enabled":true,"shadow_only":true,"altitude_mm":0.0},"skylight":{"enabled":true},"sun":{"enabled":false}}
+</script>
+
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
@@ -904,6 +935,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 
 const core = window.SoundBoxCore;
 const { fmt, dims } = core;
@@ -911,11 +943,23 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/* ---------- imported Rhino scene (tools/import_3dm.py) ---------- */
+const RHINO = (() => {
+  try {
+    const d = JSON.parse(document.getElementById('rhino-scene').textContent);
+    return d && Array.isArray(d.lights) ? d : null;
+  } catch (e) { return null; }
+})();
+// Settings the "Rhino scene" preset puts on the model and the view.
+const rhinoPose = () => RHINO ? { lidAngle: RHINO.lid.open_angle_deg, hingeAxis: RHINO.lid.hinge_axis } : {};
+const rhinoView = () => (RHINO ? { studio: false, mat: false, view: 'rhino' } : {});
+
 /* ---------- state (kept per viewer in browser storage) ---------- */
 const STORE = 'hinged-sound-box/v2';
 const fresh = () => ({
-  params: { ...core.DEFAULTS }, material: 'foam', byGroup: false, outlines: false, labels: true, mat: true,
-  style: 'real', light: 320, studio: true, hidden: {}, overrides: {}, explode: 0, view: 'iso',
+  params: { ...core.DEFAULTS, ...rhinoPose() }, material: 'foam', byGroup: false, outlines: false, labels: true, mat: true,
+  style: 'real', light: 320, rigTurn: 0, studio: true, hidden: {}, overrides: {}, explode: 0, view: 'iso',
+  scene: RHINO ? 'rhino' : 'studio', ...rhinoView(),
 });
 function load() {
   try {
@@ -928,6 +972,8 @@ function load() {
     }
     // Saves from before the realistic render had outlines on by default.
     if (s && s.params && !('style' in s)) s.outlines = false;
+    // Saves from before the Rhino import open in the imported scene once.
+    if (s && s.params && !('scene' in s) && RHINO) Object.assign(s, { scene: 'rhino', params: { ...s.params, ...rhinoPose() }, ...rhinoView() });
     if (s && s.params) return { ...fresh(), ...s, params: core.normalize(s.params) };
   } catch (e) { /* storage blocked */ }
   return fresh();
@@ -963,7 +1009,8 @@ scene.add(modelRoot);
 const boards = new Map(); // part id -> group holding that board's meshes, outline and label
 let pickables = [];
 let hinge = null, controls = null, labelRenderer = null, matMesh = null, outletTag = null;
-let composer = null, aoPass = null, sun = null, catcher = null, sweep = null;
+let composer = null, aoPass = null, sun = null, hemi = null, catcher = null, sweep = null, gradientBg = null;
+let rig = [];
 const edgeMat = new THREE.LineBasicMaterial({ color: 0x1b211e, transparent: true, opacity: 0.8 });
 const selEdgeMat = new THREE.LineBasicMaterial({ color: 0x2b6954 });
 let accent = '#2b6954';
@@ -1083,7 +1130,9 @@ if (has3D) {
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environmentIntensity = 0.42;
-  scene.add(new THREE.HemisphereLight(0xf4f6ff, 0xd9d6cf, 0.22));
+  hemi = new THREE.HemisphereLight(0xf4f6ff, 0xd9d6cf, 0.22);
+  scene.add(hemi);
+  RectAreaLightUniformsLib.init();
   // Key light: a large soft source, so shadows have wide, soft edges like a softbox.
   sun = new THREE.DirectionalLight(0xfffdf8, 3.1);
   sun.castShadow = true;
@@ -1202,7 +1251,7 @@ function makeBoard(part) {
   const mats = {
     solid: new THREE.MeshStandardMaterial({ metalness: 0 }),
     paper: new THREE.MeshStandardMaterial({ metalness: 0, map: surf.paper, bumpMap: surf.paperBump, bumpScale: 0.25, roughness: 0.66 }),
-    core: new THREE.MeshStandardMaterial({ metalness: 0, color: '#eeede8', map: surf.foam, bumpMap: surf.foamBump, bumpScale: 0.7, roughness: 0.97 }),
+    core: new THREE.MeshStandardMaterial({ metalness: 0, color: '#ededed', map: surf.foam, bumpMap: surf.foamBump, bumpScale: 0.7, roughness: 0.97 }),
   };
   const group = new THREE.Group();
   const box = new THREE.BoxGeometry(part.size[0], part.size[1], part.size[2]);
@@ -1347,22 +1396,98 @@ function applyVisibility() {
   invalidate();
 }
 
+// CAD (Z up, mm) to world: points through the model root, directions by axis swap.
+const cadPoint = c => modelRoot.localToWorld(new THREE.Vector3(c[0], c[1], c[2]));
+const cadDir = d => new THREE.Vector3(d[0], d[2], -d[1]).normalize();
+
 function applyLight() {
   if (!has3D) return;
-  const az = THREE.MathUtils.degToRad(state.light), el = THREE.MathUtils.degToRad(48), r = 1200;
-  sun.position.set(r * Math.cos(el) * Math.sin(az), r * Math.sin(el), r * Math.cos(el) * Math.cos(az));
+  for (const l of rig) { scene.remove(l); l.dispose(); }
+  rig = [];
+  modelRoot.updateMatrixWorld(true);
+  const p = model.params;
+  const center = cadPoint([p.length / 2, p.depth / 2, p.height / 2]);
+  if (state.scene === 'rhino' && RHINO) {
+    // Rhino softboxes as area lights; the main one also drives a soft directional shadow.
+    const turn = THREE.MathUtils.degToRad(state.rigTurn || 0);
+    const spin = v => v.sub(center).applyAxisAngle(new THREE.Vector3(0, 1, 0), turn).add(center);
+    const rects = RHINO.lights.filter(l => l.enabled && /Rectangular/.test(l.style));
+    const main = rects.reduce((a, b) => (b.intensity > a.intensity ? b : a), rects[0]);
+    for (const l of rects) {
+      const light = new THREE.RectAreaLight(l.color, l.intensity * 16, l.size_mm[0], l.size_mm[1]);
+      const at = spin(cadPoint(l.center_mm));
+      light.position.copy(at);
+      light.lookAt(spin(at.clone().add(cadDir(l.direction).multiplyScalar(100))));
+      scene.add(light);
+      rig.push(light);
+    }
+    if (main) sun.position.copy(spin(cadPoint(main.center_mm)).sub(center).normalize().multiplyScalar(1200).add(center));
+    sun.target.position.copy(center);
+    sun.intensity = 1.5;
+    sun.shadow.radius = 16;
+    hemi.color.set(RHINO.environment.color || '#a0a0a0');
+    hemi.groundColor.set(RHINO.environment.color || '#a0a0a0');
+    hemi.intensity = 0.95;
+    scene.environmentIntensity = 0.22;
+  } else {
+    const az = THREE.MathUtils.degToRad(state.light), el = THREE.MathUtils.degToRad(48), r = 1200;
+    sun.position.set(r * Math.cos(el) * Math.sin(az), r * Math.sin(el), r * Math.cos(el) * Math.cos(az));
+    sun.target.position.set(0, 0, 0);
+    sun.intensity = 3.1;
+    sun.shadow.radius = 9;
+    hemi.color.set(0xf4f6ff);
+    hemi.groundColor.set(0xd9d6cf);
+    hemi.intensity = 0.22;
+    scene.environmentIntensity = 0.42;
+  }
   invalidate();
 }
 
 function applyBackdrop() {
   if (!has3D) return;
-  const token = getComputedStyle(document.documentElement).getPropertyValue('--stage').trim() || '#e1e5e0';
-  const bg = state.studio ? '#cfcec9' : token;
-  scene.background = new THREE.Color(bg);
-  scene.fog = new THREE.Fog(bg, 3200, 8000);
+  const rhino = state.scene === 'rhino' && RHINO;
+  if (rhino && !state.studio) {
+    // Rhino's gradient background with its shadow-only ground plane.
+    if (!gradientBg) {
+      const cv = document.createElement('canvas');
+      cv.width = 2; cv.height = 256;
+      const g = cv.getContext('2d');
+      const grad = g.createLinearGradient(0, 0, 0, 256);
+      grad.addColorStop(0, RHINO.background.top);
+      grad.addColorStop(1, RHINO.background.bottom);
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 2, 256);
+      gradientBg = new THREE.CanvasTexture(cv);
+      gradientBg.colorSpace = THREE.SRGBColorSpace;
+    }
+    scene.background = gradientBg;
+    scene.fog = null;
+    catcher.material.opacity = 0.3;
+  } else {
+    const token = getComputedStyle(document.documentElement).getPropertyValue('--stage').trim() || '#e1e5e0';
+    const bg = state.studio ? '#cfcec9' : token;
+    scene.background = new THREE.Color(bg);
+    scene.fog = new THREE.Fog(bg, 3200, 8000);
+    catcher.material.opacity = 0.16;
+  }
   sweep.visible = state.studio;
   catcher.visible = !state.studio;
   invalidate();
+}
+
+// Switch between the built-in studio and the imported Rhino scene.
+function applyScene(name) {
+  state.scene = name === 'rhino' && RHINO ? 'rhino' : 'studio';
+  if (state.scene === 'rhino') {
+    state.params = core.normalize({ ...state.params, ...rhinoPose() });
+    Object.assign(state, rhinoView());
+  } else {
+    Object.assign(state, { studio: true, mat: true, view: 'iso' });
+  }
+  rebuild();
+  applyBackdrop();
+  applyLight();
+  goView(state.view);
 }
 
 // Hide a part label when another board sits between it and the camera.
@@ -1391,6 +1516,11 @@ function render() {
 
 /* ---------- camera ---------- */
 const DIRS = { iso: [0.66, 0.6, 1], front: [0, 0.14, 1], top: [0, 1, 0.015], left: [-1, 0.1, 0], right: [1, 0.1, 0] };
+if (RHINO && RHINO.views.length) {
+  // Look the way the Rhino render viewport looks: camera sits opposite its view direction.
+  const d = RHINO.views[0].direction;
+  DIRS.rhino = [-d[0], -d[2], d[1]];
+}
 let tween = null;
 function viewPose(name) {
   modelRoot.updateMatrixWorld(true);
@@ -1547,7 +1677,7 @@ function partNote(part) {
   const p = model.params, d = model.derived;
   switch (part.kind) {
     case 'A': return 'Every upright panel sits on the base, not beside it.';
-    case 'B': return `Tape hinge on the outside rear corner. Rear edge flush with the back wall; projects ${fmt(p.thickness + p.flapClearance)} mm past the front.`;
+    case 'B': return `Tape hinge on the ${p.hingeAxis === 'lid' ? 'lid\'s top rear edge' : 'back wall\'s top outside edge'}. Rear edge flush with the back wall; projects ${fmt(p.thickness + p.flapClearance)} mm past the front.`;
     case 'C': return part.id === 'C1' ? 'Outside face flush with the back edge of the base. Carries the tape hinge.' : 'Outside face flush with the front edge of the base. The flap closes over it.';
     case 'D': return 'Fits between the long walls at the left end.';
     case 'E': return p.outletWidth === 0 ? 'Closes the whole right end. Set an outlet width to open the sound path.' : `Touches the back wall and leaves a ${dims(p.outletWidth, d.wallH)} mm outlet beside the front wall.`;
@@ -1589,8 +1719,13 @@ function syncControls() {
   $('#show-mat').checked = state.mat;
   $('#show-studio').checked = state.studio;
   for (const b of $$('[data-style]')) b.setAttribute('aria-pressed', String(b.dataset.style === state.style));
-  $('#light').value = state.light;
-  $('#light-out').textContent = state.light + '°';
+  for (const b of $$('[data-scene]')) b.setAttribute('aria-pressed', String(b.dataset.scene === state.scene));
+  for (const b of $$('[data-hinge]')) b.setAttribute('aria-pressed', String(b.dataset.hinge === model.params.hingeAxis));
+  // One slider: key light direction in the studio, rotation of the imported softbox rig in the Rhino scene.
+  const rigMode = state.scene === 'rhino';
+  $('#light-label').textContent = rigMode ? 'Rig turn' : 'Light';
+  $('#light').value = rigMode ? (state.rigTurn + 360) % 360 : state.light;
+  $('#light-out').textContent = (rigMode ? (state.rigTurn + 360) % 360 : state.light) + '°';
   $('#t-front').setAttribute('aria-pressed', String(!state.hidden.C2));
   $('#t-lid').setAttribute('aria-pressed', String(!state.hidden.B));
   $('#t-labels').setAttribute('aria-pressed', String(state.labels));
@@ -1601,7 +1736,39 @@ function syncControls() {
   $('#explode-out').textContent = state.explode + '%';
 }
 
+function renderRhino() {
+  if (!RHINO) return;
+  $('#rhino-block').hidden = false;
+  $('#scene-row').hidden = false;
+  $('[data-view="rhino"]').hidden = false;
+  $('#rhino-file').textContent = RHINO.source;
+  const parts = RHINO.parts.filter(q => q.status !== 'extra');
+  const ok = parts.filter(q => q.status === 'ok');
+  const worst = Math.max(0, ...ok.map(q => q.error_mm || 0));
+  const lid = RHINO.lid;
+  const lights = RHINO.lights.filter(l => l.enabled);
+  const notes = [
+    ['ok', 'Parts match', `${ok.length} of ${parts.length}`, `Every imported part sits within ${fmt(worst)} mm of the parametric model.`],
+    ...RHINO.missing.map(id => ['warn', `Part ${id} missing`, 'added', `The Rhino file has no ${id}. The editor shows it, and rhino/${RHINO.source.replace(/\.3dm$/, '')}_complete.3dm adds it as a copy of a matching part.`]),
+    ['ok', 'Lid', `${fmt(lid.open_angle_deg)}° open`, `Hinged on the ${lid.hinge_axis === 'lid' ? 'lid\'s top rear edge' : 'back wall\'s top outside edge'}; fitted to ${fmt(lid.fit_error_mm)} mm.`],
+    ['ok', 'Lights', `${lights.length} softbox${lights.length === 1 ? '' : 'es'}`, lights.map(l => `${l.name} ${dims(...l.size_mm)} mm at ${fmt(l.intensity)}`).join('; ') + '.'],
+    ['ok', 'Materials', `${Object.keys(RHINO.materials).length}`, Object.values(RHINO.materials).map(m => `${m.name} (${m.base_color}, roughness ${fmt(m.roughness)})`).join('; ') + '.'],
+    ['ok', 'Backdrop', 'gradient', `${RHINO.background.top} to ${RHINO.background.bottom}, shadow-only ground${RHINO.skylight.enabled ? ', skylight on' : ''}.`],
+  ];
+  $('#rhino-notes').replaceChildren(...notes.map(([level, label, value, note]) => {
+    const li = el('li', 'chk is-' + level);
+    li.append(el('span', 'pill', PILL[level]));
+    const body = el('div');
+    const line = el('div', 'chk-line');
+    line.append(el('b', null, label), el('span', 'val', value));
+    body.append(line, el('small', null, note));
+    li.append(body);
+    return li;
+  }));
+}
+
 function renderPanel() {
+  renderRhino();
   renderChecks();
   renderCutList();
   renderSpec();
@@ -1614,6 +1781,7 @@ function rebuild() {
   state.params = model.params;
   if (selectedId && !model.parts.some(q => q.id === selectedId)) selectedId = null;
   buildScene();
+  applyLight(); // the light rig is placed relative to the box, so it follows size changes
   if (!has3D) looks = core.looks(model, state);
   renderPanel();
   save();
@@ -1647,10 +1815,13 @@ for (const b of $$('[data-style]')) b.addEventListener('click', () => {
   applyLooks(); syncControls(); save();
 });
 $('#light').addEventListener('input', e => {
-  state.light = Number(e.target.value);
-  $('#light-out').textContent = state.light + '°';
+  const v = Number(e.target.value);
+  if (state.scene === 'rhino') state.rigTurn = v; else state.light = v;
+  $('#light-out').textContent = v + '°';
   applyLight(); save();
 });
+for (const b of $$('[data-scene]')) b.addEventListener('click', () => { applyScene(b.dataset.scene); syncControls(); save(); });
+for (const b of $$('[data-hinge]')) b.addEventListener('click', () => { state.params = { ...state.params, hingeAxis: b.dataset.hinge }; rebuild(); });
 
 function toggleHidden(ids, show) {
   for (const id of ids) { if (show) delete state.hidden[id]; else state.hidden[id] = true; }
@@ -1698,11 +1869,12 @@ $('#sel-hide').addEventListener('click', () => {
 });
 
 $('#btn-reset').addEventListener('click', () => {
+  const sceneName = state.scene;
   state = fresh();
   selectedId = null;
-  rebuild();
-  goView('iso');
-  setStatus('Reset to the drawing dimensions.');
+  applyScene(sceneName);
+  syncControls();
+  setStatus('Reset to the drawing dimensions' + (state.scene === 'rhino' ? ' in the imported Rhino scene.' : '.'));
 });
 
 /* ---------- export ---------- */
@@ -1780,13 +1952,13 @@ $('#btn-png').addEventListener('click', () => {
 });
 
 /* ---------- start ---------- */
+if (state.scene === 'rhino' && !RHINO) state.scene = 'studio';
 readTheme();
 rebuild();
 if (has3D) {
   resize();
   new ResizeObserver(resize).observe(stage);
   goView(state.view in DIRS ? state.view : 'iso', true);
-  applyLight();
   // Draw only when the view or the model changed; damping keeps controls.update() true while it settles.
   const loop = now => {
     requestAnimationFrame(loop);

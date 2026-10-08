@@ -1,0 +1,268 @@
+{
+  "source": "sound_box_foamboard_Rhino_scene.3dm",
+  "units": "Millimeters",
+  "parts": [
+    {
+      "part": "A",
+      "status": "ok",
+      "error_mm": 0.0,
+      "name_in_scene": "A_Base",
+      "layer": "Base"
+    },
+    {
+      "part": "B",
+      "status": "ok",
+      "error_mm": 0.0,
+      "name_in_scene": "B_Lid",
+      "layer": "Moving_lid"
+    },
+    {
+      "part": "C1",
+      "status": "ok",
+      "error_mm": 0.0,
+      "name_in_scene": "C1_Back",
+      "layer": "Outer_walls"
+    },
+    {
+      "part": "C2",
+      "status": "ok",
+      "error_mm": 0.0,
+      "name_in_scene": "C2_Front",
+      "layer": "Outer_walls"
+    },
+    {
+      "part": "D",
+      "status": "ok",
+      "error_mm": 0.0,
+      "name_in_scene": "D_Left_end",
+      "layer": "Outer_walls"
+    },
+    {
+      "part": "E",
+      "status": "ok",
+      "error_mm": 0.0,
+      "name_in_scene": "E_Outlet_end",
+      "layer": "Outer_walls"
+    },
+    {
+      "part": "F1",
+      "status": "missing",
+      "note": "Baffle 1 is not in the scene"
+    },
+    {
+      "part": "F2",
+      "status": "ok",
+      "error_mm": 0.0,
+      "name_in_scene": "F2_Baffle",
+      "layer": "Baffles"
+    },
+    {
+      "part": "F3",
+      "status": "ok",
+      "error_mm": 0.0,
+      "name_in_scene": "F3_Baffle",
+      "layer": "Baffles"
+    },
+    {
+      "part": "F4",
+      "status": "ok",
+      "error_mm": 0.0,
+      "name_in_scene": "F4_Baffle",
+      "layer": "Baffles"
+    },
+    {
+      "part": "F5",
+      "status": "ok",
+      "error_mm": 0.0,
+      "name_in_scene": "F5_Baffle",
+      "layer": "Baffles"
+    },
+    {
+      "part": "G",
+      "status": "ok",
+      "error_mm": 0.0,
+      "name_in_scene": "G_Front_flap",
+      "layer": "Moving_lid"
+    }
+  ],
+  "missing": [
+    "F1"
+  ],
+  "lid": {
+    "hinge_axis": "lid",
+    "pivot_mm": [
+      0,
+      200,
+      100
+    ],
+    "open_angle_deg": 105.0,
+    "fit_error_mm": 0.0
+  },
+  "lights": [
+    {
+      "name": "Softbox - main front left",
+      "style": "WorldRectangular",
+      "center_mm": [
+        105.0,
+        -120.0,
+        650.0
+      ],
+      "size_mm": [
+        550.0,
+        500.0
+      ],
+      "length_vec_mm": [
+        550.0,
+        0.0,
+        0.0
+      ],
+      "width_vec_mm": [
+        0.0,
+        -500.0,
+        0.0
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "intensity": 0.5,
+      "color": "#fffeff",
+      "enabled": true
+    },
+    {
+      "name": "Softbox - right fill",
+      "style": "WorldRectangular",
+      "center_mm": [
+        500.0,
+        70.0,
+        250.0
+      ],
+      "size_mm": [
+        380.0,
+        300.0
+      ],
+      "length_vec_mm": [
+        0.0,
+        380.0,
+        0.0
+      ],
+      "width_vec_mm": [
+        0.0,
+        0.0,
+        -300.0
+      ],
+      "direction": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "intensity": 0.15,
+      "color": "#fffeff",
+      "enabled": true
+    }
+  ],
+  "views": [
+    {
+      "name": "Foamboard studio render",
+      "perspective": false,
+      "location_mm": [
+        600.0,
+        -800.0,
+        710.0
+      ],
+      "direction": [
+        -470.0,
+        913.0,
+        -573.0
+      ],
+      "target_mm": [
+        130.0,
+        113.0,
+        137.0
+      ],
+      "up": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "Sound box - assembly",
+      "perspective": false,
+      "location_mm": [
+        650.0,
+        -720.0,
+        620.0
+      ],
+      "direction": [
+        -520.0,
+        830.0,
+        -490.0
+      ],
+      "target_mm": [
+        130.0,
+        110.0,
+        130.0
+      ],
+      "up": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  ],
+  "materials": {
+    "Glossy opaque white acrylic": {
+      "name": "Glossy opaque white acrylic",
+      "base_color": "#f0f0f0",
+      "roughness": 0.18,
+      "metallic": 0.0,
+      "specular": 0.48406477314882,
+      "bump_on": false
+    },
+    "Foamboard - matte white paper faces": {
+      "name": "Foamboard - matte white paper faces",
+      "base_color": "#f2f2f2",
+      "roughness": 0.86,
+      "metallic": 0.0,
+      "specular": 0.25,
+      "bump_on": true
+    },
+    "Foamboard - fine white cut core": {
+      "name": "Foamboard - fine white cut core",
+      "base_color": "#ededed",
+      "roughness": 0.96,
+      "metallic": 0.0,
+      "specular": 0.25,
+      "bump_on": true
+    },
+    "Studio floor - neutral gray": {
+      "name": "Studio floor - neutral gray",
+      "base_color": "#afafaf",
+      "roughness": 0.9,
+      "metallic": 0.0,
+      "specular": 0.25,
+      "bump_on": false
+    }
+  },
+  "environment": {
+    "name": "Studio",
+    "color": "#a0a0a0"
+  },
+  "background": {
+    "top": "#cdd1d5",
+    "bottom": "#dcdfe2"
+  },
+  "ground_plane": {
+    "enabled": true,
+    "shadow_only": true,
+    "altitude_mm": 0.0
+  },
+  "skylight": {
+    "enabled": true
+  },
+  "sun": {
+    "enabled": false
+  }
+}

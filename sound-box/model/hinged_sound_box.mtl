@@ -1,7 +1,7 @@
 # Hinged sound box materials
 
 newmtl Shell_Foamboard
-Kd 0.9451 0.9412 0.9176
+Kd 0.9647 0.9647 0.9529
 Ka 0 0 0
 Ks 0.04 0.04 0.04
 Ns 20
@@ -9,7 +9,7 @@ d 1
 illum 2
 
 newmtl Lid_Foamboard
-Kd 0.9451 0.9412 0.9176
+Kd 0.9647 0.9647 0.9529
 Ka 0 0 0
 Ks 0.04 0.04 0.04
 Ns 20
@@ -17,7 +17,7 @@ d 1
 illum 2
 
 newmtl Baffles_Foamboard
-Kd 0.9451 0.9412 0.9176
+Kd 0.9647 0.9647 0.9529
 Ka 0 0 0
 Ks 0.04 0.04 0.04
 Ns 20

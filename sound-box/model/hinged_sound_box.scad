@@ -41,9 +41,9 @@ show_front_wall = true;
 show_lid = true;
 
 /* [Hidden] */
-shell_color = "#f1f0ea";
-baffle_color = "#f1f0ea";
-lid_color = "#f1f0ea";
+shell_color = "#f6f6f3";
+baffle_color = "#f6f6f3";
+lid_color = "#f6f6f3";
 board_alpha = 1;
 baffle_colors = [];
 

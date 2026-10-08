@@ -68,6 +68,8 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
 .labels { position: absolute; inset: 0; pointer-events: none; }
 .tag { font: 600 11px/1 var(--font-mono); padding: 3px 5px; border-radius: 4px; background: color-mix(in srgb, var(--panel) 90%, transparent); color: var(--ink); border: 1px solid var(--rule); white-space: nowrap; }
 .tag.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.tag.outlet { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.tag.behind { opacity: 0; }
 .ov { position: absolute; z-index: 2; }
 .ov-top { top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none; }
 .ov-top > * { pointer-events: auto; }
@@ -190,7 +192,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
     <p class="spec" id="spec">5 mm stock · 12 parts · 260 × 206 × 100 mm closed</p>
     <div class="actions">
       <button class="btn ghost" id="btn-reset" type="button">Reset to drawing</button>
-      <button class="btn" id="btn-png" type="button">Save PNG</button>
+      <button class="btn" id="btn-png" type="button">Save render</button>
       <button class="btn primary" id="btn-zip" type="button">Export model (.zip)</button>
     </div>
   </header>
@@ -204,13 +206,14 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
           <button type="button" data-view="iso" aria-pressed="true">3D</button>
           <button type="button" data-view="front" aria-pressed="false">Front</button>
           <button type="button" data-view="top" aria-pressed="false">Top</button>
-          <button type="button" data-view="side" aria-pressed="false">Section side</button>
+          <button type="button" data-view="left" aria-pressed="false">Left end</button>
+          <button type="button" data-view="right" aria-pressed="false">Right end</button>
         </div>
         <div class="chips" role="group" aria-label="Show in view">
           <button type="button" class="chip" id="t-front" aria-pressed="true">Front wall</button>
           <button type="button" class="chip" id="t-lid" aria-pressed="true">Lid</button>
           <button type="button" class="chip" id="t-labels" aria-pressed="true">Labels</button>
-          <button type="button" class="chip" id="t-outlines" aria-pressed="true">Outlines</button>
+          <button type="button" class="chip" id="t-outlines" aria-pressed="false">Outlines</button>
         </div>
       </div>
       <div class="ov ov-bottom">
@@ -226,7 +229,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
           </dl>
           <p class="sel-note" id="sel-note"></p>
           <div class="sel-actions">
-            <label class="mini" for="sel-color"><input type="color" id="sel-color" value="#f1f0ea">Part colour</label>
+            <label class="mini" for="sel-color"><input type="color" id="sel-color" value="#f6f6f3">Part colour</label>
             <button type="button" class="mini" id="sel-reset">Reset colour</button>
             <button type="button" class="mini" id="sel-hide">Hide part</button>
           </div>
@@ -270,7 +273,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
           <label class="field"><span>First baffle</span><span class="inp"><input id="p-baffleOffset" data-param="baffleOffset" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Source bay depth</small></label>
           <label class="field"><span>Pitch</span><span class="inp"><input id="p-bafflePitch" data-param="bafflePitch" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Left face to left face</small></label>
           <label class="field"><span>Free-end gap</span><span class="inp"><input id="p-baffleGap" data-param="baffleGap" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Air path at each tip</small></label>
-          <label class="field"><span>Outlet</span><span class="inp"><input id="p-outletWidth" data-param="outletWidth" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Opening beside front wall</small></label>
+          <label class="field"><span>Outlet</span><span class="inp"><input id="p-outletWidth" data-param="outletWidth" type="number" inputmode="decimal" step="1"><em>mm</em></span><small>Beside front wall; 0 closes it</small></label>
           <div class="field">
             <span id="first-label">Baffle 1 on</span>
             <div class="seg" role="group" aria-labelledby="first-label">
@@ -291,16 +294,29 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
       </section>
 
       <section class="block" aria-labelledby="h-finish">
-        <h2 id="h-finish">Finish</h2>
+        <h2 id="h-finish">Finish + light</h2>
         <div class="stack">
+          <div class="row">
+            <span id="style-label">Render</span>
+            <div class="seg" role="group" aria-labelledby="style-label">
+              <button type="button" data-style="real" aria-pressed="true">Realistic</button>
+              <button type="button" data-style="drawing" aria-pressed="false">Line drawing</button>
+            </div>
+          </div>
           <div class="swatches" role="group" aria-label="Board material" id="materials">
-            <button type="button" class="chip sw" style="--sw: #f1f0ea" data-material="foam" aria-pressed="true">Foamboard</button>
+            <button type="button" class="chip sw" style="--sw: #f6f6f3" data-material="foam" aria-pressed="true">Foamboard</button>
             <button type="button" class="chip sw" style="--sw: #8f938d" data-material="grey" aria-pressed="false">Greyboard</button>
             <button type="button" class="chip sw" style="--sw: #c39b6d" data-material="kraft" aria-pressed="false">Kraft card</button>
             <button type="button" class="chip sw" style="--sw: #dcc39c" data-material="birch" aria-pressed="false">Birch ply</button>
             <button type="button" class="chip sw" style="--sw: #d3e8ec" data-material="acrylic" aria-pressed="false">Clear acrylic</button>
           </div>
           <label class="check" for="by-group"><input type="checkbox" id="by-group">Colour by part group (shell, baffles, lid)</label>
+          <div class="slider">
+            <label for="light">Light</label>
+            <input id="light" type="range" min="0" max="359" step="1" value="320">
+            <output id="light-out" for="light">320°</output>
+          </div>
+          <label class="check" for="show-studio"><input type="checkbox" id="show-studio" checked>Photo studio backdrop</label>
           <label class="check" for="show-mat"><input type="checkbox" id="show-mat" checked>Cutting mat with 10 mm grid</label>
         </div>
       </section>
@@ -354,7 +370,7 @@ h1 { font: 700 31px/1 var(--font-display); letter-spacing: .01em; margin: 0; tex
   });
 
   const MATERIALS = Object.freeze({
-    foam: { label: 'Foamboard', color: '#f1f0ea', roughness: 0.92, opacity: 1 },
+    foam: { label: 'Foamboard', color: '#f6f6f3', roughness: 0.92, opacity: 1 },
     grey: { label: 'Greyboard', color: '#8f938d', roughness: 0.95, opacity: 1 },
     kraft: { label: 'Kraft card', color: '#c39b6d', roughness: 0.9, opacity: 1 },
     birch: { label: 'Birch ply', color: '#dcc39c', roughness: 0.7, opacity: 1 },
@@ -884,6 +900,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const core = window.SoundBoxCore;
 const { fmt, dims } = core;
@@ -894,12 +914,20 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* ---------- state (kept per viewer in browser storage) ---------- */
 const STORE = 'hinged-sound-box/v2';
 const fresh = () => ({
-  params: { ...core.DEFAULTS }, material: 'foam', byGroup: false, outlines: true, labels: true, mat: true,
-  hidden: {}, overrides: {}, explode: 0, view: 'iso',
+  params: { ...core.DEFAULTS }, material: 'foam', byGroup: false, outlines: false, labels: true, mat: true,
+  style: 'real', light: 320, studio: true, hidden: {}, overrides: {}, explode: 0, view: 'iso',
 });
 function load() {
   try {
-    const s = JSON.parse(localStorage.getItem(STORE) || 'null');
+    let s = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (!s) {
+      // v1 hid the front wall by default. Keep a returning viewer's other settings but show the wall.
+      s = JSON.parse(localStorage.getItem('hinged-sound-box/v1') || 'null');
+      if (s && s.hidden) delete s.hidden.C2;
+      localStorage.removeItem('hinged-sound-box/v1');
+    }
+    // Saves from before the realistic render had outlines on by default.
+    if (s && s.params && !('style' in s)) s.outlines = false;
     if (s && s.params) return { ...fresh(), ...s, params: core.normalize(s.params) };
   } catch (e) { /* storage blocked */ }
   return fresh();
@@ -932,53 +960,191 @@ const camera = new THREE.PerspectiveCamera(32, 1.5, 10, 20000);
 const modelRoot = new THREE.Group();
 modelRoot.rotation.x = -Math.PI / 2; // CAD Z-up -> three Y-up
 scene.add(modelRoot);
-const meshes = new Map();
-let hinge = null, controls = null, labelRenderer = null, matMesh = null;
+const boards = new Map(); // part id -> group holding that board's meshes, outline and label
+let pickables = [];
+let hinge = null, controls = null, labelRenderer = null, matMesh = null, outletTag = null;
+let composer = null, aoPass = null, sun = null, catcher = null, sweep = null;
 const edgeMat = new THREE.LineBasicMaterial({ color: 0x1b211e, transparent: true, opacity: 0.8 });
 const selEdgeMat = new THREE.LineBasicMaterial({ color: 0x2b6954 });
 let accent = '#2b6954';
+let dirty = true;
+const invalidate = () => { dirty = true; };
+
+/* ---------- foam board surfaces: seeded, tileable, generated once ---------- */
+function rng(seed) {
+  let s = seed >>> 0;
+  return () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
+}
+// Periodic value noise in [0, 1), so the texture tiles without seams.
+function valueNoise(size, cells, r) {
+  const grid = Float32Array.from({ length: cells * cells }, r);
+  const out = new Float32Array(size * size);
+  const ease = f => f * f * (3 - 2 * f);
+  for (let y = 0; y < size; y++) {
+    const gy = (y / size) * cells, y0 = Math.floor(gy), sy = ease(gy - y0), y1 = (y0 + 1) % cells;
+    for (let x = 0; x < size; x++) {
+      const gx = (x / size) * cells, x0 = Math.floor(gx), sx = ease(gx - x0), x1 = (x0 + 1) % cells;
+      const top = grid[y0 * cells + x0] + (grid[y0 * cells + x1] - grid[y0 * cells + x0]) * sx;
+      const bot = grid[y1 * cells + x0] + (grid[y1 * cells + x1] - grid[y1 * cells + x0]) * sx;
+      out[y * size + x] = top + (bot - top) * sy;
+    }
+  }
+  return out;
+}
+// Draw a mark at the 9 wrapped offsets so anything crossing an edge continues on the opposite side.
+const wrapped = (size, fn) => { for (const dx of [-size, 0, size]) for (const dy of [-size, 0, size]) fn(dx, dy); };
+
+function surfaceCanvas(size, seed, base, layers, grain) {
+  const r = rng(seed);
+  const noise = layers.map(([cells, amp]) => [valueNoise(size, cells, r), amp]);
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const g = cv.getContext('2d');
+  const img = g.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    let v = base + (r() - 0.5) * grain;
+    for (const [n, amp] of noise) v += (n[i] - 0.5) * amp;
+    img.data[i * 4] = v; img.data[i * 4 + 1] = v; img.data[i * 4 + 2] = v + 0.6; img.data[i * 4 + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  return { cv, g, r };
+}
+// Paper facing: near-white, faint mottling and short fibres.
+function paperCanvas() {
+  const { cv, g, r } = surfaceCanvas(512, 11, 247, [[6, 6], [24, 4], [96, 3]], 4);
+  g.lineCap = 'round';
+  for (let k = 0; k < 1100; k++) {
+    const x = r() * 512, y = r() * 512, a = r() * Math.PI * 2, len = 5 + r() * 16, bend = (r() - 0.5) * 8;
+    g.strokeStyle = r() < 0.55 ? 'rgba(255,255,255,0.45)' : 'rgba(140,134,122,0.09)';
+    g.lineWidth = 0.5 + r() * 0.7;
+    wrapped(512, (dx, dy) => {
+      g.beginPath();
+      g.moveTo(x + dx, y + dy);
+      g.quadraticCurveTo(x + dx + Math.cos(a) * len / 2 + bend, y + dy + Math.sin(a) * len / 2 - bend, x + dx + Math.cos(a) * len, y + dy + Math.sin(a) * len);
+      g.stroke();
+    });
+  }
+  return cv;
+}
+// Polystyrene core: matte, slightly greyer, closed cells.
+function foamCanvas() {
+  const { cv, g, r } = surfaceCanvas(256, 23, 238, [[8, 8], [32, 6]], 7);
+  for (let k = 0; k < 1500; k++) {
+    const x = r() * 256, y = r() * 256, rad = 1.1 + r() * 2.8;
+    wrapped(256, (dx, dy) => {
+      g.beginPath();
+      g.arc(x + dx, y + dy, rad, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(255,255,255,0.16)';
+      g.fill();
+      g.strokeStyle = 'rgba(110,106,96,0.15)';
+      g.lineWidth = 0.6;
+      g.stroke();
+    });
+  }
+  return cv;
+}
+const surf = {};
+if (has3D) {
+  const tex = (cv, tileMm, color) => {
+    const t = new THREE.CanvasTexture(cv);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(1 / tileMm, 1 / tileMm);
+    t.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    return t;
+  };
+  const paper = paperCanvas(), foam = foamCanvas();
+  surf.paper = tex(paper, 70, true);
+  surf.paperBump = tex(paper, 70, false);
+  surf.foam = tex(foam, 16, true);
+  surf.foamBump = tex(foam, 16, false);
+}
+
+// UVs in millimetres, projected along each face's normal, so texture scale is the same on every board.
+function worldUVs(geo, offset) {
+  const pos = geo.attributes.position, nor = geo.attributes.normal, uv = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    const n = [Math.abs(nor.getX(i)), Math.abs(nor.getY(i)), Math.abs(nor.getZ(i))];
+    const q = [pos.getX(i) + offset[0], pos.getY(i) + offset[1], pos.getZ(i) + offset[2]];
+    const [a, b] = n[0] >= n[1] && n[0] >= n[2] ? [1, 2] : n[1] >= n[2] ? [0, 2] : [0, 1];
+    uv.setXY(i, q[a], q[b]);
+  }
+  uv.needsUpdate = true;
+}
 
 if (has3D) {
   $('#loading').hidden = true;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.VSMShadowMap;
   renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 0.92;
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.5;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xc4cfc8, 0.9));
-  const sun = new THREE.DirectionalLight(0xffffff, 2.1);
-  sun.position.set(-360, 640, 460);
+  scene.environmentIntensity = 0.42;
+  scene.add(new THREE.HemisphereLight(0xf4f6ff, 0xd9d6cf, 0.22));
+  // Key light: a large soft source, so shadows have wide, soft edges like a softbox.
+  sun = new THREE.DirectionalLight(0xfffdf8, 3.1);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -700, right: 700, top: 700, bottom: -700, near: 50, far: 2600 });
-  sun.shadow.bias = -0.0004;
-  sun.shadow.normalBias = 0.8;
-  scene.add(sun);
-  const catcher = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.ShadowMaterial({ opacity: 0.16 }));
+  Object.assign(sun.shadow.camera, { left: -520, right: 520, top: 520, bottom: -520, near: 200, far: 2600 });
+  sun.shadow.radius = 9;
+  sun.shadow.blurSamples = 20;
+  sun.shadow.bias = -0.0006;
+  scene.add(sun, sun.target);
+
+  catcher = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.ShadowMaterial({ opacity: 0.16 }));
   catcher.rotation.x = -Math.PI / 2;
-  catcher.position.y = -0.6;
+  catcher.position.y = -2.1;
   catcher.receiveShadow = true;
   scene.add(catcher);
+
+  // Photo-studio sweep: floor that curves up into a back wall, so there is no horizon line.
+  const W = 6000, F = 3000, Zb = -650, R = 700, Hh = 3000;
+  const prof = [[F, 0]];
+  for (let i = 0; i <= 32; i++) { const a = (i / 32) * Math.PI / 2; prof.push([Zb - R * Math.sin(a), R - R * Math.cos(a)]); }
+  prof.push([Zb - R, Hh]);
+  const verts = [], index = [];
+  prof.forEach(([z, y]) => verts.push(-W / 2, y, z, W / 2, y, z));
+  for (let i = 0; i < prof.length - 1; i++) { const a = i * 2; index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  const sg = new THREE.BufferGeometry();
+  sg.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  sg.setIndex(index);
+  sg.computeVertexNormals();
+  sweep = new THREE.Mesh(sg, new THREE.MeshStandardMaterial({ color: '#d9d8d3', roughness: 1, metalness: 0 }));
+  sweep.position.y = -2.2;
+  sweep.receiveShadow = true;
+  scene.add(sweep);
 
   controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.maxPolarAngle = Math.PI * 0.5;
-  controls.minDistance = 80;
+  controls.minDistance = 40;
   controls.maxDistance = 8000;
   controls.addEventListener('start', () => { tween = null; });
 
   labelRenderer = new CSS2DRenderer();
   labelRenderer.domElement.className = 'labels';
   stage.insertBefore(labelRenderer.domElement, stage.querySelector('.ov-top'));
+
+  // Post-processing: 4x MSAA, ground-truth ambient occlusion for seams and contact shadows, then tone mapping.
+  composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 }));
+  composer.setPixelRatio(renderer.getPixelRatio());
+  composer.addPass(new RenderPass(scene, camera));
+  aoPass = new GTAOPass(scene, camera, 4, 4);
+  aoPass.output = GTAOPass.OUTPUT.Default;
+  aoPass.blendIntensity = 0.9;
+  aoPass.updateGtaoMaterial({ radius: 26, distanceExponent: 1.4, thickness: 6, distanceFallOff: 1, scale: 1.1, samples: 16 });
+  aoPass.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
+  composer.addPass(aoPass);
+  composer.addPass(new OutputPass());
 }
 
 const PAPER = [['A3', 420, 297], ['A2', 594, 420], ['A1', 841, 594], ['A0', 1189, 841]];
 function buildMat() {
   if (!has3D) return;
-  if (matMesh) { scene.remove(matMesh); matMesh.geometry.dispose(); matMesh.material.map.dispose(); matMesh.material.dispose(); }
+  if (matMesh) { scene.remove(matMesh); matMesh.geometry.dispose(); matMesh.material[2].map.dispose(); for (const m of new Set(matMesh.material)) m.dispose(); }
   const p = model.params;
   const needW = p.length + 150, needD = p.depth + p.thickness + p.flapClearance + 110;
   const [paper, w, d] = PAPER.find(([, pw, pd]) => pw >= needW && pd >= needD) || ['Large', Math.ceil(needW / 10) * 10, Math.ceil(needD / 10) * 10];
@@ -1002,26 +1168,78 @@ function buildMat() {
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  matMesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.96 }));
-  matMesh.rotation.x = -Math.PI / 2;
+  const top = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
+  const side = new THREE.MeshStandardMaterial({ color: '#244a3e', roughness: 0.85 });
+  matMesh = new THREE.Mesh(new THREE.BoxGeometry(w, 2, d), [side, side, top, side, side, side]);
   matMesh.receiveShadow = true;
+  matMesh.castShadow = true;
   // Line the grid up with the outer front-left corner of the base.
   const snap = (want, base) => { let r = (((base - want) % 10) + 10) % 10; if (r > 5) r -= 10; return want + r; };
   const cx = snap(0, -p.length / 2 + w / 2);
   const cz = snap(-15, -p.depth / 2 + d / 2);
-  matMesh.position.set(cx, -0.3, cz);
+  matMesh.position.set(cx, -1.05, cz);
   matMesh.visible = state.mat;
   scene.add(matMesh);
+  invalidate();
 }
 
 function disposeModel() {
   modelRoot.traverse(o => {
     if (o.isCSS2DObject) o.element.remove();
     if (o.geometry) o.geometry.dispose();
-    if (o.material && o.material !== edgeMat && o.material !== selEdgeMat) o.material.dispose();
   });
+  for (const b of boards.values()) for (const m of Object.values(b.userData.mats)) m.dispose();
   modelRoot.clear();
-  meshes.clear();
+  boards.clear();
+}
+
+// Which axis of each part is its board thickness (CAD frame).
+const THICK_AXIS = { A: 2, B: 2, C: 1, G: 1, D: 0, E: 0, F: 0 };
+
+// One board: a solid box for plain finishes, plus a paper / foam / paper sandwich for realistic foamboard.
+function makeBoard(part) {
+  const center = part.min.map((v, i) => (v + part.max[i]) / 2);
+  const mats = {
+    solid: new THREE.MeshStandardMaterial({ metalness: 0 }),
+    paper: new THREE.MeshStandardMaterial({ metalness: 0, map: surf.paper, bumpMap: surf.paperBump, bumpScale: 0.25, roughness: 0.66 }),
+    core: new THREE.MeshStandardMaterial({ metalness: 0, color: '#eeede8', map: surf.foam, bumpMap: surf.foamBump, bumpScale: 0.7, roughness: 0.97 }),
+  };
+  const group = new THREE.Group();
+  const box = new THREE.BoxGeometry(part.size[0], part.size[1], part.size[2]);
+  worldUVs(box, center);
+  const solid = new THREE.Mesh(box, mats.solid);
+  const axis = THICK_AXIS[part.kind];
+  const T = part.size[axis];
+  const skin = Math.min(0.35, T * 0.1); // paper facing on each side of the foam core
+  const layers = [[-T / 2, -T / 2 + skin, 'paper'], [-T / 2 + skin, T / 2 - skin, 'core'], [T / 2 - skin, T / 2, 'paper']].map(([lo, hi, kind]) => {
+    const s = part.size.slice();
+    s[axis] = hi - lo;
+    const geo = new THREE.BoxGeometry(s[0], s[1], s[2]);
+    const off = [0, 0, 0];
+    off[axis] = (lo + hi) / 2;
+    geo.translate(off[0], off[1], off[2]);
+    worldUVs(geo, center);
+    return new THREE.Mesh(geo, mats[kind]);
+  });
+  for (const m of [solid, ...layers]) {
+    m.userData.partId = part.id;
+    m.castShadow = true;
+    m.receiveShadow = true;
+    group.add(m);
+  }
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(box), edgeMat);
+  group.add(edges);
+  const tag = document.createElement('span');
+  tag.className = 'tag';
+  tag.textContent = part.id;
+  const label = new CSS2DObject(tag);
+  const half = part.size.map(v => v / 2);
+  // A, C1, C2, G face the front; D faces into the box; E faces out of the right end; baffles show on their top edge.
+  const spot = { A: [0, -half[1] - 6, 0], C: [0, -half[1] - 5, 0], G: [0, -half[1] - 5, 0], D: [half[0] + 5, 0, 0], E: [half[0] + 5, 0, 0], F: [0, 0, half[2] + 5], B: [0, 0, half[2] + 5] }[part.kind];
+  label.position.set(spot[0], spot[1], spot[2]);
+  group.add(label);
+  group.userData = { part, mats, solid, layers, edges, label, home: part.hinged ? center.map((v, i) => v - model.pivot[i]) : center };
+  return group;
 }
 
 function buildScene() {
@@ -1033,21 +1251,19 @@ function buildScene() {
   hinge = new THREE.Group();
   modelRoot.add(body, hinge);
   for (const part of model.parts) {
-    const center = part.min.map((v, i) => (v + part.max[i]) / 2);
-    const geo = new THREE.BoxGeometry(part.size[0], part.size[1], part.size[2]);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ metalness: 0 }));
-    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat);
-    mesh.add(edges);
+    const board = makeBoard(part);
+    (part.hinged ? hinge : body).add(board);
+    boards.set(part.id, board);
+  }
+  outletTag = null;
+  if (boards.has('E') && p.outletWidth > 0) {
+    // Name the designed opening so it is not mistaken for a missing panel.
     const tag = document.createElement('span');
-    tag.className = 'tag';
-    tag.textContent = part.id;
-    const label = new CSS2DObject(tag);
-    if (part.kind === 'G') label.position.set(0, -part.size[1] / 2 - 6, 0);
-    else label.position.set(0, 0, part.size[2] / 2 + 5);
-    mesh.add(label);
-    mesh.userData = { part, edges, label, home: part.hinged ? center.map((v, i) => v - model.pivot[i]) : center };
-    (part.hinged ? hinge : body).add(mesh);
-    meshes.set(part.id, mesh);
+    tag.className = 'tag outlet';
+    tag.textContent = `Sound outlet ${dims(p.outletWidth, model.derived.wallH)}`;
+    outletTag = new CSS2DObject(tag);
+    outletTag.position.set(p.length + 8, p.thickness + p.outletWidth / 2, p.height / 2);
+    body.add(outletTag);
   }
   buildMat();
   applyLooks();
@@ -1055,57 +1271,131 @@ function buildScene() {
   applyVisibility();
 }
 
+function updatePickables() {
+  pickables = [];
+  for (const b of boards.values()) {
+    if (!b.visible) continue;
+    for (const m of [b.userData.solid, ...b.userData.layers]) if (m.visible) pickables.push(m);
+  }
+}
+
 function applyLooks() {
   looks = core.looks(model, state);
-  for (const [id, mesh] of meshes) {
-    const l = looks[id], m = mesh.material, on = id === selectedId;
-    m.color.set(l.color);
-    m.roughness = l.roughness;
-    m.opacity = l.opacity;
-    m.transparent = l.opacity < 1;
-    m.depthWrite = l.opacity >= 1;
-    m.emissive.set(on ? accent : '#000000');
-    m.emissiveIntensity = on ? 0.32 : 0;
-    m.needsUpdate = true;
-    mesh.castShadow = l.opacity >= 1;
-    mesh.receiveShadow = true;
-    mesh.userData.edges.material = on ? selEdgeMat : edgeMat;
-    mesh.userData.edges.visible = state.outlines || on;
-    mesh.userData.label.element.classList.toggle('on', on);
+  const real = state.style !== 'drawing';
+  const sandwich = real && state.material === 'foam';
+  const fibre = real && (state.material === 'grey' || state.material === 'kraft');
+  for (const [id, board] of boards) {
+    const l = looks[id], on = id === selectedId;
+    const { mats, solid, layers, edges, label } = board.userData;
+    const s = mats.solid;
+    const wantMap = fibre ? surf.paper : null, wantClear = l.opacity < 1;
+    if (s.map !== wantMap || s.transparent !== wantClear) {
+      s.map = wantMap;
+      s.bumpMap = fibre ? surf.paperBump : null;
+      s.bumpScale = 0.4;
+      s.transparent = wantClear;
+      s.depthWrite = !wantClear;
+      s.needsUpdate = true;
+    }
+    s.color.set(l.color);
+    s.roughness = l.roughness;
+    s.opacity = l.opacity;
+    mats.paper.color.set(l.color);
+    for (const m of Object.values(mats)) {
+      m.emissive.set(on ? accent : '#000000');
+      m.emissiveIntensity = on ? 0.28 : 0;
+    }
+    solid.visible = !sandwich;
+    solid.castShadow = !wantClear;
+    for (const m of layers) m.visible = sandwich;
+    edges.material = on ? selEdgeMat : edgeMat;
+    edges.visible = state.outlines || on;
+    label.element.classList.toggle('on', on);
   }
-  edgeMat.opacity = (core.MATERIALS[state.material] || {}).opacity < 1 ? 0.45 : 0.8;
+  edgeMat.opacity = (core.MATERIALS[state.material] || {}).opacity < 1 ? 0.45 : real ? 0.55 : 0.8;
+  if (aoPass) aoPass.enabled = real;
+  updatePickables();
+  invalidate();
 }
 
 const EXPLODE = { A: [0, 0, -45], C1: [0, 75, 0], C2: [0, -75, 0], D: [-75, 0, 0], E: [75, 0, 0], F: [0, 0, 125], lid: [0, 60, 210] };
 function applyPose() {
   if (!has3D) return;
   const e = state.explode / 100;
-  for (const mesh of meshes.values()) {
-    const { part, home } = mesh.userData;
+  for (const board of boards.values()) {
+    const { part, home } = board.userData;
     const off = part.hinged ? [0, 0, 0] : EXPLODE[part.id] || EXPLODE[part.kind] || [0, 0, 0];
-    mesh.position.set(home[0] + off[0] * e, home[1] + off[1] * e, home[2] + off[2] * e);
+    board.position.set(home[0] + off[0] * e, home[1] + off[1] * e, home[2] + off[2] * e);
   }
   hinge.position.set(model.pivot[0] + EXPLODE.lid[0] * e, model.pivot[1] + EXPLODE.lid[1] * e, model.pivot[2] + EXPLODE.lid[2] * e);
   hinge.rotation.x = -THREE.MathUtils.degToRad(model.params.lidAngle);
+  const lid = boards.get('B');
+  if (lid) lid.userData.label.position.z = (model.params.lidAngle > 60 ? -1 : 1) * (lid.userData.part.size[2] / 2 + 5);
+  invalidate();
 }
 
 function applyVisibility() {
   if (!has3D) return;
-  for (const [id, mesh] of meshes) {
-    mesh.visible = !state.hidden[id];
-    mesh.userData.label.visible = mesh.visible && state.labels;
+  for (const [id, board] of boards) {
+    board.visible = !state.hidden[id];
+    board.userData.label.visible = board.visible && state.labels;
   }
   labelRenderer.domElement.hidden = !state.labels;
+  if (outletTag) outletTag.visible = state.labels;
   if (matMesh) matMesh.visible = state.mat;
+  updatePickables();
+  invalidate();
+}
+
+function applyLight() {
+  if (!has3D) return;
+  const az = THREE.MathUtils.degToRad(state.light), el = THREE.MathUtils.degToRad(48), r = 1200;
+  sun.position.set(r * Math.cos(el) * Math.sin(az), r * Math.sin(el), r * Math.cos(el) * Math.cos(az));
+  invalidate();
+}
+
+function applyBackdrop() {
+  if (!has3D) return;
+  const token = getComputedStyle(document.documentElement).getPropertyValue('--stage').trim() || '#e1e5e0';
+  const bg = state.studio ? '#cfcec9' : token;
+  scene.background = new THREE.Color(bg);
+  scene.fog = new THREE.Fog(bg, 3200, 8000);
+  sweep.visible = state.studio;
+  catcher.visible = !state.studio;
+  invalidate();
+}
+
+// Hide a part label when another board sits between it and the camera.
+const occRay = new THREE.Raycaster();
+const labelPos = new THREE.Vector3();
+function updateOcclusion() {
+  if (!state.labels) return;
+  for (const [id, board] of boards) {
+    if (!board.visible) continue;
+    // Probe 1 mm inside the face the label sits on; any other board in the way hides the label.
+    const lp = board.userData.label.position;
+    labelPos.set(...[lp.x, lp.y, lp.z].map(c => Math.sign(c) * Math.max(0, Math.abs(c) - 7)));
+    board.localToWorld(labelPos);
+    occRay.set(camera.position, labelPos.clone().sub(camera.position).normalize());
+    occRay.far = camera.position.distanceTo(labelPos);
+    const blocked = occRay.intersectObjects(pickables, false).some(h => h.object.userData.partId !== id);
+    board.userData.label.element.classList.toggle('behind', blocked && id !== selectedId);
+  }
+}
+
+function render() {
+  if (composer) composer.render(); else renderer.render(scene, camera);
+  updateOcclusion();
+  labelRenderer.render(scene, camera);
 }
 
 /* ---------- camera ---------- */
-const DIRS = { iso: [0.6, 0.62, 1], front: [0, 0.14, 1], top: [0, 1, 0.015], side: [-1, 0.1, 0] };
+const DIRS = { iso: [0.66, 0.6, 1], front: [0, 0.14, 1], top: [0, 1, 0.015], left: [-1, 0.1, 0], right: [1, 0.1, 0] };
 let tween = null;
 function viewPose(name) {
   modelRoot.updateMatrixWorld(true);
   const box = new THREE.Box3();
-  for (const m of meshes.values()) if (m.visible) box.expandByObject(m);
+  for (const b of boards.values()) if (b.visible) box.expandByObject(b);
   if (box.isEmpty()) box.setFromObject(modelRoot);
   const sphere = box.getBoundingSphere(new THREE.Sphere());
   const vfov = THREE.MathUtils.degToRad(camera.fov);
@@ -1125,17 +1415,19 @@ function goView(name, instant) {
     camera.position.copy(pos);
     controls.target.copy(target);
     controls.update();
+    invalidate();
     return;
   }
   tween = { t0: performance.now(), p0: camera.position.clone(), p1: pos, q0: controls.target.clone(), q1: target };
 }
 function stepTween(now) {
-  if (!tween) return;
+  if (!tween) return false;
   const k = Math.min(1, (now - tween.t0) / 520);
   const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
   camera.position.lerpVectors(tween.p0, tween.p1, e);
   controls.target.lerpVectors(tween.q0, tween.q1, e);
   if (k === 1) tween = null;
+  return true;
 }
 
 function resize() {
@@ -1143,19 +1435,19 @@ function resize() {
   const r = stage.getBoundingClientRect();
   if (!r.width || !r.height) return;
   renderer.setSize(r.width, r.height, false);
+  composer.setSize(r.width, r.height);
   labelRenderer.setSize(r.width, r.height);
   camera.aspect = r.width / r.height;
   camera.updateProjectionMatrix();
+  invalidate();
 }
 
 function readTheme() {
   const cs = getComputedStyle(document.documentElement);
   accent = cs.getPropertyValue('--accent').trim() || '#2b6954';
   if (!has3D) return;
-  const bg = cs.getPropertyValue('--stage').trim() || '#e1e5e0';
-  scene.background = new THREE.Color(bg);
-  scene.fog = new THREE.Fog(bg, 2600, 7000);
   selEdgeMat.color.set(accent);
+  applyBackdrop();
   applyLooks();
 }
 
@@ -1166,8 +1458,8 @@ function pick(e) {
   const r = canvas.getBoundingClientRect();
   ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  const hits = ray.intersectObjects([...meshes.values()].filter(m => m.visible), false);
-  return hits.length ? hits[0].object : null;
+  const hits = ray.intersectObjects(pickables, false);
+  return hits.length ? hits[0].object.userData.partId : null;
 }
 if (has3D) {
   let down = null;
@@ -1177,8 +1469,7 @@ if (has3D) {
     const moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]);
     down = null;
     if (moved > 5) return;
-    const hit = pick(e);
-    select(hit ? hit.userData.part.id : null);
+    select(pick(e));
   });
   canvas.addEventListener('pointermove', e => {
     if (e.buttons) { canvas.style.cursor = 'grabbing'; return; }
@@ -1296,6 +1587,10 @@ function syncControls() {
   for (const b of $$('[data-material]')) b.setAttribute('aria-pressed', String(b.dataset.material === state.material));
   $('#by-group').checked = state.byGroup;
   $('#show-mat').checked = state.mat;
+  $('#show-studio').checked = state.studio;
+  for (const b of $$('[data-style]')) b.setAttribute('aria-pressed', String(b.dataset.style === state.style));
+  $('#light').value = state.light;
+  $('#light-out').textContent = state.light + '°';
   $('#t-front').setAttribute('aria-pressed', String(!state.hidden.C2));
   $('#t-lid').setAttribute('aria-pressed', String(!state.hidden.B));
   $('#t-labels').setAttribute('aria-pressed', String(state.labels));
@@ -1345,6 +1640,17 @@ for (const b of $$('[data-material]')) b.addEventListener('click', () => { state
 for (const b of $$('[data-view]')) b.addEventListener('click', () => { goView(b.dataset.view); save(); });
 $('#by-group').addEventListener('change', e => { state.byGroup = e.target.checked; applyLooks(); renderSel(); save(); });
 $('#show-mat').addEventListener('change', e => { state.mat = e.target.checked; applyVisibility(); save(); });
+$('#show-studio').addEventListener('change', e => { state.studio = e.target.checked; applyBackdrop(); save(); });
+for (const b of $$('[data-style]')) b.addEventListener('click', () => {
+  state.style = b.dataset.style;
+  state.outlines = state.style === 'drawing';
+  applyLooks(); syncControls(); save();
+});
+$('#light').addEventListener('input', e => {
+  state.light = Number(e.target.value);
+  $('#light-out').textContent = state.light + '°';
+  applyLight(); save();
+});
 
 function toggleHidden(ids, show) {
   for (const id of ids) { if (show) delete state.hidden[id]; else state.hidden[id] = true; }
@@ -1457,8 +1763,19 @@ $('#btn-zip-2').addEventListener('click', exportZip);
 $('#btn-png').addEventListener('click', () => {
   if (!has3D) { setStatus('The 3D view is off in this browser, so there is no render to save.'); return; }
   runExport(`hinged_sound_box_${state.view}.png`, () => new Promise((res, rej) => {
-    renderer.render(scene, camera);
-    canvas.toBlob(b => (b ? res(b) : rej({ message: 'the render was empty' })), 'image/png');
+    // Render one frame at up to ~2600 px wide, then return to the screen resolution.
+    const prev = renderer.getPixelRatio();
+    const width = stage.getBoundingClientRect().width;
+    const ratio = Math.max(prev, Math.min(3, 2600 / width));
+    renderer.setPixelRatio(ratio);
+    composer.setPixelRatio(ratio);
+    render();
+    canvas.toBlob(b => {
+      renderer.setPixelRatio(prev);
+      composer.setPixelRatio(prev);
+      invalidate();
+      if (b) res(b); else rej({ message: 'the render was empty' });
+    }, 'image/png');
   }), 'Saved the render as PNG.');
 });
 
@@ -1469,12 +1786,13 @@ if (has3D) {
   resize();
   new ResizeObserver(resize).observe(stage);
   goView(state.view in DIRS ? state.view : 'iso', true);
+  applyLight();
+  // Draw only when the view or the model changed; damping keeps controls.update() true while it settles.
   const loop = now => {
     requestAnimationFrame(loop);
-    stepTween(now);
-    controls.update();
-    renderer.render(scene, camera);
-    labelRenderer.render(scene, camera);
+    const moving = stepTween(now);
+    const changed = controls.update();
+    if (moving || changed || dirty) { dirty = false; render(); }
   };
   requestAnimationFrame(loop);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(buildMat);

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SWIVEL Swing Animation</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@500&display=block">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "gifenc": "https://cdn.jsdelivr.net/npm/gifenc@1.0.3/dist/gifenc.esm.js"
+} }
+</script>
+<style>body { margin: 0; background: #f2efea; } canvas { display: block; max-width: 100%; }</style>
+</head>
+<body>
+<canvas id="out" width="640" height="533"></canvas>
+<script type="module">
+// Looping animation of both upper tiers swinging on the shared shaft, encoded as a GIF.
+import * as THREE from 'three';
+import { GIFEncoder, quantize, applyPalette } from 'gifenc';
+import { createSwivel, DIM, STACK_TOP, entryPoint } from './swivel-model.js';
+import { createRenderer, createStudio, framePerspective } from './studio.js';
+
+const RW = 1280, RH = 1066, OW = 640, OH = 533, U = OW / 600;
+const ACCENT = '#cf6529', PAPER = '#f2efea';
+
+const renderer = createRenderer({ width: RW, height: RH, preserve: true });
+const { scene, key } = createStudio(renderer);
+const sw = createSwivel();
+scene.add(sw.root);
+const cam = new THREE.PerspectiveCamera(24, RW / RH, 5, 5000);
+const out = document.getElementById('out');
+const ctx = out.getContext('2d', { willReadFrequently: true });
+
+// Keyframes: [seconds, middle°, top°]
+const KEYS = [[0, 0, 0], [0.4, 0, 0], [1.6, 0, 135], [2.5, 60, 135], [3.1, 60, 135], [4.4, 0, 0], [4.9, 0, 0]];
+const FPS = 20, DURATION = KEYS[KEYS.length - 1][0];
+const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+function poseAt(s) {
+  for (let k = 1; k < KEYS.length; k++) {
+    const [t0, m0, a0] = KEYS[k - 1], [t1, m1, a1] = KEYS[k];
+    if (s <= t1) {
+      const e = ease((s - t0) / (t1 - t0));
+      return { mid: m0 + (m1 - m0) * e, top: a0 + (a1 - a0) * e };
+    }
+  }
+  return { mid: 0, top: 0 };
+}
+
+function labelAnchor(i, deg) {
+  const t = THREE.MathUtils.degToRad(deg / 2), r = DIM.reach + 20;
+  return new THREE.Vector3(DIM.a - r * Math.cos(t), entryPoint(i, 0).y, r * Math.sin(t));
+}
+
+// Frame the whole motion once, including cast shadows, so the camera never moves.
+const toLight = key.position.clone().sub(key.target.position).normalize();
+const pts = [new THREE.Vector3(DIM.a, -4, 0), new THREE.Vector3(DIM.a, STACK_TOP + 24, 0)];
+for (let s = 0; s <= DURATION; s += 0.1) {
+  const pose = poseAt(s);
+  sw.setPose(pose);
+  for (const p of sw.silhouettePoints(4)) {
+    pts.push(p);
+    if (p.y > 1) pts.push(p.clone().addScaledVector(toLight, -p.y / toLight.y));
+  }
+  for (const [i, deg] of [[1, pose.mid], [2, pose.top]]) {
+    for (let k = 0; k <= 6; k++) pts.push(entryPoint(i, (deg * k) / 6));
+    pts.push(labelAnchor(i, deg));
+  }
+}
+framePerspective(cam, pts, { az: -34, el: 24, margin: 1.06 });
+
+const P = (v) => {
+  const p = v.clone().project(cam);
+  return [((p.x + 1) / 2) * OW, ((1 - p.y) / 2) * OH];
+};
+function stroke(list, width, dash = []) {
+  ctx.save();
+  ctx.strokeStyle = ACCENT; ctx.lineWidth = width * U; ctx.setLineDash(dash.map((d) => d * U));
+  ctx.lineCap = 'round'; ctx.beginPath();
+  list.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.stroke(); ctx.restore();
+}
+function swing(i, deg) {
+  if (Math.abs(deg) < 1) return;
+  const n = Math.max(4, Math.ceil(Math.abs(deg) / 3));
+  stroke(Array.from({ length: n + 1 }, (_, k) => P(entryPoint(i, (deg * k) / n))), 2);
+  if (Math.abs(deg) < 12) return;
+  const at = P(labelAnchor(i, deg));
+  ctx.save();
+  ctx.font = `500 ${22 * U}px Jost, Futura, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 4 * U; ctx.strokeStyle = PAPER; ctx.lineJoin = 'round';
+  ctx.strokeText(`${Math.round(deg)}°`, at[0], at[1]);
+  ctx.fillStyle = ACCENT; ctx.fillText(`${Math.round(deg)}°`, at[0], at[1]);
+  ctx.restore();
+}
+
+window.__encode = async () => {
+  await document.fonts.load(`500 ${22 * U}px Jost`);
+  const gif = GIFEncoder();
+  const frames = Math.round(DURATION * FPS);
+  for (let f = 0; f < frames; f++) {
+    const pose = poseAt(f / FPS);
+    sw.setPose(pose);
+    renderer.render(scene, cam);
+    ctx.fillStyle = PAPER;
+    ctx.fillRect(0, 0, OW, OH);
+    ctx.drawImage(renderer.domElement, 0, 0, OW, OH);
+    stroke([P(new THREE.Vector3(DIM.a, -3, 0)), P(new THREE.Vector3(DIM.a, STACK_TOP + 20, 0))], 1.8, [7, 5]);
+    swing(1, pose.mid);
+    swing(2, pose.top);
+    const { data } = ctx.getImageData(0, 0, OW, OH);
+    const palette = quantize(data, 256);
+    gif.writeFrame(applyPalette(data, palette), OW, OH, { palette, delay: 1000 / FPS });
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  gif.finish();
+  const bytes = gif.bytes();
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+};
+window.__ready = true;
+</script>
+</body>
+</html>

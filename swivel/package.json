@@ -1,0 +1,14 @@
+{
+  "name": "swivel-rotation-study",
+  "private": true,
+  "type": "module",
+  "description": "Parametric 3D model and rotation-view renders of the SWIVEL three-tier rotating pencil sharpener.",
+  "scripts": {
+    "render": "node render.mjs"
+  },
+  "devDependencies": {
+    "@fontsource/jost": "5.0.17",
+    "gifenc": "1.0.3",
+    "three": "0.160.0"
+  }
+}

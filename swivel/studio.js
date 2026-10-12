@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
 /*
  * Shared render setup: a soft product-photography studio (gradient dome plus
@@ -168,4 +171,25 @@ export function framePlan(camera, points, aspect, pad = 10) {
   camera.lookAt(cx, 0, cz);
   camera.updateMatrixWorld();
   camera.updateProjectionMatrix();
+}
+
+// Screen-space-width line (WebGL lines are always 1 px). Call setResolution on resize.
+export function fatLine(points, { color = 0x6f675e, width = 2, dashed = false, dash = 5, gap = 4, depthTest = true, opacity = 1 } = {}) {
+  const geo = new LineGeometry();
+  geo.setPositions(points.flatMap((p) => [p.x, p.y, p.z]));
+  const mat = new LineMaterial({
+    color, linewidth: width, dashed, dashSize: dash, gapSize: gap, depthTest,
+    transparent: opacity < 1 || !depthTest, opacity, toneMapped: false,
+  });
+  const line = new Line2(geo, mat);
+  if (dashed) line.computeLineDistances();
+  line.setResolution = (w, h) => mat.resolution.set(w, h);
+  line.setPoints = (pts) => {
+    line.geometry.dispose();
+    const g = new LineGeometry();
+    g.setPositions(pts.flatMap((p) => [p.x, p.y, p.z]));
+    line.geometry = g;
+    if (dashed) line.computeLineDistances();
+  };
+  return line;
 }

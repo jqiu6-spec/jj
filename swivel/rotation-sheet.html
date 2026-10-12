@@ -61,14 +61,14 @@
 
 <section class="board" id="swivel-rotation-board-1">
   <header class="masthead">
-    <div><h1>SWIVEL</h1><p>Rotation study · one shared vertical axis</p></div>
+    <div><h1>SWIVEL</h1><p>Rotation study · all three tiers turn</p></div>
     <div class="rule"></div>
-    <div class="tags">SHARED AXIS &nbsp;/&nbsp; TOP TIER SWEEP &nbsp;/&nbsp; PLAN</div>
+    <div class="tags">SHARED AXIS &nbsp;/&nbsp; BOTTOM TIER SWEEP &nbsp;/&nbsp; PLAN</div>
   </header>
   <div class="sec">
     <div class="sec-head">
-      <span class="num">01</span><h2>TOP TIER SWEEP</h2>
-      <p>The top tier turns on the steel shaft. Middle and bottom tiers stay aligned.</p>
+      <span class="num">01</span><h2>BOTTOM TIER SWEEP</h2>
+      <p>The bottom tier glides round the anchored shaft. The upper tiers stay put.</p>
     </div>
     <div class="row five" id="sweep"></div>
   </div>
@@ -77,6 +77,7 @@
       <span class="num">02</span><h2>PLAN VIEW</h2>
       <p>Same five positions from above. The rounded ends stay concentric on the shaft.</p>
       <div class="legend">
+        <span><svg width="26" height="10" aria-hidden="true"><line x1="1" y1="5" x2="25" y2="5" stroke="#7d756b" stroke-width="2" stroke-dasharray="5 4"/></svg>Closed position</span>
         <span><svg width="26" height="10" aria-hidden="true"><line x1="1" y1="5" x2="25" y2="5" stroke="#cf6529" stroke-width="2" stroke-dasharray="5 4"/></svg>Pencil entry path</span>
         <span><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="#cf6529"/></svg>Shaft</span>
         <span><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="#f2efea" stroke="#171513" stroke-width="1.3"/><path d="M8 8V1.5A6.5 6.5 0 0 1 14.5 8Z M8 8V14.5A6.5 6.5 0 0 1 1.5 8Z" fill="#171513"/></svg>Centre of mass</span>
@@ -85,41 +86,41 @@
     <div class="row five" id="plan"></div>
   </div>
   <footer>
-    <span>Shaft at the centre of each rounded end, 33 mm from the tier centre. Each pencil entry travels on a 92 mm radius.</span>
+    <span>The shaft stands in an anchor puck under the rounded ends, 33 mm from each tier centre. Each pencil entry travels on a 92 mm radius.</span>
     <span>Study dimensions L 120 × W 54 × tier 26 mm, scaled from the concept board. To be prototyped.</span>
   </footer>
 </section>
 
 <section class="board" id="swivel-rotation-board-2">
   <header class="masthead">
-    <div><h1>SWIVEL</h1><p>Rotation study · independent upper tiers</p></div>
+    <div><h1>SWIVEL</h1><p>Rotation study · three independent tiers</p></div>
     <div class="rule"></div>
-    <div class="tags">FIXED BASE &nbsp;/&nbsp; TWO ROTATING TIERS &nbsp;/&nbsp; VIEWPOINTS</div>
+    <div class="tags">ANCHORED SHAFT &nbsp;/&nbsp; THREE ROTATING TIERS &nbsp;/&nbsp; VIEWPOINTS</div>
   </header>
   <div class="sec">
     <div class="sec-head">
       <span class="num">03</span><h2>INDEPENDENT TIERS</h2>
-      <p>Each upper tier has its own bushing, so it turns without moving the other.</p>
+      <p>Each tier turns on its own bushing without moving the others.</p>
     </div>
     <div class="row four" id="combos"></div>
   </div>
   <div class="sec">
     <div class="sec-head">
-      <span class="num">04</span><h2>ONE POSITION, FOUR VIEWPOINTS</h2>
-      <p>Fan position, middle 45° and top 90°, checked from around the object.</p>
+      <span class="num">04</span><h2>STAR POSITION, FOUR VIEWPOINTS</h2>
+      <p>Bottom −120°, middle 0°, top 120°. The three pencil entries sit evenly round the shaft.</p>
     </div>
     <div class="row four" id="orbit"></div>
   </div>
   <footer>
     <span>Positive angles swing the pencil entry toward the window side. Negative angles swing it toward the back.</span>
-    <span>Centre of mass assumes equal tier weights. It stays over the fixed base in every position shown.</span>
+    <span>Centre of mass assumes equal tier weights. It stays over the bottom tier in every position, and sits on the shaft in the star.</span>
   </footer>
 </section>
 
 <script type="module">
 import * as THREE from 'three';
-import { createSwivel, DIM, STACK_TOP, entryPoint, centreOfMass, overBase } from './swivel-model.js';
-import { createRenderer, createStudio, framePerspective, framePlan } from './studio.js';
+import { createSwivel, DIM, STACK_TOP, entryPoint, centreOfMass, overBottomTier } from './swivel-model.js';
+import { createRenderer, createStudio, framePerspective, framePlan, fatLine } from './studio.js';
 
 const VW = 1200, VH = 1000, U = VW / 600;
 const ACCENT = '#cf6529', INK = '#171513', MUTED = '#8a8279', PAPER = '#f2efea';
@@ -128,6 +129,10 @@ const renderer = createRenderer({ width: VW, height: VH, preserve: true });
 const { scene, floor, key } = createStudio(renderer);
 const sw = createSwivel();
 scene.add(sw.root);
+// Dashed outline of the closed position on the desk, shown once the bottom tier moves.
+const ghost = fatLine(sw.homeOutline(0.25), { color: 0x7d756b, width: 2.6, dashed: true, dash: 5, gap: 4 });
+ghost.setResolution(VW, VH);
+scene.add(ghost);
 
 const persp = new THREE.PerspectiveCamera(24, VW / VH, 5, 5000);
 const ortho = new THREE.OrthographicCamera();
@@ -141,6 +146,7 @@ const views = [];
 function apply(pose) {
   sw.setPose(pose);
   sw.showPencil(pose.pencil ?? null);
+  ghost.visible = Math.abs(pose.bottom ?? 0) > 0.5;
 }
 
 // Everything a view must keep in frame: the object, its cast shadow, the swing
@@ -155,7 +161,8 @@ function framePoints(poses) {
     for (const p of body) {
       if (p.y > 1) pts.push(p.clone().addScaledVector(toLight, -p.y / toLight.y).add(new THREE.Vector3(6, 0, -6)));
     }
-    for (const [i, deg] of [[1, pose.mid], [2, pose.top]]) {
+    if (pose.bottom) pts.push(...sw.homeOutline().filter((_, k) => k % 4 === 0));
+    for (const [i, deg] of [[0, pose.bottom], [1, pose.mid], [2, pose.top]]) {
       if (!deg) continue;
       for (let k = 0; k <= 8; k++) pts.push(entryPoint(i, (deg * k) / 8));
       pts.push(swingLabelAnchor(i, deg));
@@ -279,8 +286,7 @@ function drawPlan(pose, { first = false } = {}) {
     stroke(pts, { color: INK, width: 1.5, alpha: i === 0 ? 0.45 : 0.8, close: true });
   });
   // swing arcs
-  if (pose.mid) drawSwing(cam, 1, pose.mid, { labelIt: true });
-  if (pose.top) drawSwing(cam, 2, pose.top, { labelIt: true });
+  drawSwings(cam, pose);
   // shaft
   stroke([[axis[0] - 16 * U, axis[1]], [axis[0] + 16 * U, axis[1]]], { color: ACCENT, width: 1.5 });
   stroke([[axis[0], axis[1] - 16 * U], [axis[0], axis[1] + 16 * U]], { color: ACCENT, width: 1.5 });
@@ -293,7 +299,17 @@ function drawPlan(pose, { first = false } = {}) {
     const p = P(at, cam);
     label('R 92', [p[0] + 12 * U, p[1] + 8 * U], { align: 'left', size: 22 });
   }
-  return overBase(com);
+  return overBottomTier(com, pose.bottom);
+}
+
+// Swing arcs for every turned tier; tiers at the same angle share one label.
+function drawSwings(cam, pose) {
+  const labelled = new Set();
+  for (const [i, deg] of [[2, pose.top], [1, pose.mid], [0, pose.bottom]]) {
+    if (!deg) continue;
+    drawSwing(cam, i, deg, { labelIt: !labelled.has(deg) });
+    labelled.add(deg);
+  }
 }
 
 async function shoot(cam, overlay) {
@@ -326,69 +342,65 @@ await document.fonts.load(`400 ${15 * U}px Jost`);
 await document.fonts.ready;
 
 const SWEEP = [0, 45, 90, 135, 180];
-const sweepPoses = SWEEP.map((top) => ({ mid: 0, top }));
+const sweepPoses = SWEEP.map((bottom) => ({ bottom, mid: 0, top: 0 }));
 const sweepPts = framePoints(sweepPoses);
 const HERO = { az: -34, el: 24 };
+const angles = (p) => `B ${p.bottom ?? 0}° · M ${p.mid ?? 0}° · T ${p.top ?? 0}°`;
 
-// 01 · perspective sweep
+// 01 · perspective sweep of the bottom tier
 framePerspective(persp, sweepPts, { ...HERO, margin: 1.06 });
 for (const pose of sweepPoses) {
   apply(pose);
-  await shoot(persp, () => { drawAxis(persp, { tag: pose.top === 0 }); drawSwing(persp, 2, pose.top); });
-  addCell('sweep', `01-sweep-top-${pose.top}deg`, `${pose.top}°`, pose.top === 0 ? 'Closed' : 'Top tier',
-    `Top tier rotated ${pose.top} degrees about the shared axis`);
+  await shoot(persp, () => { drawAxis(persp, { tag: pose.bottom === 0 }); drawSwings(persp, pose); });
+  addCell('sweep', `01-sweep-bottom-${pose.bottom}deg`, `${pose.bottom}°`, pose.bottom === 0 ? 'Closed' : 'Bottom tier',
+    `Bottom tier rotated ${pose.bottom} degrees about the shared axis`);
 }
 
 // 02 · plan
 const pathPts = [];
-for (let d = -25; d <= 205; d += 5) pathPts.push(entryPoint(2, d));
+for (let d = -25; d <= 205; d += 5) pathPts.push(entryPoint(0, d));
 framePlan(ortho, [...sweepPts, ...pathPts], VW / VH, 14);
 floor.material.opacity = 0.09;
 const travel = (deg) => Math.round((Math.PI * DIM.reach * deg) / 180);
 for (const pose of sweepPoses) {
   apply(pose);
-  await shoot(ortho, () => drawPlan(pose, { first: pose.top === 0 }));
-  addCell('plan', `02-plan-top-${pose.top}deg`, `${pose.top}°`, pose.top ? `entry travels ${travel(pose.top)} mm` : 'all ends aligned',
-    `Plan view, top tier at ${pose.top} degrees`);
+  await shoot(ortho, () => drawPlan(pose, { first: pose.bottom === 0 }));
+  addCell('plan', `02-plan-bottom-${pose.bottom}deg`, `${pose.bottom}°`, pose.bottom ? `entry travels ${travel(pose.bottom)} mm` : 'all ends aligned',
+    `Plan view, bottom tier at ${pose.bottom} degrees`);
 }
-
 floor.material.opacity = 0.16;
 
 // 03 · independent tiers
 const combos = [
-  { name: 'Fan', mid: 45, top: 90 },
-  { name: 'Reverse fan', mid: -45, top: -90 },
-  { name: 'Middle tier only', mid: 90, top: 0, pencil: 1 },
-  { name: 'Open', mid: 90, top: 180 },
+  { name: 'Bottom tier only', bottom: 90, mid: 0, top: 0, pencil: 0 },
+  { name: 'Fan', bottom: 0, mid: 45, top: 90 },
+  { name: 'Star', bottom: -120, mid: 0, top: 120 },
+  { name: 'Whole stack', bottom: 60, mid: 60, top: 60 },
 ];
 framePerspective(persp, framePoints(combos), { ...HERO, margin: 1.06 });
 for (const pose of combos) {
   apply(pose);
-  await shoot(persp, () => {
-    drawAxis(persp);
-    drawSwing(persp, 1, pose.mid);
-    drawSwing(persp, 2, pose.top);
-  });
+  await shoot(persp, () => { drawAxis(persp); drawSwings(persp, pose); });
   const slug = pose.name.toLowerCase().replace(/\s+/g, '-');
-  addCell('combos', `03-${slug}`, pose.name, `Middle ${pose.mid}° · Top ${pose.top}°`,
-    `${pose.name}: middle tier ${pose.mid} degrees, top tier ${pose.top} degrees`);
+  addCell('combos', `03-${slug}`, pose.name, angles(pose),
+    `${pose.name}: bottom tier ${pose.bottom}, middle ${pose.mid}, top ${pose.top} degrees`);
 }
 
 // 04 · one position, four viewpoints
-const fan = combos[0];
-const fanPts = framePoints([fan]);
+const star = combos[2];
+const starPts = framePoints([star]);
 const cams = [
   { name: 'Front left', az: -34, el: 24 },
   { name: 'Front right', az: 38, el: 20 },
   { name: 'Shaft end', az: 90, el: 14 },
   { name: 'Rear', az: 200, el: 26 },
 ];
-apply(fan);
+apply(star);
 for (const c of cams) {
-  framePerspective(persp, fanPts, { az: c.az, el: c.el, margin: 1.1 });
+  framePerspective(persp, starPts, { az: c.az, el: c.el, margin: 1.1 });
   await shoot(persp, () => drawAxis(persp));
-  addCell('orbit', `04-fan-${c.name.toLowerCase().replace(/\s+/g, '-')}`, c.name, `az ${c.az}° · el ${c.el}°`,
-    `Fan position seen from the ${c.name.toLowerCase()}`);
+  addCell('orbit', `04-star-${c.name.toLowerCase().replace(/\s+/g, '-')}`, c.name, `az ${c.az}° · el ${c.el}°`,
+    `Star position seen from the ${c.name.toLowerCase()}`);
 }
 
 window.__views = views;

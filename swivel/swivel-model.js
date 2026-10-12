@@ -6,8 +6,10 @@ import * as THREE from 'three';
  * Units are millimetres. Y is up, each tier's long axis runs along X and the
  * window side faces +Z (front). The one-piece steel shaft runs through the
  * centre of every tier's right-hand rounded end, so all tiers pivot about the
- * same vertical line x = DIM.a, z = 0. The bottom tier is fixed; the middle
- * and top tiers each turn on their own bushing.
+ * same vertical line x = DIM.a, z = 0. The shaft stands in a rubber-footed
+ * anchor puck under that end, which stays put on the desk. All three tiers
+ * turn on their own bushings; the bottom tier glides on its foot around the
+ * anchor.
  *
  * Angles are in degrees. A positive angle swings a tier's free end (the end
  * with the pencil entry) toward the front.
@@ -22,14 +24,14 @@ export const DIM = (() => {
   const H = 26.3;             // tier height, top of the crowned lid
   const inset = 0.7;          // band sits this far inside the ivory shell
   const gap = 1.0;            // thrust-washer gap between tiers
-  const foot = 1.4;           // rubber foot under the fixed base
+  const foot = 1.4;           // glide foot under the bottom tier
   const holeY = (lipTop + bandTop) / 2;
   const holeX = -(L / 2 - inset);   // pencil entry on the free end
   const reach = a - holeX;          // shaft to pencil entry
   return { L, W, R, a, lipTop, bandTop, H, inset, gap, foot, pitch: H + gap, holeY, holeX, reach };
 })();
 
-export const TIER_NAMES = ['Bottom (fixed)', 'Middle', 'Top'];
+export const TIER_NAMES = ['Bottom', 'Middle', 'Top'];
 
 export const tierBaseY = (i) => DIM.foot + i * DIM.pitch;
 export const STACK_TOP = tierBaseY(2) + DIM.H;
@@ -193,7 +195,7 @@ function woodTexture() {
   return tex(c, { repeat: true });
 }
 
-// Soft contact shadow under the fixed base, drawn as a blurred stadium.
+// Soft contact shadow under the bottom tier, drawn as a blurred stadium.
 function contactTexture(pxPerMm, padMm) {
   const w = Math.round((DIM.L + padMm * 2) * pxPerMm);
   const h = Math.round((DIM.W + padMm * 2) * pxPerMm);
@@ -423,17 +425,27 @@ function buildTierBody(outline, mats) {
   return body;
 }
 
+// Retained steel cap on top of the shaft: a domed, concentrically brushed button
+// with a rounded top edge, seated in a polished bezel that covers the joint with
+// the lid. LatheGeometry profiles run bottom to top so the faces point outward.
 function buildCap(mats) {
-  const prof = [[0, 6.2], [6.8, 6.2], [7.6, 6.12], [8.15, 5.9], [8.45, 5.5], [8.5, 5.0], [8.5, 0]];
-  const cap = shadowed(new THREE.Mesh(
-    new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 72),
-    mats.capSteel,
+  const lathe = (pts, mat) => shadowed(new THREE.Mesh(
+    new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 96),
+    mat,
   ));
-  const seat = new THREE.Mesh(new THREE.RingGeometry(8.4, 8.95, 72), mats.seam);
-  seat.rotation.x = -Math.PI / 2;
-  seat.position.y = 0.08;
+  const button = lathe([
+    [8.3, -0.3], [8.3, 4.5], [8.26, 4.95], [8.12, 5.32], [7.88, 5.62], [7.55, 5.84], [7.1, 5.98],
+    [6.2, 6.08], [4.5, 6.18], [2.5, 6.24], [0.001, 6.27],
+  ], mats.capSteel);
+  const bezel = lathe([
+    [8.35, -0.3], [9.7, -0.3], [9.7, 0.25], [9.55, 0.55], [9.2, 0.78], [8.7, 0.85], [8.35, 0.85],
+  ], mats.brightSteel);
+  // shadow gap between the button and the bezel
+  const gap = new THREE.Mesh(new THREE.RingGeometry(8.28, 8.42, 96), mats.seam);
+  gap.rotation.x = -Math.PI / 2;
+  gap.position.y = 0.86;
   const g = new THREE.Group();
-  g.add(cap, seat);
+  g.add(button, bezel, gap);
   return g;
 }
 
@@ -469,17 +481,22 @@ export function createSwivel() {
     return { pivot, body, angle: 0 };
   });
 
-  // Rubber foot and contact shadow under the fixed base.
+  // Glide foot and contact shadow travel with the bottom tier.
   const foot = shadowed(new THREE.Mesh(
     sweep(outline, [[-DIM.R, 0], [-3.4, 0], [-2.8, 0.3], [-2.6, 0.8], [-2.6, DIM.foot + 0.2]], 'planar'),
     mats.rubber,
   ), false, false);
-  root.add(foot);
+  foot.position.y = -DIM.foot;
   const contact = new THREE.Mesh(new THREE.PlaneGeometry(DIM.L + 28, DIM.W + 28), mats.contact);
   contact.rotation.x = -Math.PI / 2;
-  contact.position.y = 0.03;
+  contact.position.y = -DIM.foot + 0.03;
   contact.renderOrder = -1;
-  root.add(contact);
+  tiers[0].body.add(foot, contact);
+
+  // The anchor puck holds the shaft still; it is the only part that never turns.
+  const anchor = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(15, 15.5, DIM.foot, 48), mats.rubber), false, false);
+  anchor.position.set(DIM.a, DIM.foot / 2, 0);
+  root.add(anchor);
 
   // Thrust washers between tiers and the retained cap on top of the shaft.
   for (let i = 0; i < 2; i++) {
@@ -494,11 +511,11 @@ export function createSwivel() {
   const pencil = buildPencil(mats);
   pencil.visible = false;
 
-  function setPose({ mid = 0, top = 0 } = {}) {
-    tiers[1].angle = mid;
-    tiers[2].angle = top;
-    tiers[1].pivot.rotation.y = rad(mid);
-    tiers[2].pivot.rotation.y = rad(top);
+  function setPose({ bottom = 0, mid = 0, top = 0 } = {}) {
+    [bottom, mid, top].forEach((deg, i) => {
+      tiers[i].angle = deg;
+      tiers[i].pivot.rotation.y = rad(deg);
+    });
     root.updateMatrixWorld(true);
   }
 
@@ -516,6 +533,9 @@ export function createSwivel() {
   const outlineWorld = (i, y = DIM.H) =>
     outline.map((o) => tiers[i].body.localToWorld(new THREE.Vector3(o.cx + DIM.R * o.nx, y, DIM.R * o.nz)));
 
+  // The bottom tier's footprint in the closed position, on the desk.
+  const homeOutline = (y = 0) => outline.map((o) => new THREE.Vector3(o.cx + DIM.R * o.nx, y, DIM.R * o.nz));
+
   // Points that bound the visible object in its current pose, for camera framing.
   function silhouettePoints(step = 3) {
     const pts = [];
@@ -528,7 +548,7 @@ export function createSwivel() {
     return pts;
   }
 
-  return { root, tiers, mats, setPose, showPencil, holeWorld, centreWorld, outlineWorld, silhouettePoints };
+  return { root, tiers, mats, setPose, showPencil, holeWorld, centreWorld, outlineWorld, homeOutline, silhouettePoints };
 }
 
 // Position on tier i's pencil-entry circle at angle deg (world space).
@@ -540,7 +560,7 @@ export function entryPoint(i, deg) {
 // Combined centre of mass in plan, assuming the three tiers weigh the same.
 export function centreOfMass(pose) {
   let x = 0, z = 0;
-  for (const deg of [0, pose.mid ?? 0, pose.top ?? 0]) {
+  for (const deg of [pose.bottom ?? 0, pose.mid ?? 0, pose.top ?? 0]) {
     const t = rad(deg);
     x += DIM.a - DIM.a * Math.cos(t);
     z += DIM.a * Math.sin(t);
@@ -548,8 +568,15 @@ export function centreOfMass(pose) {
   return { x: x / 3, z: z / 3 };
 }
 
-// True when a plan point lies over the fixed base's footprint.
-export function overBase({ x, z }) {
-  const cx = Math.max(-DIM.a, Math.min(DIM.a, x));
-  return Math.hypot(x - cx, z) <= DIM.R;
+// Distance (mm) a plan point lies outside the bottom tier's footprint, 0 when over it.
+export function outsideBottomTier({ x, z }, bottomDeg = 0) {
+  // undo the bottom tier's rotation about the shaft, then test against the stadium
+  const t = rad(bottomDeg), dx = x - DIM.a;
+  const lx = dx * Math.cos(t) - z * Math.sin(t) + DIM.a;
+  const lz = dx * Math.sin(t) + z * Math.cos(t);
+  const cx = Math.max(-DIM.a, Math.min(DIM.a, lx));
+  return Math.max(0, Math.hypot(lx - cx, lz) - DIM.R);
 }
+
+// True when a plan point lies over the bottom tier, which carries the stack.
+export const overBottomTier = (p, bottomDeg = 0) => outsideBottomTier(p, bottomDeg) === 0;

@@ -109,7 +109,7 @@
     <div class="stage-col">
     <div class="stage" id="stage">
       <canvas id="view" aria-label="3D model of the SWIVEL sharpener. Use the controls to rotate the tiers."></canvas>
-      <div class="readline" id="readline">Middle <b>45&#xb0;</b> &#xb7; Top <b>90&#xb0;</b></div>
+      <div class="readline" id="readline">Bottom <b>&#x2212;120&#xb0;</b> &#xb7; Middle <b>0&#xb0;</b> &#xb7; Top <b>120&#xb0;</b></div>
     </div>
       <div class="views" role="group" aria-label="Camera viewpoints">
         <button class="chip" data-view="front-left" aria-pressed="true">Front left</button>
@@ -124,26 +124,31 @@
       <section class="ctl">
         <h2 data-n="01">Tier angles</h2>
         <div class="tier">
-          <label for="top">Top tier</label><output id="topOut" for="top">90&#xb0;</output>
-          <input type="range" id="top" min="-180" max="180" step="1" value="90">
+          <label for="top">Top tier</label><output id="topOut" for="top">120&#xb0;</output>
+          <input type="range" id="top" min="-180" max="180" step="1" value="120">
         </div>
         <div class="tier">
-          <label for="mid">Middle tier</label><output id="midOut" for="mid">45&#xb0;</output>
-          <input type="range" id="mid" min="-180" max="180" step="1" value="45">
+          <label for="mid">Middle tier</label><output id="midOut" for="mid">0&#xb0;</output>
+          <input type="range" id="mid" min="-180" max="180" step="1" value="0">
+        </div>
+        <div class="tier">
+          <label for="bottom">Bottom tier</label><output id="bottomOut" for="bottom">&#x2212;120&#xb0;</output>
+          <input type="range" id="bottom" min="-180" max="180" step="1" value="-120">
           <div class="scale" aria-hidden="true"><span>&#x2212;180&#xb0;</span><span>back &#xb7; 0 &#xb7; front</span><span>180&#xb0;</span></div>
         </div>
-        <div class="tier fixed"><span>Bottom tier</span><output>Fixed</output></div>
+        <div class="tier fixed"><span>Shaft and anchor</span><output>Fixed</output></div>
       </section>
 
       <section class="ctl">
         <h2 data-n="02">Positions</h2>
         <div class="chips" id="presets" role="group" aria-label="Preset positions">
-          <button class="chip" data-mid="0" data-top="0" aria-pressed="false">Closed</button>
-          <button class="chip" data-mid="45" data-top="90" aria-pressed="true">Fan</button>
-          <button class="chip" data-mid="-45" data-top="-90" aria-pressed="false">Reverse fan</button>
-          <button class="chip" data-mid="0" data-top="90" aria-pressed="false">Top only</button>
-          <button class="chip" data-mid="90" data-top="0" aria-pressed="false">Middle only</button>
-          <button class="chip" data-mid="90" data-top="180" aria-pressed="false">Open</button>
+          <button class="chip" data-bottom="0" data-mid="0" data-top="0" aria-pressed="false">Closed</button>
+          <button class="chip" data-bottom="-120" data-mid="0" data-top="120" aria-pressed="true">Star</button>
+          <button class="chip" data-bottom="0" data-mid="45" data-top="90" aria-pressed="false">Fan</button>
+          <button class="chip" data-bottom="90" data-mid="0" data-top="0" aria-pressed="false">Bottom only</button>
+          <button class="chip" data-bottom="0" data-mid="90" data-top="0" aria-pressed="false">Middle only</button>
+          <button class="chip" data-bottom="0" data-mid="0" data-top="90" aria-pressed="false">Top only</button>
+          <button class="chip" data-bottom="60" data-mid="60" data-top="60" aria-pressed="false">Whole stack</button>
         </div>
       </section>
 
@@ -151,23 +156,25 @@
         <h2 data-n="03">Plan check</h2>
         <canvas class="plan" id="plan" aria-label="Plan view of the three tier outlines around the shaft"></canvas>
         <dl>
-          <dt>Centre of mass</dt><dd><span class="pill" id="com">Over the base</span></dd>
-          <dt>Top entry travel</dt><dd id="topTravel">145 mm</dd>
-          <dt>Middle entry travel</dt><dd id="midTravel">72 mm</dd>
-          <dt>Overhang past base</dt><dd id="overhang">0 mm</dd>
+          <dt>Centre of mass</dt><dd><span class="pill" id="com">Over the bottom tier</span></dd>
+          <dt>Top entry travel</dt><dd id="topTravel">193 mm</dd>
+          <dt>Middle entry travel</dt><dd id="midTravel">0 mm</dd>
+          <dt>Bottom entry travel</dt><dd id="bottomTravel">193 mm</dd>
+          <dt>Overhang past bottom tier</dt><dd id="overhang">0 mm</dd>
         </dl>
       </section>
 
       <section class="ctl">
         <h2 data-n="04">Display</h2>
-        <label class="toggle"><input type="checkbox" id="annot" checked> Axis and swing paths</label>
+        <label class="toggle"><input type="checkbox" id="annot" checked> Axis, swing paths and closed outline</label>
         <label class="toggle"><input type="checkbox" id="pencil"> Pencil in the most-turned tier</label>
       </section>
     </div>
   </div>
 
   <footer>
-    All tiers turn on one steel shaft through the centre of each rounded end, 33 mm from the tier centre.
+    All three tiers turn on one steel shaft through the centre of each rounded end, 33 mm from the tier centre.
+    The shaft stands in an anchor puck that stays put on the desk; the bottom tier glides round it on its foot.
     Each pencil entry travels on a 92 mm radius. Study dimensions are L 120 &#xd7; W 54 &#xd7; tier 26 mm, scaled from the concept board.
     The centre of mass assumes equal tier weights.
   </footer>
@@ -179,8 +186,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { createSwivel, DIM, STACK_TOP, entryPoint, centreOfMass, overBase } from './swivel-model.js';
-import { createRenderer, createStudio, framePerspective } from './studio.js';
+import { createSwivel, DIM, STACK_TOP, entryPoint, centreOfMass, overBottomTier, outsideBottomTier } from './swivel-model.js';
+import { createRenderer, createStudio, framePerspective, fatLine } from './studio.js';
 
 const $ = (id) => document.getElementById(id);
 const stage = $('stage'), canvas = $('view'), planCanvas = $('plan');
@@ -211,15 +218,19 @@ const axisGeo = new LineGeometry();
 axisGeo.setPositions(flat([new THREE.Vector3(DIM.a, -3, 0), new THREE.Vector3(DIM.a, STACK_TOP + 22, 0)]));
 const axisLine = new Line2(axisGeo, lineMat({ dashed: true, dashSize: 5, gapSize: 3.5, linewidth: 2 }));
 axisLine.computeLineDistances();
-const arcs = [1, 2].map(() => new Line2(new LineGeometry(), lineMat({})));
-const lineMats = [axisLine.material, ...arcs.map((a) => a.material)];
+const arcs = [0, 1, 2].map(() => new Line2(new LineGeometry(), lineMat({})));
+// closed position of the bottom tier, drawn on the desk
+const ghost = fatLine(sw.homeOutline(0.25), { color: 0x8a8177, width: 1.8, dashed: true, dash: 5, gap: 4 });
+const lineMats = [axisLine.material, ghost.material, ...arcs.map((a) => a.material)];
 overlay.add(axisLine, ...arcs);
 overlay.children.forEach((c) => (c.renderOrder = 10));
+overlay.add(ghost);
 
 function updateArcs() {
-  [state.mid, state.top].forEach((deg, k) => {
+  TIERS.forEach((key, k) => {
+    const deg = state[key];
     const n = Math.max(2, Math.ceil(Math.abs(deg) / 3));
-    const pts = Array.from({ length: n + 1 }, (_, j) => entryPoint(k + 1, (deg * j) / n));
+    const pts = Array.from({ length: n + 1 }, (_, j) => entryPoint(k, (deg * j) / n));
     arcs[k].geometry.dispose();
     const geo = new LineGeometry();
     geo.setPositions(flat(pts));
@@ -229,50 +240,51 @@ function updateArcs() {
 }
 
 /* ---- state ---- */
-const state = { mid: 45, top: 90 };
+const TIERS = ['bottom', 'mid', 'top'];
+const state = { bottom: -120, mid: 0, top: 120 };
 let tween = null;
 let dirty = true;
 
 function pencilTier() {
   if (!$('pencil').checked) return null;
-  return Math.abs(state.mid) > Math.abs(state.top) ? 1 : 2;
+  let best = 2;
+  for (const i of [1, 0]) if (Math.abs(state[TIERS[i]]) > Math.abs(state[TIERS[best]])) best = i;
+  return best;
 }
 
 function apply() {
   sw.setPose(state);
   sw.showPencil(pencilTier());
   updateArcs();
-  $('mid').value = Math.round(state.mid);
-  $('top').value = Math.round(state.top);
-  $('midOut').value = `${Math.round(state.mid)}\u00b0`;
-  $('topOut').value = `${Math.round(state.top)}\u00b0`;
-  $('readline').innerHTML = `Middle <b>${Math.round(state.mid)}\u00b0</b> \u00b7 Top <b>${Math.round(state.top)}\u00b0</b>`;
+  ghost.visible = Math.abs(state.bottom) > 0.5;
+  const deg = (v) => `${Math.round(v) < 0 ? '\u2212' : ''}${Math.abs(Math.round(v))}\u00b0`;
   const travel = (d) => `${Math.round((Math.PI * DIM.reach * Math.abs(d)) / 180)} mm`;
-  $('midTravel').textContent = travel(state.mid);
-  $('topTravel').textContent = travel(state.top);
-  const com = centreOfMass(state);
-  const com_ok = overBase(com);
-  $('com').textContent = com_ok ? 'Over the base' : 'Outside the base';
+  for (const key of TIERS) {
+    $(key).value = Math.round(state[key]);
+    $(`${key}Out`).value = deg(state[key]);
+    $(`${key}Travel`).textContent = travel(state[key]);
+  }
+  $('readline').innerHTML = `Bottom <b>${deg(state.bottom)}</b> \u00b7 Middle <b>${deg(state.mid)}</b> \u00b7 Top <b>${deg(state.top)}</b>`;
+  const com_ok = overBottomTier(centreOfMass(state), state.bottom);
+  $('com').textContent = com_ok ? 'Over the bottom tier' : 'Outside the bottom tier';
   $('com').style.color = com_ok ? 'var(--good)' : 'var(--accent)';
   let over = 0;
   for (const i of [1, 2]) {
-    for (const p of sw.outlineWorld(i)) {
-      const cx = Math.max(-DIM.a, Math.min(DIM.a, p.x));
-      over = Math.max(over, Math.hypot(p.x - cx, p.z) - DIM.R);
-    }
+    for (const p of sw.outlineWorld(i)) over = Math.max(over, outsideBottomTier(p, state.bottom));
   }
-  $('overhang').textContent = `${Math.max(0, Math.round(over))} mm`;
+  $('overhang').textContent = `${Math.round(over)} mm`;
   for (const b of document.querySelectorAll('#presets .chip')) {
-    b.setAttribute('aria-pressed', String(+b.dataset.mid === Math.round(state.mid) && +b.dataset.top === Math.round(state.top)));
+    b.setAttribute('aria-pressed', String(TIERS.every((k) => +b.dataset[k] === Math.round(state[k]))));
   }
   drawPlan();
   dirty = true;
 }
 
-function goTo(mid, top) {
-  if (reduceMotion) { Object.assign(state, { mid, top }); tween = null; apply(); return; }
-  tween = { from: { ...state }, to: { mid, top }, t0: performance.now(), dur: 650 };
+function goTo(to) {
+  if (reduceMotion) { Object.assign(state, to); tween = null; apply(); return; }
+  tween = { from: { ...state }, to, t0: performance.now(), dur: 650 };
 }
+const presetPose = (b) => Object.fromEntries(TIERS.map((k) => [k, +b.dataset[k]]));
 
 /* ---- camera views ---- */
 const VIEWS = {
@@ -287,9 +299,10 @@ let camTween = null;
 function frameView(name, animate = true) {
   scratch.copy(camera);
   const pts = [...sw.silhouettePoints(4), new THREE.Vector3(DIM.a, STACK_TOP + 22, 0), new THREE.Vector3(DIM.a, -3, 0)];
-  for (const [i, deg] of [[1, state.mid], [2, state.top]]) {
-    for (let k = 0; k <= 6; k++) pts.push(entryPoint(i, (deg * k) / 6));
-  }
+  TIERS.forEach((key, i) => {
+    for (let k = 0; k <= 6; k++) pts.push(entryPoint(i, (state[key] * k) / 6));
+  });
+  if (ghost.visible) pts.push(...sw.homeOutline().filter((_, k) => k % 6 === 0));
   const { target } = framePerspective(scratch, pts, { ...VIEWS[name], margin: 1.15, offsetY: 0.06 });
   const to = { pos: scratch.position.clone(), target };
   if (!animate || reduceMotion) {
@@ -324,6 +337,14 @@ function drawPlan() {
   g.beginPath(); g.arc(X(DIM.a), Y(0), DIM.reach * scale, 0, Math.PI * 2); g.stroke();
   g.setLineDash([]); g.globalAlpha = 1;
 
+  if (Math.abs(state.bottom) > 0.5) {
+    g.setLineDash([4 * dpr, 3.5 * dpr]);
+    g.strokeStyle = muted; g.lineWidth = 1.2 * dpr;
+    g.beginPath();
+    sw.homeOutline().forEach((p, k) => (k ? g.lineTo(X(p.x), Y(p.z)) : g.moveTo(X(p.x), Y(p.z))));
+    g.closePath(); g.stroke();
+    g.setLineDash([]);
+  }
   for (const i of [0, 1, 2]) {
     const pts = sw.outlineWorld(i);
     g.beginPath();
@@ -339,7 +360,7 @@ function drawPlan() {
     g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(['B', 'M', 'T'][i], X(lx), Y(lz));
   }
-  for (const [i, deg] of [[1, state.mid], [2, state.top]]) {
+  for (const [i, deg] of TIERS.map((k, i) => [i, state[k]])) {
     if (Math.abs(deg) < 0.5) continue;
     const n = Math.ceil(Math.abs(deg) / 3);
     g.strokeStyle = accent; g.lineWidth = 2 * dpr;
@@ -364,11 +385,11 @@ function drawPlan() {
 }
 
 /* ---- events ---- */
-for (const id of ['mid', 'top']) {
+for (const id of TIERS) {
   $(id).addEventListener('input', (e) => { tween = null; state[id] = +e.target.value; apply(); });
 }
 for (const b of document.querySelectorAll('#presets .chip')) {
-  b.addEventListener('click', () => goTo(+b.dataset.mid, +b.dataset.top));
+  b.addEventListener('click', () => goTo(presetPose(b)));
 }
 for (const b of document.querySelectorAll('.views .chip')) {
   b.addEventListener('click', () => frameView(b.dataset.view));
@@ -398,8 +419,7 @@ const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 function loop(now) {
   if (tween) {
     const t = Math.min(1, (now - tween.t0) / tween.dur), e = ease(t);
-    state.mid = tween.from.mid + (tween.to.mid - tween.from.mid) * e;
-    state.top = tween.from.top + (tween.to.top - tween.from.top) * e;
+    for (const k of TIERS) state[k] = tween.from[k] + (tween.to[k] - tween.from[k]) * e;
     if (t === 1) tween = null;
     apply();
   }
@@ -421,7 +441,7 @@ apply();
 {
   const pts = [new THREE.Vector3(DIM.a, STACK_TOP + 22, 0)];
   for (const b of document.querySelectorAll('#presets .chip')) {
-    sw.setPose({ mid: +b.dataset.mid, top: +b.dataset.top });
+    sw.setPose(presetPose(b));
     pts.push(...sw.silhouettePoints(6));
   }
   sw.setPose(state);

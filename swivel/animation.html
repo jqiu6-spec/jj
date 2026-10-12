@@ -7,6 +7,7 @@
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
   "gifenc": "https://cdn.jsdelivr.net/npm/gifenc@1.0.3/dist/gifenc.esm.js"
 } }
 </script>
@@ -19,7 +20,7 @@
 import * as THREE from 'three';
 import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 import { createSwivel, DIM, STACK_TOP, entryPoint } from './swivel-model.js';
-import { createRenderer, createStudio, framePerspective } from './studio.js';
+import { createRenderer, createStudio, framePerspective, fatLine } from './studio.js';
 
 const RW = 1280, RH = 1066, OW = 640, OH = 533, U = OW / 600;
 const ACCENT = '#cf6529', PAPER = '#f2efea';
@@ -28,23 +29,27 @@ const renderer = createRenderer({ width: RW, height: RH, preserve: true });
 const { scene, key } = createStudio(renderer);
 const sw = createSwivel();
 scene.add(sw.root);
+const ghost = fatLine(sw.homeOutline(0.25), { color: 0x7d756b, width: 2.4, dashed: true, dash: 5, gap: 4 });
+ghost.setResolution(RW, RH);
+scene.add(ghost);
 const cam = new THREE.PerspectiveCamera(24, RW / RH, 5, 5000);
 const out = document.getElementById('out');
 const ctx = out.getContext('2d', { willReadFrequently: true });
 
-// Keyframes: [seconds, middle°, top°]
-const KEYS = [[0, 0, 0], [0.4, 0, 0], [1.6, 0, 135], [2.5, 60, 135], [3.1, 60, 135], [4.4, 0, 0], [4.9, 0, 0]];
+// Keyframes: [seconds, bottom°, middle°, top°]. Top swings out, then the bottom, into the star.
+const KEYS = [[0, 0, 0, 0], [0.4, 0, 0, 0], [1.5, 0, 0, 120], [2.6, -120, 0, 120], [3.3, -120, 0, 120], [4.5, 0, 0, 0], [5.0, 0, 0, 0]];
 const FPS = 20, DURATION = KEYS[KEYS.length - 1][0];
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 function poseAt(s) {
   for (let k = 1; k < KEYS.length; k++) {
-    const [t0, m0, a0] = KEYS[k - 1], [t1, m1, a1] = KEYS[k];
+    const [t0, ...p0] = KEYS[k - 1], [t1, ...p1] = KEYS[k];
     if (s <= t1) {
       const e = ease((s - t0) / (t1 - t0));
-      return { mid: m0 + (m1 - m0) * e, top: a0 + (a1 - a0) * e };
+      const [bottom, mid, top] = p0.map((v, j) => v + (p1[j] - v) * e);
+      return { bottom, mid, top };
     }
   }
-  return { mid: 0, top: 0 };
+  return { bottom: 0, mid: 0, top: 0 };
 }
 
 function labelAnchor(i, deg) {
@@ -62,7 +67,8 @@ for (let s = 0; s <= DURATION; s += 0.1) {
     pts.push(p);
     if (p.y > 1) pts.push(p.clone().addScaledVector(toLight, -p.y / toLight.y));
   }
-  for (const [i, deg] of [[1, pose.mid], [2, pose.top]]) {
+  pts.push(...sw.homeOutline().filter((_, k) => k % 6 === 0));
+  for (const [i, deg] of [[0, pose.bottom], [1, pose.mid], [2, pose.top]]) {
     for (let k = 0; k <= 6; k++) pts.push(entryPoint(i, (deg * k) / 6));
     pts.push(labelAnchor(i, deg));
   }
@@ -102,11 +108,13 @@ window.__encode = async () => {
   for (let f = 0; f < frames; f++) {
     const pose = poseAt(f / FPS);
     sw.setPose(pose);
+    ghost.visible = Math.abs(pose.bottom) > 0.5;
     renderer.render(scene, cam);
     ctx.fillStyle = PAPER;
     ctx.fillRect(0, 0, OW, OH);
     ctx.drawImage(renderer.domElement, 0, 0, OW, OH);
     stroke([P(new THREE.Vector3(DIM.a, -3, 0)), P(new THREE.Vector3(DIM.a, STACK_TOP + 20, 0))], 1.8, [7, 5]);
+    swing(0, pose.bottom);
     swing(1, pose.mid);
     swing(2, pose.top);
     const { data } = ctx.getImageData(0, 0, OW, OH);

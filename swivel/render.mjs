@@ -6,7 +6,7 @@
 // CDN requests for three.js and the Google Fonts stylesheet are answered from
 // node_modules, so the render works offline.
 import { createRequire } from 'node:module';
-import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { readFile, mkdir, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,6 +62,7 @@ async function savePng(dataUrl, file) {
 
 async function main() {
   const out = path.join(here, 'renders');
+  await rm(path.join(out, 'views'), { recursive: true, force: true });
   await mkdir(path.join(out, 'views'), { recursive: true });
   const browser = await launch();
   const page = await openPage(browser, 'rotation-sheet.html', { width: 1640, height: 1200 });

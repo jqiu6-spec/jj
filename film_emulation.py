@@ -9,10 +9,12 @@ Re-photographs a rendered image as a 35mm colour-negative scan:
     cool shadows / warm highlights
   - luminance-dependent grain with fine dye-cloud colour noise
 
-Usage: python3 film_emulation.py input.webp output.jpg
+Concrete weathering (concrete_weathering.py) runs first unless --no-weather.
+
+Usage: python3 film_emulation.py [--no-weather] input.webp output.jpg
 """
 
-import sys
+import argparse
 
 import numpy as np
 from PIL import Image
@@ -70,11 +72,16 @@ def homography(src_pts, dst_pts):
     return (vt[-1] / vt[-1, -1]).reshape(3, 3)
 
 
-def main(src_path, out_path):
+def main(src_path, out_path, weather=True):
     src = Image.open(src_path).convert("RGB")
     sw, sh = src.size
     src = src.resize((sw * SCALE, sh * SCALE), Image.LANCZOS)
-    lin = srgb_to_linear(np.asarray(src, dtype=np.float32) / 255.0)
+    rgb = np.asarray(src, dtype=np.float32) / 255.0
+    if weather:
+        from concrete_weathering import weather as apply_weathering
+
+        rgb = apply_weathering(rgb)
+    lin = srgb_to_linear(rgb)
     sh, sw = lin.shape[:2]
 
     # 35mm frame is 2:3; keep the full source height.
@@ -187,4 +194,9 @@ def main(src_path, out_path):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("input")
+    parser.add_argument("output")
+    parser.add_argument("--no-weather", action="store_true", help="skip the concrete weathering pass")
+    args = parser.parse_args()
+    main(args.input, args.output, weather=not args.no_weather)

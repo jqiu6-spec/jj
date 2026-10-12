@@ -51,11 +51,11 @@ PROFILES = {
         # Frame shifted left so the train nose and the ショクドウ sign stay in,
         # with the extra keystone taken on the right, where it also drops the
         # near pillar cleanly instead of leaving a sliver of it.
-        frame=((0.0, 0.0), (1.0, 0.0), (0.90, 1.0), (0.01706, 1.0)),
+        frame=((0.0, 0.0), (0.99, 0.0), (0.86, 1.0), (0.01706, 1.0)),
         soften=0.3, scan_sharpen=(0.3, 1.2),
         shadow_gamma=1.06, black=0.036, white=0.97,
         sat=0.86, warm_sat=0.14,
-        shadow_tone=(-0.008, 0.006, 0.004), highlight_tone=(0.03, 0.008, -0.025),
+        shadow_tone=(-0.003, 0.006, -0.002), highlight_tone=(0.03, 0.008, -0.025),
         grain=0.022, grain_centre=0.2, chroma_grain=0.006,
         grain_sigma=(0.9, 2.2), grain_floor_taper=True, chroma_shadow=True,
         chroma_sigma=2.6, soft_floor=True,
@@ -313,9 +313,9 @@ def main(src_path, out_path, weather=True, profile="dusk"):
 
     if P.get("soft_floor"):
         # Per-channel soft floor: a single dye layer can't reach zero while
-        # the others sit well above the scan's black.
+        # the others sit well above the scan's black. Bottoms out at f / 2.
         f = 0.5 * P["black"]
-        v = np.where(v < f, f * np.exp((np.minimum(v, f) - f) / f), v)
+        v = np.where(v < f, f * (0.5 + 0.5 * np.exp((np.minimum(v, f) - f) / (0.5 * f))), v)
     out = (np.clip(v, 0, 1) * 255 + 0.5).astype(np.uint8)
     Image.fromarray(out).save(out_path, quality=94, subsampling=0)
     print(f"wrote {out_path} ({ow}x{oh})")

@@ -122,16 +122,34 @@ def vary_windows(rgb):
 
     # Windows close together (a train carriage, an office floor) share one
     # lighting system: group them through a wider dilation.
-    groups = _label_components(gaussian_blur(seed.astype(np.float32), 6) > 0.15)
+    groups = _label_components(gaussian_blur(seed.astype(np.float32), 8) > 0.15)
     grp = np.zeros(n, dtype=np.int64)
     grp[inv] = groups[ys, xs]
     _, grp_inv, members = np.unique(grp, return_inverse=True, return_counts=True)
-    grouped = members[grp_inv] >= 8
-    own = draw(6) < 0.1  # the odd room on its own lamp
+    members = members[grp_inv]
+    grouped = members >= 8
+    own = (draw(6) < 0.1) & (members < 30)  # the odd room on its own lamp
 
-    # Light type. Thin bars are tubes: fluorescent or cold LED only.
+    # What is not a window keeps its own light: clipped point emitters
+    # (lamps, headlights) and big clipped glows, tiny points, thin strips,
+    # specular rims along edges, and soft pools of lamp light on walls.
+    fill = area / (tall * wide)
     tube = (np.maximum(tall, wide) > 3 * np.minimum(tall, wide)) & (area < 600)
-    pick = np.where(grouped & ~own, _hash01(grp, 1), draw(1))
+    rim = (fill < 0.35) & ~tube
+    thin = (np.minimum(tall, wide) <= 4) & ~tube
+    pool = (area > 1500) & (peak < 0.8)
+    clipped_lamp = (peak > 0.9) & (~grouped | (area >= 1200))
+    fixed = clipped_lamp | (area < 60) | rim | thin | pool
+    # Rooms come in arrays: room details only on grouped, window-sized shapes.
+    room = grouped & (area > 120) & (area < 1200) & ~tube & ~fixed
+
+    # Light type, shared more widely than the grouping above: one train, or
+    # one building's cluster of floors, has one lighting system.
+    sys_map = _label_components(gaussian_blur(seed.astype(np.float32), 14) > 0.15)
+    system = np.zeros(n, dtype=np.int64)
+    system[inv] = sys_map[ys, xs]
+    # Thin bars are tubes: fluorescent or cold LED only.
+    pick = np.where(grouped & ~own, _hash01(system, 1), draw(1))
     pick = np.where(tube, TUBE_PICK + (1 - TUBE_PICK) * draw(1), pick)
     tint = np.ones((n, 3), dtype=np.float32)
     edge = 0.0
@@ -145,33 +163,74 @@ def vary_windows(rgb):
     level = np.where(tail < 0.08, level * 1.6, level)  # a few blazing
     level = np.where((tail > 0.88) & (area > 150), level * 0.45, level)  # curtains
     level = np.where((tail > 0.80) & (tail <= 0.88) & (area > 150), level * 0.18, level)  # nearly off
-    blind = (draw(4) < 0.3) & (area > 120) & ~tube
-    blind_to = y0 + (0.2 + 0.4 * draw(5)) * tall  # blind pulled down to here
-    # Clipped emitters (lamps, headlights), tiny points and thin non-window
-    # shapes (specular rims along edges) stay as they are.
-    fill = area / (tall * wide)
-    fixed = (peak > 0.9) | (area < 60) | ((fill < 0.35) & ~tube)
+
+    # The render repeats one interior in every window (a dark notch on the
+    # sill). Light the notch in about half the rooms, as an open room would.
+    rgb = rgb.copy()
+    lit_sum = np.zeros((n, 3))
+    np.add.at(lit_sum, inv, rgb[inside])
+    lit_mean = lit_sum / area[:, None]
+    mean_L = lit_mean @ LUMA
+    for i in np.nonzero(room & (draw(13) < 0.5))[0]:
+        ya, yb, xa, xb = y0[i] + 3, y1[i] - 2, x0[i] + 3, x1[i] - 2
+        if yb <= ya or xb <= xa:
+            continue
+        block = rgb[ya:yb, xa:xb]
+        lit = (block @ LUMA) >= 0.55 * mean_L[i]
+        # The notch is enclosed by the window's light on the left, right and
+        # top; the wall around the window and gaps between windows are not.
+        enclosed = (
+            np.maximum.accumulate(lit, axis=1)
+            & np.maximum.accumulate(lit[:, ::-1], axis=1)[:, ::-1]
+            & np.maximum.accumulate(lit, axis=0)
+        )
+        block[enclosed & ~lit] = lit_mean[i] * (0.6 + 0.3 * draw(14)[i])
 
     g = tint[inv] * level[inv][:, None]
+    blind = room & (draw(4) < 0.3)
+    blind_to = y0 + (0.2 + 0.4 * draw(5)) * tall  # blind pulled down to here
     g[blind[inv] & (ys < blind_to[inv])] *= 0.45
-    # Something in the room (furniture, a person) blocks part of the light:
-    # a dark shape standing on the sill, different in every window.
-    occl = (draw(7) < 0.55) & (area > 150) & ~tube
-    occl_w = (0.3 + 0.3 * draw(8)) * wide
-    occl_top = y1 - (0.2 + 0.25 * draw(9)) * tall
+    # Something in the room blocks part of the light: furniture on the sill
+    # (a block) or a person (head and shoulders), different in every window.
+    occl = room & (draw(7) < 0.6)
+    person = draw(15) < 0.5
+    occl_w = np.where(person, 0.35 + 0.2 * draw(8), 0.3 + 0.3 * draw(8)) * wide
+    occl_h = np.where(person, 0.4 + 0.2 * draw(9), 0.2 + 0.25 * draw(9)) * tall
     occl_x0 = x0 + draw(10) * (wide - occl_w)
-    hit = occl[inv] & (ys > occl_top[inv]) & (xs >= occl_x0[inv]) & (xs < (occl_x0 + occl_w)[inv])
-    g[hit] *= (0.4 + 0.3 * draw(11))[inv][hit][:, None]
+    occl_top = y1 - occl_h
+    dx = (xs - (occl_x0 + occl_w / 2)[inv]) / (occl_w[inv] / 2)
+    dy = (ys - occl_top[inv]) / occl_h[inv]
+    in_box = (np.abs(dx) < 1) & (dy > 0)
+    shoulders = dy > 0.45
+    head = ((dx / 0.45) ** 2 + ((dy - 0.25) / 0.22) ** 2) < 1
+    shape = np.where(person[inv], (shoulders & in_box) | head, in_box)
+    hit = occl[inv] & shape
+    dim = np.where(person, 0.3 + 0.2 * draw(11), 0.4 + 0.3 * draw(11))
+    g[hit] *= dim[inv][hit][:, None]
     # Light falls off across each room differently.
-    slope = 0.35 * (draw(12) * 2 - 1)
+    slope = np.where(room, 0.35 * (draw(12) * 2 - 1), 0.0)
     g *= (1 + slope[inv] * (ys - (y0 + y1)[inv] / 2) / tall[inv])[:, None]
     g[fixed[inv]] = 1.0
-    gain = np.ones_like(rgb)
-    gain[inside] = g
+    # Specular rims are the render's rim light: break them up and dim them,
+    # as reflected interior light would be.
+    breakup = gaussian_blur(np.random.default_rng(11).standard_normal((h, w)).astype(np.float32), 25)
+    breakup = 0.675 + 0.325 * np.clip(breakup / breakup.std(), -1, 1)
+    on_rim = rim[inv]
+    g[on_rim] = (0.75 * breakup[ys[on_rim], xs[on_rim]])[:, None]
 
-    # Apply across the whole lit window, feathered at its edges.
-    amount = gaussian_blur((inside & (L > 0.08)).astype(np.float32), 1.2)[..., None]
-    gain = gaussian_blur(gain, 1.5)
+    # Spread each window's gain a few pixels past its label by normalized
+    # convolution, so a dimmed window takes its own darkness right to the
+    # edge of its glow instead of keeping a bright rim.
+    m = inside.astype(np.float32)
+    field = np.zeros_like(rgb)
+    field[inside] = g
+    num = gaussian_blur(field, 1.5)
+    den = gaussian_blur(m, 1.5)[..., None]
+    reach = gaussian_blur(m, 2.0) > 0.1
+    gain = np.where(den > 0.02, num / np.maximum(den, 0.02), 1.0)
+    gain[~reach] = 1.0
+    L = rgb @ LUMA  # after the notch fill
+    amount = gaussian_blur((reach & (L > 0.08)).astype(np.float32), 1.2)[..., None]
     return rgb * (1 - amount) + rgb * gain * amount
 
 
@@ -216,8 +275,15 @@ def grade_sky(rgb):
     # Brightest at the top of the gap. Deeper into the canyon the sky shows
     # only as narrow slots between bridges, a little above the towers.
     glow = 2.2 - 1.0 * np.clip((rows - 0.1 * h) / (0.25 * h), 0, 1)
-    murk = np.array([1.22, 1.0, 0.78], np.float32) * (clouds * glow)[..., None]
-    return rgb * (1 - sky) + murk * sky, sky[..., 0]
+    hue = np.array([1.22, 1.0, 0.78], np.float32)
+    murk = hue * (clouds * glow)[..., None]
+    out = rgb * (1 - sky) + murk * sky
+    # Skyglow scattered in the canyon air: a faint warm haze on the towers
+    # nearest the open sky, fading with distance from it.
+    haze = gaussian_blur(sky[..., 0], 120)
+    haze = haze / max(float(haze.max()), 1e-6)
+    out = out + (0.012 * haze * (1 - sky[..., 0]))[..., None] * hue
+    return out, sky[..., 0]
 
 
 def prepare_night(rgb):

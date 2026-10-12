@@ -286,8 +286,16 @@ def grade_sky(rgb):
     return out, sky[..., 0]
 
 
-def prepare_night(rgb):
-    """Returns the prepared image and the sky mask."""
-    rgb = vary_windows(rgb)
-    rgb, sky = grade_sky(rgb)
-    return np.clip(rgb, 0, 1), sky
+def prepare_night(rgb, protect=None):
+    """Returns the prepared image and the sky mask. `protect` (H, W) in
+    [0, 1] marks pixels to leave as they are, e.g. a composited element
+    with its own lighting."""
+    out = vary_windows(rgb)
+    if protect is not None:
+        p = protect[..., None]
+        out = out * (1 - p) + rgb * p
+    graded, sky = grade_sky(out)
+    if protect is not None:
+        graded = graded * (1 - p) + out * p
+        sky = sky * (1 - protect)
+    return np.clip(graded, 0, 1), sky

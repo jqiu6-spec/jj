@@ -12,7 +12,11 @@ Re-photographs a rendered image as a 35mm colour-negative scan:
 Concrete weathering (concrete_weathering.py) runs first unless --no-weather.
 --night uses the night profile, after the night pre-pass (night_lights.py).
 
-Usage: python3 film_emulation.py [--night] [--no-weather] input.webp output.jpg
+--protect MASK leaves a composited element (white in the mask) out of the
+night pre-pass and the weathering; it still gets the optics and the film.
+
+Usage: python3 film_emulation.py [--night] [--no-weather] [--protect MASK]
+       input.webp output.jpg
 """
 
 import argparse
@@ -112,12 +116,16 @@ def homography(src_pts, dst_pts):
     return (vt[-1] / vt[-1, -1]).reshape(3, 3)
 
 
-def main(src_path, out_path, weather=True, profile="dusk"):
+def main(src_path, out_path, weather=True, profile="dusk", protect_path=None):
     P = PROFILES[profile]
     src = Image.open(src_path).convert("RGB")
     sw, sh = src.size
     src = src.resize((sw * SCALE, sh * SCALE), Image.LANCZOS)
     rgb = np.asarray(src, dtype=np.float32) / 255.0
+    protect = None
+    if protect_path:
+        m = Image.open(protect_path).convert("L").resize((sw * SCALE, sh * SCALE), Image.BILINEAR)
+        protect = np.asarray(m, dtype=np.float32) / 255.0
     lights = neon = None
     weather_opts = {}
     if profile == "night":
@@ -125,10 +133,12 @@ def main(src_path, out_path, weather=True, profile="dusk"):
 
         lights = light_mask(rgb)
         _, neon = split_lights(rgb)
-        rgb, sky = prepare_night(rgb)
+        rgb, sky = prepare_night(rgb, protect)
         lights = np.maximum(lights, sky)  # no concrete grit on the sky either
         # Unlit concrete still has some texture worth keeping at night.
         weather_opts = dict(min_surface=0.45, texture_gain=1.5)
+    if protect is not None:
+        lights = protect if lights is None else np.maximum(lights, protect)
     if weather:
         from concrete_weathering import weather as apply_weathering
 
@@ -140,7 +150,8 @@ def main(src_path, out_path, weather=True, profile="dusk"):
         # is boosted by its share of the strongest one, so a red tube grows
         # redder rather than drifting to salmon, and cyan stays cyan.
         share = lin / np.maximum(lin.max(axis=2, keepdims=True), 1e-4)
-        lin = lin * (1 + P["neon_boost"] * neon[..., None] * share)
+        boost = neon if protect is None else neon * (1 - protect)  # composites bring their own
+        lin = lin * (1 + P["neon_boost"] * boost[..., None] * share)
     sh, sw = lin.shape[:2]
 
     # 35mm frame is 2:3; keep the full source height.
@@ -327,5 +338,7 @@ if __name__ == "__main__":
     parser.add_argument("output")
     parser.add_argument("--no-weather", action="store_true", help="skip the concrete weathering pass")
     parser.add_argument("--night", action="store_true", help="night profile and night pre-pass")
+    parser.add_argument("--protect", help="mask of a composited element to leave out of the pre-passes")
     args = parser.parse_args()
-    main(args.input, args.output, weather=not args.no_weather, profile="night" if args.night else "dusk")
+    main(args.input, args.output, weather=not args.no_weather, profile="night" if args.night else "dusk",
+         protect_path=args.protect)

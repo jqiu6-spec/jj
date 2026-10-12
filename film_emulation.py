@@ -1,7 +1,7 @@
 """Film-emulation pass: Nikon F3 + 20mm f/2.8 on Kodak Portra 400.
 
 Re-photographs a rendered image as a 35mm colour-negative scan:
-  - 2:3 35mm frame, extra keystone for stronger converging verticals
+  - 2:3 35mm frame, keystone for a little extra convergence of the verticals
   - slight barrel distortion, lateral chromatic aberration, corner softness
   - wide-open light falloff (vignetting)
   - red-orange halation and bloom around light sources
@@ -36,17 +36,25 @@ PROFILES = {
         shadow_tone=(-0.018, 0.004, 0.014), highlight_tone=(0.03, 0.01, -0.025),
         grain=0.019, grain_centre=0.35, chroma_grain=0.005,
     ),
-    # Handheld at night, wide open: shadows a couple of stops under, so the
-    # scan lifts them into murky, grainy blacks; every light blooms.
+    # Handheld at night, wide open: exposed for the lights, so unlit concrete
+    # sits low on the film's toe and scans as grainy near-black; lights
+    # bloom in their own colour and halate red.
     "night": dict(
-        exposure=1.5,
-        halo_threshold=0.3, halo_tight=0.75, halo_wide=0.45,
-        bloom=(0.4, 0.34, 0.28), air_glow=0.06,
-        vignette=0.42,
-        shadow_gamma=0.86, black=0.058, white=0.97,
+        exposure=1.4,
+        hot_channel="max", halo_source="red",
+        halo_threshold=0.3, halo_tight=0.5, halo_wide=0.35,
+        bloom=(0.22, 0.18, 0.14), air_glow=0.03,
+        lens_glow=(0.35, 0.18), neon_boost=2.0, neon_sat=0.35,
+        vignette=0.6, vignette_power=1.0,
+        ca_scales=(1.0005, 1.0, 0.9995),
+        # Frame shifted left so the train nose and the ショクドウ sign stay in,
+        # with the extra keystone taken on the right.
+        frame=((0.0, 0.0), (1.0, 0.0), (0.9242, 1.0), (0.01706, 1.0)),
+        shadow_gamma=1.06, black=0.036, white=0.97,
         sat=0.86, warm_sat=0.14,
-        shadow_tone=(-0.012, 0.008, 0.012), highlight_tone=(0.035, 0.008, -0.03),
-        grain=0.024, grain_centre=0.22, chroma_grain=0.007,
+        shadow_tone=(-0.008, 0.006, 0.004), highlight_tone=(0.03, 0.008, -0.025),
+        grain=0.022, grain_centre=0.2, chroma_grain=0.009,
+        grain_sigma=(0.9, 2.2), grain_floor_taper=True, chroma_shadow=True,
     ),
 }
 
@@ -106,17 +114,28 @@ def main(src_path, out_path, weather=True, profile="dusk"):
     sw, sh = src.size
     src = src.resize((sw * SCALE, sh * SCALE), Image.LANCZOS)
     rgb = np.asarray(src, dtype=np.float32) / 255.0
-    lights = None
+    lights = neon = None
+    weather_opts = {}
     if profile == "night":
-        from night_lights import light_mask, prepare_night
+        from night_lights import light_mask, prepare_night, split_lights
 
         lights = light_mask(rgb)
+        _, neon = split_lights(rgb)
         rgb = prepare_night(rgb)
+        # Unlit concrete still has some texture worth keeping at night.
+        weather_opts = dict(min_surface=0.45, texture_gain=1.5)
     if weather:
         from concrete_weathering import weather as apply_weathering
 
-        rgb = apply_weathering(rgb, lights=lights)
+        rgb = apply_weathering(rgb, lights=lights, **weather_opts)
     lin = srgb_to_linear(rgb)
+    if neon is not None and P.get("neon_boost"):
+        # Neon tubes are far brighter than the render's display white; give
+        # them that headroom so they bloom in their own colour. Each channel
+        # is boosted by its share of the strongest one, so a red tube grows
+        # redder rather than drifting to salmon, and cyan stays cyan.
+        share = lin / np.maximum(lin.max(axis=2, keepdims=True), 1e-4)
+        lin = lin * (1 + P["neon_boost"] * neon[..., None] * share)
     sh, sw = lin.shape[:2]
 
     # 35mm frame is 2:3; keep the full source height.
@@ -137,17 +156,19 @@ def main(src_path, out_path, weather=True, profile="dusk"):
 
     # Keystone: bottom of the frame samples a narrower slice of the source,
     # pushing the verticals to converge harder toward the top.
-    top_half, bottom_half = 0.94, 0.90  # fraction of source half-width
-    cx = sw / 2
-    H = homography(
-        [(-1, -1), (1, -1), (1, 1), (-1, 1)],
-        [
+    if "frame" in P:
+        # Source quad for the frame corners (TL, TR, BR, BL) as fractions.
+        dst = [(fx * sw, fy * (sh - 1)) for fx, fy in P["frame"]]
+    else:
+        top_half, bottom_half = 0.94, 0.90  # fraction of source half-width
+        cx = sw / 2
+        dst = [
             (cx - top_half * cx, 0),
             (cx + top_half * cx, 0),
             (cx + bottom_half * cx, sh - 1),
             (cx - bottom_half * cx, sh - 1),
-        ],
-    )
+        ]
+    H = homography([(-1, -1), (1, -1), (1, 1), (-1, 1)], dst)
 
     def source_coords(ca_scale):
         f = zoom * (1.0 + k1 * r2) * ca_scale
@@ -159,11 +180,15 @@ def main(src_path, out_path, weather=True, profile="dusk"):
             (H[1, 0] * ux + H[1, 1] * uy + H[1, 2]) / den,
         )
 
-    # Lateral chromatic aberration: red slightly larger, blue slightly smaller.
+    # Lateral chromatic aberration: red is sampled from slightly further out,
+    # so the red image is slightly smaller; blue the reverse.
     img = np.empty((oh, ow, 3), dtype=np.float32)
-    for ch, ca in enumerate((1.0009, 1.0, 0.9991)):
+    for ch, ca in enumerate(P.get("ca_scales", (1.0009, 1.0, 0.9991))):
         xs, ys = source_coords(ca)
         img[..., ch] = bilinear_sample(lin[..., ch], xs, ys)
+    neon_w = None
+    if neon is not None:
+        neon_w = np.clip(bilinear_sample(neon, *source_coords(1.0)), 0, 1)[..., None]
 
     # Corner softness: wide-open 20mm is soft toward the edges.
     soft = gaussian_blur(img, 1.6 * SCALE / 2)
@@ -174,20 +199,31 @@ def main(src_path, out_path, weather=True, profile="dusk"):
     img = img * 0.55 + gaussian_blur(img, 0.9) * 0.45
 
     # Halation (light scattering off the film base, red-orange) and bloom.
-    lum = img @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    if P.get("hot_channel") == "max":
+        # Any strongly exposed dye layer counts, so saturated neon blooms too.
+        lum = img.max(axis=2)
+    else:
+        lum = img @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
     t = P["halo_threshold"]
     hot = np.clip((lum - t) / (1 - t), 0, None)[..., None] * img
-    halo_tight = gaussian_blur(hot, 4 * SCALE)
-    halo_wide = gaussian_blur(hot, 18 * SCALE)
+    # Halation re-exposes the red-sensitive layer from light bounced off the
+    # film base, so physically it is driven by the red light alone.
+    halo_src = hot[..., :1] if P.get("halo_source") == "red" else hot
+    halo_tight = gaussian_blur(halo_src, 4 * SCALE)
+    halo_wide = gaussian_blur(halo_src, 18 * SCALE)
     img += (halo_tight * P["halo_tight"] + halo_wide * P["halo_wide"]) * np.array([1.0, 0.38, 0.12], np.float32)
     img += gaussian_blur(hot, 40 * SCALE) * np.array(P["bloom"], np.float32)
+    if P.get("lens_glow"):
+        # Wide-open spherical aberration: a soft glow in each light's own colour.
+        near, far = P["lens_glow"]
+        img += gaussian_blur(hot, 3 * SCALE) * near + gaussian_blur(hot, 8 * SCALE) * far
     if P["air_glow"]:
         # Light scattered by haze in the night air: a wide, faint glow
         # around the brightest parts of the frame.
         img += gaussian_blur(hot, 130 * SCALE) * P["air_glow"] * 4
 
     # Light falloff wide open (~0.7 stop in the corners).
-    img *= (1.0 - P["vignette"] * r2 ** 1.1)[..., None]
+    img *= (1.0 - P["vignette"] * r2 ** P.get("vignette_power", 1.1))[..., None]
 
     # Exposure relative to the render.
     img *= P["exposure"]
@@ -195,7 +231,8 @@ def main(src_path, out_path, weather=True, profile="dusk"):
     # ---- Portra 400 rendering (display space) ----
     v = linear_to_srgb(img)
     if P["shadow_gamma"] != 1.0:
-        # Scanning an underexposed negative pulls the shadows up.
+        # Above 1 this is the film's toe: deep shadows compress toward the
+        # scan's black floor instead of opening up.
         v = v ** P["shadow_gamma"]
 
     # Highlight shoulder: roll off instead of clipping.
@@ -209,27 +246,41 @@ def main(src_path, out_path, weather=True, profile="dusk"):
     L = (v @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32))[..., None]
     warmth = np.clip((v[..., :1] - v[..., 2:3]) * 4, 0, 1)
     sat = P["sat"] + P["warm_sat"] * warmth
+    if neon_w is not None:
+        sat = sat + P["neon_sat"] * neon_w
     v = L + (v - L) * sat
 
     # Split tone: cool-green shadows, warm highlights.
     ws = (1 - L) ** 2
     wh = L ** 2
+    if neon_w is not None:
+        wh = wh * (1 - neon_w)  # neon keeps its own hue
     v += ws * np.array(P["shadow_tone"], np.float32)
     v += wh * np.array(P["highlight_tone"], np.float32)
 
     # ---- Grain ----
     L = np.clip(v @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32), 0, 1)
-    fine = gaussian_blur(RNG.standard_normal((oh, ow)).astype(np.float32), 0.7)
-    coarse = gaussian_blur(RNG.standard_normal((oh, ow)).astype(np.float32), 1.8)
+    fine_sigma, coarse_sigma = P.get("grain_sigma", (0.7, 1.8))
+    fine = gaussian_blur(RNG.standard_normal((oh, ow)).astype(np.float32), fine_sigma)
+    coarse = gaussian_blur(RNG.standard_normal((oh, ow)).astype(np.float32), coarse_sigma)
     fine /= fine.std()
     coarse /= coarse.std()
     lum_grain = 0.75 * fine + 0.25 * coarse
     amp = P["grain"] * (0.55 + 1.1 * np.exp(-(((L - P["grain_centre"]) / 0.32) ** 2)))
+    taper = 1.0
+    if P.get("grain_floor_taper"):
+        # Thin the grain near the scan's black floor instead of clipping it.
+        taper = np.clip((L - 0.5 * P["black"]) / (2 * P["black"]), 0.4, 1.0)
+        amp = amp * taper
     v += (lum_grain * amp)[..., None]
 
     chroma = gaussian_blur(RNG.standard_normal((oh, ow, 3)).astype(np.float32), 1.4)
     chroma /= chroma.std()
-    v += chroma * P["chroma_grain"]
+    if P.get("chroma_shadow"):
+        # Dye-cloud colour mottling shows most in the thin, shadow areas.
+        v += chroma * P["chroma_grain"] * ((1.4 - L) * taper)[..., None]
+    else:
+        v += chroma * P["chroma_grain"]
 
     out = (np.clip(v, 0, 1) * 255 + 0.5).astype(np.uint8)
     Image.fromarray(out).save(out_path, quality=94, subsampling=0)

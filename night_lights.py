@@ -1,7 +1,8 @@
 """Night pre-pass: makes rendered night lighting behave like real light on film.
 
   - every lit window gets its own light: tungsten, warm-white, fluorescent
-    or cold LED, at its own brightness, with a few nearly dark
+    or cold LED, at its own brightness, some with blinds or curtains;
+    lamps, headlights and other clipped emitters are left alone
   - neon and other strongly coloured lights are left their own colour
   - the CG navy sky becomes the murky, light-polluted brown-grey a city
     sky records as on daylight-balanced colour negative film
@@ -16,13 +17,15 @@ from film_emulation import gaussian_blur
 
 LUMA = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
 
-# Daylight-balanced film under each light type (multipliers on the source).
+# Daylight-balanced film under each light type: (share, colour). The colour
+# is normalized to unit luminance when applied, so it shifts hue only.
 WINDOW_LIGHTS = (
-    (0.45, np.array([1.06, 0.80, 0.52], np.float32)),  # tungsten
-    (0.25, np.array([1.03, 0.92, 0.76], np.float32)),  # warm-white LED
-    (0.18, np.array([0.86, 1.02, 0.86], np.float32)),  # fluorescent
-    (0.12, np.array([0.90, 0.96, 1.04], np.float32)),  # cold LED
+    (0.40, np.array([1.06, 0.80, 0.52], np.float32)),  # tungsten
+    (0.23, np.array([1.03, 0.92, 0.76], np.float32)),  # warm-white LED
+    (0.22, np.array([0.86, 1.02, 0.86], np.float32)),  # fluorescent
+    (0.15, np.array([0.90, 0.96, 1.04], np.float32)),  # cold LED
 )
+TUBE_PICK = 0.63  # tubes draw only from the fluorescent / cold LED share
 
 
 def light_mask(rgb):
@@ -39,8 +42,13 @@ def light_mask(rgb):
     return m.astype(np.float32)
 
 
-def _label_components(mask, iterations=80):
-    """4-connected component labels by min-label propagation (-1 = background)."""
+def _label_components(mask, iterations=400):
+    """4-connected component labels by min-label propagation (-1 = background).
+
+    Each label is the flat index of a pixel in the same component, so after
+    every step a label can jump to that pixel's label, which converges in
+    far fewer steps than plain propagation.
+    """
     h, w = mask.shape
     big = np.int32(h * w)
     labels = np.where(mask, np.arange(h * w, dtype=np.int32).reshape(h, w), big)
@@ -51,7 +59,10 @@ def _label_components(mask, iterations=80):
         nb[:-1] = np.minimum(nb[:-1], labels[1:])
         nb[:, 1:] = np.minimum(nb[:, 1:], labels[:, :-1])
         nb[:, :-1] = np.minimum(nb[:, :-1], labels[:, 1:])
-        labels = np.where(mask, nb, big)
+        flat = np.where(mask, nb, big).ravel()
+        inside = flat < big
+        flat[inside] = flat[flat[inside]]
+        labels = flat.reshape(h, w)
         if np.array_equal(labels, prev):
             break
     return np.where(mask, labels, -1)
@@ -83,22 +94,58 @@ def split_lights(rgb):
 
 def vary_windows(rgb):
     window, _ = split_lights(rgb)
-    labels = _label_components(window > 0.35)
+    h, w = window.shape
+    L = rgb @ LUMA
+    # Label whole windows: close mullions and the dim centres of big panes,
+    # so that each window gets one light rather than several.
+    seed = gaussian_blur((window > 0.15).astype(np.float32), 2.5) > 0.2
+    labels = _label_components(seed)
+    inside = labels >= 0
+    ids, inv = np.unique(labels[inside], return_inverse=True)
+    n = len(ids)
+    ys, xs = np.nonzero(inside)
+    area = np.bincount(inv, minlength=n)
+    y0 = np.full(n, h)
+    y1 = np.zeros(n, dtype=np.int64)
+    x0 = np.full(n, w)
+    x1 = np.zeros(n, dtype=np.int64)
+    peak = np.zeros(n, dtype=np.float32)
+    np.minimum.at(y0, inv, ys)
+    np.maximum.at(y1, inv, ys)
+    np.minimum.at(x0, inv, xs)
+    np.maximum.at(x1, inv, xs)
+    np.maximum.at(peak, inv, rgb.min(axis=2)[inside])
+    tall, wide = y1 - y0 + 1, x1 - x0 + 1
 
-    pick = _hash01(labels, 1)
-    tint = np.ones_like(rgb)
+    def draw(salt):
+        return _hash01(ids, salt)
+
+    # Light type. Thin bars are tubes: fluorescent or cold LED only.
+    tube = (np.maximum(tall, wide) > 3 * np.minimum(tall, wide)) & (area < 600)
+    pick = np.where(tube, TUBE_PICK + (1 - TUBE_PICK) * draw(1), draw(1))
+    tint = np.ones((n, 3), dtype=np.float32)
     edge = 0.0
     for share, colour in WINDOW_LIGHTS:
-        sel = (pick >= edge) & (pick < edge + share)
-        tint[sel] = colour
+        tint[(pick >= edge) & (pick < edge + share)] = colour / (colour @ LUMA)
         edge += share
-    level = np.exp(0.35 * (_hash01(labels, 2) * 2 - 1) * 1.7)
-    level = np.where(_hash01(labels, 3) < 0.06, 0.3, level)  # a few lights off
-    gain = tint * level[..., None]
-    gain[labels < 0] = 1.0
 
-    # Feather the change so it follows the glow rather than hard pixel edges.
-    amount = gaussian_blur(window, 1.2)[..., None]
+    level = np.exp(0.3 * (draw(2) * 2 - 1))  # x0.74 to x1.35
+    tail = draw(3)
+    level = np.where(tail < 0.08, level * 1.6, level)  # a few blazing
+    level = np.where((tail > 0.88) & (area > 150), level * 0.45, level)  # curtains
+    blind = (draw(4) < 0.3) & (area > 120) & ~tube
+    blind_to = y0 + (0.2 + 0.4 * draw(5)) * tall  # blind pulled down to here
+    # Clipped emitters (lamps, headlights) and tiny points stay as they are.
+    fixed = (peak > 0.9) | (area < 60)
+
+    g = tint[inv] * level[inv][:, None]
+    g[blind[inv] & (ys < blind_to[inv])] *= 0.45
+    g[fixed[inv]] = 1.0
+    gain = np.ones_like(rgb)
+    gain[inside] = g
+
+    # Apply across the whole lit window, feathered at its edges.
+    amount = gaussian_blur((inside & (L > 0.2)).astype(np.float32), 1.2)[..., None]
     gain = gaussian_blur(gain, 1.5)
     return rgb * (1 - amount) + rgb * gain * amount
 
@@ -112,11 +159,13 @@ def grade_sky(rgb):
     # Sky is distinctly blue for its brightness ((b - r) / L around 0.5-0.7);
     # the dark concrete is close to neutral (under 0.2).
     blueness = (rgb[..., 2] - rgb[..., 0]) / np.maximum(L, 0.02)
+    rows = np.arange(h, dtype=np.float32)[:, None]
+    floor = np.clip((L - 0.004) / 0.01, 0, 1)
     sky = (
         np.clip((blueness - 0.25) / 0.15, 0, 1)
         * np.clip((0.04 - detail) / 0.02, 0, 1)
-        * np.clip((L - 0.015) / 0.03, 0, 1)
-        * np.clip(1.3 - np.arange(h, dtype=np.float32)[:, None] / (0.5 * h), 0, 1)
+        * floor
+        * np.clip((0.45 * h - rows) / (0.08 * h), 0, 1)
     )
     # Keep only large connected regions: the open sky is a few big pieces
     # between the bridges; bluish specks on hazy towers are not sky.
@@ -124,13 +173,20 @@ def grade_sky(rgb):
     small = sky[: h // q * q, : w // q * q].reshape(h // q, q, w // q, q).mean(axis=(1, 3))
     labels = _label_components(small > 0.5, iterations=600)
     ids, counts = np.unique(labels[labels >= 0], return_counts=True)
-    keep = np.isin(labels, ids[counts * q * q > 0.004 * h * w])
+    keep = np.isin(labels, ids[counts * q * q > 0.0015 * h * w])
     keep = np.repeat(np.repeat(keep, q, axis=0), q, axis=1).astype(np.float32)
     keep = np.pad(keep, ((0, h - keep.shape[0]), (0, w - keep.shape[1])), mode="edge")
-    sky = sky * gaussian_blur(keep, 6)
-    sky = gaussian_blur(sky, 4)[..., None]
-    # Keep the cloud structure, swap the colour, lift it a touch (sky glow).
-    murk = np.array([1.12, 1.0, 0.86], np.float32) * L[..., None] * 1.35
+    # Grow into the edges and fill holes, then test only the colour there, so
+    # the regrade reaches the tower silhouettes without a navy fringe.
+    region = gaussian_blur(keep, 6) > 0.2
+    sky = np.clip((blueness - 0.15) / 0.15, 0, 1) * floor * region
+    sky = gaussian_blur(sky.astype(np.float32), 3)[..., None]
+    # Light-polluted glow: warm brown-grey, brighter than the towers and
+    # toward the horizon, with the cloud contrast kept (even raised a bit).
+    m = float((L * sky[..., 0]).sum() / max(float(sky.sum()), 1.0))
+    clouds = np.maximum(m + 1.3 * (L - m), 0)
+    glow = 2.2 * (1 + 0.3 * np.clip(rows / (0.45 * h), 0, 1))
+    murk = np.array([1.22, 1.0, 0.78], np.float32) * (clouds * glow)[..., None]
     return rgb * (1 - sky) + murk * sky, sky[..., 0]
 
 

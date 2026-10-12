@@ -76,11 +76,14 @@ def estimate_vertical_vp(L):
     return vp
 
 
-def weather(rgb, lights=None):
+def weather(rgb, lights=None, min_surface=0.0, texture_gain=1.0):
     """rgb: sRGB float32 array (H, W, 3) in [0, 1]. Returns a weathered copy.
 
     lights: optional soft mask of light sources to keep clear of stains and
     texture. By default only warm lamps and lit windows are detected.
+    min_surface: texture floor on flat but visible surfaces (the detail
+    measure misses featureless slabs, which at night is most of them).
+    texture_gain: scales the surface texture (not the stains).
     """
     h, w = rgb.shape[:2]
     L = rgb @ LUMA
@@ -91,6 +94,8 @@ def weather(rgb, lights=None):
     energy = np.sqrt(np.maximum(gaussian_blur(hp ** 2, 10), 0))
     surface = np.clip(energy / np.percentile(energy, 70), 0, 1)
     surface = gaussian_blur(surface, 6) ** 1.2
+    if min_surface:
+        surface = np.maximum(surface, min_surface * np.clip((L - 0.02) / 0.05, 0, 1))
     warm = rgb[..., 0] - rgb[..., 2]
     lamps = np.clip((L - 0.5) / 0.2, 0, 1) * np.clip(warm / 0.12, 0, 1)
     if lights is not None:
@@ -183,7 +188,7 @@ def weather(rgb, lights=None):
     voids = np.clip(voids, 0, 1)
 
     out = rgb.copy()
-    lum_mod = 0.07 * mottle + 0.04 * fine + 0.045 * relief
+    lum_mod = (0.07 * mottle + 0.04 * fine + 0.045 * relief) * texture_gain
     out *= 1 + mask * lum_mod[..., None]
     out *= 1 + mask * tone[..., None] * np.array([0.018, 0.004, -0.02], np.float32)
     out *= 1 - mask * voids[..., None] * 0.45

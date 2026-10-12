@@ -120,32 +120,57 @@ def vary_windows(rgb):
     def draw(salt):
         return _hash01(ids, salt)
 
+    # Windows close together (a train carriage, an office floor) share one
+    # lighting system: group them through a wider dilation.
+    groups = _label_components(gaussian_blur(seed.astype(np.float32), 6) > 0.15)
+    grp = np.zeros(n, dtype=np.int64)
+    grp[inv] = groups[ys, xs]
+    _, grp_inv, members = np.unique(grp, return_inverse=True, return_counts=True)
+    grouped = members[grp_inv] >= 8
+    own = draw(6) < 0.1  # the odd room on its own lamp
+
     # Light type. Thin bars are tubes: fluorescent or cold LED only.
     tube = (np.maximum(tall, wide) > 3 * np.minimum(tall, wide)) & (area < 600)
-    pick = np.where(tube, TUBE_PICK + (1 - TUBE_PICK) * draw(1), draw(1))
+    pick = np.where(grouped & ~own, _hash01(grp, 1), draw(1))
+    pick = np.where(tube, TUBE_PICK + (1 - TUBE_PICK) * draw(1), pick)
     tint = np.ones((n, 3), dtype=np.float32)
     edge = 0.0
     for share, colour in WINDOW_LIGHTS:
         tint[(pick >= edge) & (pick < edge + share)] = colour / (colour @ LUMA)
         edge += share
 
-    level = np.exp(0.3 * (draw(2) * 2 - 1))  # x0.74 to x1.35
+    # Brightness: x0.74 to x1.35, or within +-0.3 stop inside a group.
+    level = np.exp(np.where(grouped, 0.2, 0.3) * (draw(2) * 2 - 1))
     tail = draw(3)
     level = np.where(tail < 0.08, level * 1.6, level)  # a few blazing
     level = np.where((tail > 0.88) & (area > 150), level * 0.45, level)  # curtains
+    level = np.where((tail > 0.80) & (tail <= 0.88) & (area > 150), level * 0.18, level)  # nearly off
     blind = (draw(4) < 0.3) & (area > 120) & ~tube
     blind_to = y0 + (0.2 + 0.4 * draw(5)) * tall  # blind pulled down to here
-    # Clipped emitters (lamps, headlights) and tiny points stay as they are.
-    fixed = (peak > 0.9) | (area < 60)
+    # Clipped emitters (lamps, headlights), tiny points and thin non-window
+    # shapes (specular rims along edges) stay as they are.
+    fill = area / (tall * wide)
+    fixed = (peak > 0.9) | (area < 60) | ((fill < 0.35) & ~tube)
 
     g = tint[inv] * level[inv][:, None]
     g[blind[inv] & (ys < blind_to[inv])] *= 0.45
+    # Something in the room (furniture, a person) blocks part of the light:
+    # a dark shape standing on the sill, different in every window.
+    occl = (draw(7) < 0.55) & (area > 150) & ~tube
+    occl_w = (0.3 + 0.3 * draw(8)) * wide
+    occl_top = y1 - (0.2 + 0.25 * draw(9)) * tall
+    occl_x0 = x0 + draw(10) * (wide - occl_w)
+    hit = occl[inv] & (ys > occl_top[inv]) & (xs >= occl_x0[inv]) & (xs < (occl_x0 + occl_w)[inv])
+    g[hit] *= (0.4 + 0.3 * draw(11))[inv][hit][:, None]
+    # Light falls off across each room differently.
+    slope = 0.35 * (draw(12) * 2 - 1)
+    g *= (1 + slope[inv] * (ys - (y0 + y1)[inv] / 2) / tall[inv])[:, None]
     g[fixed[inv]] = 1.0
     gain = np.ones_like(rgb)
     gain[inside] = g
 
     # Apply across the whole lit window, feathered at its edges.
-    amount = gaussian_blur((inside & (L > 0.2)).astype(np.float32), 1.2)[..., None]
+    amount = gaussian_blur((inside & (L > 0.08)).astype(np.float32), 1.2)[..., None]
     gain = gaussian_blur(gain, 1.5)
     return rgb * (1 - amount) + rgb * gain * amount
 
@@ -173,24 +198,30 @@ def grade_sky(rgb):
     small = sky[: h // q * q, : w // q * q].reshape(h // q, q, w // q, q).mean(axis=(1, 3))
     labels = _label_components(small > 0.5, iterations=600)
     ids, counts = np.unique(labels[labels >= 0], return_counts=True)
-    keep = np.isin(labels, ids[counts * q * q > 0.0015 * h * w])
+    keep = np.isin(labels, ids[counts * q * q > 0.0006 * h * w])
     keep = np.repeat(np.repeat(keep, q, axis=0), q, axis=1).astype(np.float32)
     keep = np.pad(keep, ((0, h - keep.shape[0]), (0, w - keep.shape[1])), mode="edge")
     # Grow into the edges and fill holes, then test only the colour there, so
     # the regrade reaches the tower silhouettes without a navy fringe.
     region = gaussian_blur(keep, 6) > 0.2
     sky = np.clip((blueness - 0.15) / 0.15, 0, 1) * floor * region
-    sky = gaussian_blur(sky.astype(np.float32), 3)[..., None]
-    # Light-polluted glow: warm brown-grey, brighter than the towers and
-    # toward the horizon, with the cloud contrast kept (even raised a bit).
-    m = float((L * sky[..., 0]).sum() / max(float(sky.sum()), 1.0))
-    clouds = np.maximum(m + 1.3 * (L - m), 0)
-    glow = 2.2 * (1 + 0.3 * np.clip(rows / (0.45 * h), 0, 1))
+    sky = gaussian_blur(sky.astype(np.float32), 4)[..., None]
+    # Light-polluted glow: warm brown-grey, brighter than the towers, with
+    # the cloud contrast kept (even raised a bit).
+    # Cloud structure from a slightly smoothed luminance: the dark source sky
+    # has few code values, and the gain below would turn them into steps.
+    Ls = gaussian_blur(L, 2.0)
+    m = float((Ls * sky[..., 0]).sum() / max(float(sky.sum()), 1.0))
+    clouds = np.maximum(m + 1.3 * (Ls - m), 0)
+    # Brightest at the top of the gap. Deeper into the canyon the sky shows
+    # only as narrow slots between bridges, a little above the towers.
+    glow = 2.2 - 1.0 * np.clip((rows - 0.1 * h) / (0.25 * h), 0, 1)
     murk = np.array([1.22, 1.0, 0.78], np.float32) * (clouds * glow)[..., None]
     return rgb * (1 - sky) + murk * sky, sky[..., 0]
 
 
 def prepare_night(rgb):
+    """Returns the prepared image and the sky mask."""
     rgb = vary_windows(rgb)
-    rgb, _ = grade_sky(rgb)
-    return np.clip(rgb, 0, 1)
+    rgb, sky = grade_sky(rgb)
+    return np.clip(rgb, 0, 1), sky

@@ -43,18 +43,22 @@ PROFILES = {
         exposure=1.4,
         hot_channel="max", halo_source="red",
         halo_threshold=0.3, halo_tight=0.5, halo_wide=0.35,
+        halo_tint=(1.0, 0.22, 0.08), hot_cap=1.5,
         bloom=(0.22, 0.18, 0.14), air_glow=0.03,
-        lens_glow=(0.35, 0.18), neon_boost=2.0, neon_sat=0.35,
+        lens_glow=(0.35, 0.18), neon_boost=1.0, neon_sat=0.35,
         vignette=0.6, vignette_power=1.0,
         ca_scales=(1.0005, 1.0, 0.9995),
         # Frame shifted left so the train nose and the ショクドウ sign stay in,
-        # with the extra keystone taken on the right.
-        frame=((0.0, 0.0), (1.0, 0.0), (0.9242, 1.0), (0.01706, 1.0)),
+        # with the extra keystone taken on the right, where it also drops the
+        # near pillar cleanly instead of leaving a sliver of it.
+        frame=((0.0, 0.0), (1.0, 0.0), (0.90, 1.0), (0.01706, 1.0)),
+        soften=0.3, scan_sharpen=(0.3, 1.2),
         shadow_gamma=1.06, black=0.036, white=0.97,
         sat=0.86, warm_sat=0.14,
         shadow_tone=(-0.008, 0.006, 0.004), highlight_tone=(0.03, 0.008, -0.025),
-        grain=0.022, grain_centre=0.2, chroma_grain=0.009,
+        grain=0.022, grain_centre=0.2, chroma_grain=0.006,
         grain_sigma=(0.9, 2.2), grain_floor_taper=True, chroma_shadow=True,
+        chroma_sigma=2.6, soft_floor=True,
     ),
 }
 
@@ -121,7 +125,8 @@ def main(src_path, out_path, weather=True, profile="dusk"):
 
         lights = light_mask(rgb)
         _, neon = split_lights(rgb)
-        rgb = prepare_night(rgb)
+        rgb, sky = prepare_night(rgb)
+        lights = np.maximum(lights, sky)  # no concrete grit on the sky either
         # Unlit concrete still has some texture worth keeping at night.
         weather_opts = dict(min_surface=0.45, texture_gain=1.5)
     if weather:
@@ -189,6 +194,9 @@ def main(src_path, out_path, weather=True, profile="dusk"):
     neon_w = None
     if neon is not None:
         neon_w = np.clip(bilinear_sample(neon, *source_coords(1.0)), 0, 1)[..., None]
+        # The tubes plus their glow, for the colour handling further down.
+        glow_w = np.clip(gaussian_blur(neon_w, 10 * SCALE) * 4, 0, 1)
+        glow_w = np.maximum(glow_w, neon_w)
 
     # Corner softness: wide-open 20mm is soft toward the edges.
     soft = gaussian_blur(img, 1.6 * SCALE / 2)
@@ -196,7 +204,10 @@ def main(src_path, out_path, weather=True, profile="dusk"):
     img = img * (1 - 0.7 * edge) + soft * 0.7 * edge
 
     # Overall film/scan softness.
-    img = img * 0.55 + gaussian_blur(img, 0.9) * 0.45
+    if "soften" in P:
+        img = img * (1 - P["soften"]) + gaussian_blur(img, 0.9) * P["soften"]
+    else:
+        img = img * 0.55 + gaussian_blur(img, 0.9) * 0.45
 
     # Halation (light scattering off the film base, red-orange) and bloom.
     if P.get("hot_channel") == "max":
@@ -206,12 +217,16 @@ def main(src_path, out_path, weather=True, profile="dusk"):
         lum = img @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
     t = P["halo_threshold"]
     hot = np.clip((lum - t) / (1 - t), 0, None)[..., None] * img
+    if "hot_cap" in P:
+        # Keep the brightest tubes from blowing the glows up into a smear.
+        hot = np.minimum(hot, P["hot_cap"])
     # Halation re-exposes the red-sensitive layer from light bounced off the
     # film base, so physically it is driven by the red light alone.
     halo_src = hot[..., :1] if P.get("halo_source") == "red" else hot
     halo_tight = gaussian_blur(halo_src, 4 * SCALE)
     halo_wide = gaussian_blur(halo_src, 18 * SCALE)
-    img += (halo_tight * P["halo_tight"] + halo_wide * P["halo_wide"]) * np.array([1.0, 0.38, 0.12], np.float32)
+    halo_tint = np.array(P.get("halo_tint", (1.0, 0.38, 0.12)), np.float32)
+    img += (halo_tight * P["halo_tight"] + halo_wide * P["halo_wide"]) * halo_tint
     img += gaussian_blur(hot, 40 * SCALE) * np.array(P["bloom"], np.float32)
     if P.get("lens_glow"):
         # Wide-open spherical aberration: a soft glow in each light's own colour.
@@ -236,7 +251,16 @@ def main(src_path, out_path, weather=True, profile="dusk"):
         v = v ** P["shadow_gamma"]
 
     # Highlight shoulder: roll off instead of clipping.
-    v = np.where(v > 0.75, 0.75 + 0.25 * np.tanh((v - 0.75) / 0.25), v)
+    def shoulder(x):
+        return np.where(x > 0.75, 0.75 + 0.25 * np.tanh((x - 0.75) / 0.25), x)
+
+    if neon_w is not None:
+        # Neon and its glow roll off as a whole colour, so a clipped red tube
+        # stays red instead of the shoulder pinning red while green climbs.
+        m = np.maximum(v.max(axis=2, keepdims=True), 1e-4)
+        v = shoulder(v) * (1 - glow_w) + v * (shoulder(m) / m) * glow_w
+    else:
+        v = shoulder(v)
 
     # Gentle midtone S, then lifted blacks / pulled whites (scan levels).
     v = v - 0.08 * np.sin(2 * np.pi * v) / (2 * np.pi)
@@ -247,16 +271,21 @@ def main(src_path, out_path, weather=True, profile="dusk"):
     warmth = np.clip((v[..., :1] - v[..., 2:3]) * 4, 0, 1)
     sat = P["sat"] + P["warm_sat"] * warmth
     if neon_w is not None:
-        sat = sat + P["neon_sat"] * neon_w
+        sat = sat + P["neon_sat"] * glow_w
     v = L + (v - L) * sat
 
     # Split tone: cool-green shadows, warm highlights.
     ws = (1 - L) ** 2
     wh = L ** 2
     if neon_w is not None:
-        wh = wh * (1 - neon_w)  # neon keeps its own hue
+        wh = wh * (1 - glow_w)  # neon keeps its own hue
     v += ws * np.array(P["shadow_tone"], np.float32)
     v += wh * np.array(P["highlight_tone"], np.float32)
+
+    if P.get("scan_sharpen"):
+        # Scanner sharpening, applied to the image before the grain.
+        amount, radius = P["scan_sharpen"]
+        v = v + amount * (v - gaussian_blur(v, radius))
 
     # ---- Grain ----
     L = np.clip(v @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32), 0, 1)
@@ -274,14 +303,19 @@ def main(src_path, out_path, weather=True, profile="dusk"):
         amp = amp * taper
     v += (lum_grain * amp)[..., None]
 
-    chroma = gaussian_blur(RNG.standard_normal((oh, ow, 3)).astype(np.float32), 1.4)
+    chroma = gaussian_blur(RNG.standard_normal((oh, ow, 3)).astype(np.float32), P.get("chroma_sigma", 1.4))
     chroma /= chroma.std()
     if P.get("chroma_shadow"):
         # Dye-cloud colour mottling shows most in the thin, shadow areas.
-        v += chroma * P["chroma_grain"] * ((1.4 - L) * taper)[..., None]
+        v += chroma * P["chroma_grain"] * ((1.4 - L) * taper ** 2)[..., None]
     else:
         v += chroma * P["chroma_grain"]
 
+    if P.get("soft_floor"):
+        # Per-channel soft floor: a single dye layer can't reach zero while
+        # the others sit well above the scan's black.
+        f = 0.5 * P["black"]
+        v = np.where(v < f, f * np.exp((np.minimum(v, f) - f) / f), v)
     out = (np.clip(v, 0, 1) * 255 + 0.5).astype(np.uint8)
     Image.fromarray(out).save(out_path, quality=94, subsampling=0)
     print(f"wrote {out_path} ({ow}x{oh})")

@@ -76,22 +76,28 @@ def estimate_vertical_vp(L):
     return vp
 
 
-def weather(rgb):
-    """rgb: sRGB float32 array (H, W, 3) in [0, 1]. Returns a weathered copy."""
+def weather(rgb, lights=None):
+    """rgb: sRGB float32 array (H, W, 3) in [0, 1]. Returns a weathered copy.
+
+    lights: optional soft mask of light sources to keep clear of stains and
+    texture. By default only warm lamps and lit windows are detected.
+    """
     h, w = rgb.shape[:2]
     L = rgb @ LUMA
     vx, vy = estimate_vertical_vp(L)
 
     # ---- Where to apply: textured, near surfaces; not fog, sky or lamps ----
     hp = L - gaussian_blur(L, 2.0)
-    energy = np.sqrt(gaussian_blur(hp ** 2, 10))
+    energy = np.sqrt(np.maximum(gaussian_blur(hp ** 2, 10), 0))
     surface = np.clip(energy / np.percentile(energy, 70), 0, 1)
     surface = gaussian_blur(surface, 6) ** 1.2
     warm = rgb[..., 0] - rgb[..., 2]
     lamps = np.clip((L - 0.5) / 0.2, 0, 1) * np.clip(warm / 0.12, 0, 1)
+    if lights is not None:
+        lamps = np.maximum(lamps, lights)
     lamps = np.clip(gaussian_blur(lamps, 3) * 3, 0, 1)
     mask = (surface * (1 - lamps))[..., None]
-    tight = np.clip(np.sqrt(gaussian_blur(hp ** 2, 3)) / np.percentile(energy, 70), 0, 1)
+    tight = np.clip(np.sqrt(np.maximum(gaussian_blur(hp ** 2, 3), 0)) / np.percentile(energy, 70), 0, 1)
     tight = np.minimum(gaussian_blur(tight, 2), surface)
     stain_mask = (tight * (1 - lamps))[..., None]
 

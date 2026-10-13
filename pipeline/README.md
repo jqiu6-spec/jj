@@ -38,3 +38,41 @@ python3 scripts/dither.py out/stage_lens.png out/final_dither.png   # optional r
 Requires Python 3 (numpy, Pillow, opencv-python-headless, zstandard), Node + Playwright/Chromium,
 and the Google Fonts listed in `scene/fonts.css` (downloaded into `fonts/`). Large derived images
 (`base.png`, photo crops) are regenerated from the `.ai` file and not committed.
+
+# building_2 render pipeline
+
+`building 2.ai` has no text labels: its blocks are coloured shapes (vector faces plus 41 effect rasters) drawn
+over a night photo of a ring-shaped megastructure. Each block was read as a sign whose type follows its shape
+and colour, and rendered in the same cinematic style as building 1.
+
+Final images (2400x3600, 2:3): [`building_2_render.jpg`](../render/building_2_render.jpg) (cinematic),
+[`building_2_render_portra.jpg`](../render/building_2_render_portra.jpg) (clean Portra),
+[`building_2_render_dither.png`](../render/building_2_render_dither.png) (retro dither). Process images are in
+[`render/process_b2`](../render/process_b2).
+
+| Block (colour in the .ai) | Rendered as |
+|---|---|
+| blue/purple box, top right | suspended LED box: curved jellyfish screen, AQUA deep-sea aquarium ad, roof with edge strip |
+| lilac stacked boxes | 夜光 BAR / OPEN 24時 lightboxes with a marquee-bulb band |
+| mint / pale-green verticals, cream strip | くすり pharmacy, ホテル MIDORI (red 空室 LED), Ring Line 7 station sign |
+| magenta curved screen + pale-yellow rounded square | curved LED screen with the PURIN pudding mascot |
+| four thin curved strokes, six dots | neon tubes and indicator lamps |
+| blue curved box + peach wedge | SKY LOUNGE 72F capsule sign with a wedge-shaped lightbox fin |
+| peach arc, blue pill, blue ellipses | WELCOME TO RING SEVEN banner, 銭湯 bath-house column, round kanji lanterns |
+| blue panel with crescent + grey frame | HOTEL LUNA billboard (crescent moon) in a metal frame |
+| three green parallelograms, mint L | ラーメン / 餃子 / 生ビール izakaya blade signs, 24h L-sign |
+| coral/purple/magenta ring band, checker, black recess, pink ledge | RING SEVEN curved LED band (bioluminescent cell screen, 夜市 night-market tiles) over a lit hangar opening |
+
+| # | Script (`building_2/scripts`) | What it does |
+|---|---|---|
+| 1 | `extract_effects.py`, `ai2svg.py` | Effect rasters are interleaved CMYK followed by a separate alpha plane (the `%%BeginData` count only covers the CMYK part). |
+| 2 | `b2_prep.py` | Base photo at page scale and a mask per drawn piece. |
+| 3 | `b2_vvp.py`, `b2_ortho.py`, `b2_geom.py` | Verticals are almost parallel (vanishing point ~22,000 px away), so the camera is a telephoto. An orthographic ring model is fitted to traced balcony and rim curves: 41.7 deg pitch, concave well wall and convex near walls. Output: per-pixel 3-D position and normal (walls, walkway tops, the courtyard behind the opening). |
+| 4 | `b2_faces.py` | Faces from the pieces; 4 corners per face from contour curvature. |
+| 5 | `b2_tex.py`, `b2_texrender.js` | Sign artwork rendered flat in Chromium (Japanese and display fonts). |
+| 6 | `b2_signs.py` | Each texture is mapped onto its block with a Coons patch built from the block's own boundary curves (curved screens follow the ring), with mild perspective foreshortening. Tiles use homographies. Materials: LED pixel grid, lightbox diffuser with metal bezel, dark painted returns, neon tubes, lamps. Procedural textures: the cell screen and the hangar interior. It also records each face's 3-D position and normal on the surface it is mounted on. |
+| 7 | `b2_relight.py` | Area-light transport from every emitting cell: inverse square, cosine at both ends, haze extinction, one- or two-sided emission. Receivers are the proxy surfaces with balcony micro-geometry (offset and wrapped cosine), lit with the photo's own texture as albedo. |
+| 8 | `b2_composite.py`, `b2_atmos.py` | Spill, bloom and diffuse poster glow, plus depth haze into the well. Also: fine detail, a distant skyline above the rim, craft circling on the ring's ellipses, searchlights, and textured haze lit by the signs. |
+| 9 | `b2_lens.py`, then shared `film.py` / `dither.py` | 5 deg downward re-tilt through a 20 mm-class pinhole, 2:3 frame, barrel distortion, lateral CA, vignette and glare. Then the Portra 400 / cinematic film stage. |
+
+Run: `scripts/run_b2.sh` (see the header for the expected layout).

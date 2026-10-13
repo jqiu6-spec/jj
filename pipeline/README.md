@@ -15,6 +15,7 @@ Final images (2400x3600, 2:3): [`building_1_render.jpg`](../render/building_1_re
 | 3 | `scripts/lines.py`, `vp.py`, `camera.py` | LSD line detection -> RANSAC vanishing points (vertical + both facade directions) -> camera (focal + principal point from the orthocentre). |
 | 4 | `scripts/geometry.py` | Rebuilds each hand-drawn block as a true rectangle on its facade plane (or a 3-D box), with metric aspect ratio and a 3-D frame for depth work -> `scene/signs.js`. |
 | 5 | `scene/*.js` + `scripts/render.js` | Chromium renders the signs (perspective via CSS `matrix3d`), 3-D shop interiors (`depth.js`: recessed lit rooms, slabs, fins seen from below), and a matte (`foreground.js`) that puts the real train/overhead rail back in front of the facade signs. |
+| 5b | `scripts/normals.py`, `scripts/relight.py` | Light transport from the screens: per-pixel surface orientation of the photo (edge energy toward each vanishing point fused with sign/train priors), then every sign is an area light on its true 3-D plane (sampled with its rendered colours) and irradiance at each surface point is integrated with inverse-square falloff, cosine at both ends, one-sided emission for wall screens and layered depth (facade / train / hanging boxes), plus a glossy lobe on the train body and rail. The added light multiplies the photo's own texture. |
 | 6 | `scripts/composite.py` | Light spill onto the photo, bloom from bright sources, height haze (the tower is ~2 km tall), softness matched to the photo. |
 | 6b | `scripts/atmos.py` | Fine detail and atmosphere in the style of the references: local-contrast texture on the concrete, a distant tower city (far facade planes through the solved camera, floors of lit window strips) visible through the megastructure's voids, flying vehicles in lanes parallel to the train, searchlight beams, and layered textured haze that thickens with height and is lit by the signs. |
 | 7 | `scripts/lens.py` | Pure camera-rotation re-tilt (12 deg) for stronger converging verticals with true 3-point perspective, 35mm 2:3 crop, slight barrel distortion (-1.4% at corners), 1-stop vignette, lateral CA, corner softness. |
@@ -25,7 +26,9 @@ Final images (2400x3600, 2:3): [`building_1_render.jpg`](../render/building_1_re
 
 ```sh
 node scripts/render.js scene/scene.html full out/full_2x.png 2
-python3 scripts/composite.py out/full_2x.png scene/base.png out/scene_2x.png
+python3 scripts/normals.py
+python3 scripts/relight.py out/full_2x.png out/relit_2x.png --gain 6 --spec 1.5
+python3 scripts/composite.py out/relit_2x.png scene/base.png out/scene_2x.png out/full_2x.png
 python3 scripts/atmos.py out/scene_2x.png out/atmos_2x.png
 python3 scripts/lens.py out/atmos_2x.png out/stage_lens.png
 python3 scripts/film.py out/stage_lens.png out/final.png --look cinematic --jpeg out/final.jpg

@@ -55,7 +55,7 @@ def main():
     L = lum(lin)
     detail = l2s(L) - l2s(blur(L, 5 * sc / 2))
     changed = np.clip(np.abs(img - base).sum(-1) * 6, 0, 1)           # 1 where signage was drawn
-    lin = s2l(np.clip(img + (0.55 * detail * (1 - changed))[..., None], 0, 1))
+    lin = s2l(np.clip(img + (0.95 * detail * (1 - changed))[..., None], 0, 1))
 
     # ---- 2. voids: where the photo shows deep blue-dark space through the megastructure ------------------
     b8 = (base * 255).astype(np.int16)
@@ -157,13 +157,15 @@ def main():
     # ---- 5. layered textured haze, thicker with height, lit by its surroundings --------------------------
     far = (1 - yy / H).astype(np.float32) ** 1.25
     noise = fbm(H, W, rng)
-    dens = (0.02 + 0.22 * far ** 1.4) * (0.75 + 0.35 * noise) * a.fog
+    dens = (0.008 + 0.13 * far ** 1.7) * (0.75 + 0.35 * noise) * a.fog
     dens = np.clip(dens, 0, 0.5)[..., None]
     fog_col = np.array([0.012, 0.017, 0.017], np.float32)            # green-grey night haze
-    lit_fog = fog_col + blur(lin, 40 * sc / 2) * 0.6 + blur(lin, 120 * sc / 2) * 0.12
+    lit_fog = fog_col + blur(lin, 40 * sc / 2) * 0.4 + blur(lin, 120 * sc / 2) * 0.06
     lin = lin * (1 - dens) + lit_fog * dens
 
     out = l2s(lin)
+    # crisp pass: small-radius unsharp mask on luminance (recovers edges softened by upscaling)
+    lo = lum(out); out = out + (0.6 * (lo - blur(lo, 1.4 * sc / 2)))[..., None]
     Image.fromarray((np.clip(out, 0, 1) * 255 + .5).astype(np.uint8)).save(a.out)
     print(f'atmos: {a.inp} -> {a.out}  void px {int(void.sum())}  vehicles {drawn}')
 

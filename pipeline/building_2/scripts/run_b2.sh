@@ -25,3 +25,7 @@ python3 -I scripts/b2_lens.py out/atmos_2x.png out/stage_lens.png
 python3 -I scripts/film.py out/stage_lens.png out/final.png --look cinematic --jpeg out/final.jpg
 python3 -I scripts/film.py out/stage_lens.png out/final_portra.png --jpeg out/final_portra.jpg
 python3 -I scripts/dither.py out/stage_lens.png out/final_dither.png
+# post pass on the finished frames: body (returns, bezel, contact shadow) for the flat light panels + the SORA TAXI billboard
+echo '[{"name":"sora_taxi","w":1200,"h":800,"file":"tex/sora_taxi.html"}]' > tex/sora_list.json
+node scripts/b2_texrender.js tex/sora_list.json
+python3 -I scripts/b2_post.py --cinematic out/final.png --portra out/final_portra.png --dither out/final_dither.png --tex tex/sora_taxi.png --out out/post

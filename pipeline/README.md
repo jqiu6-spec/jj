@@ -48,7 +48,8 @@ and colour, and rendered in the same cinematic style as building 1.
 Final images (2400x3600, 2:3): [`building_2_render.jpg`](../render/building_2_render.jpg) (cinematic),
 [`building_2_render_portra.jpg`](../render/building_2_render_portra.jpg) (clean Portra),
 [`building_2_render_dither.png`](../render/building_2_render_dither.png) (retro dither). Process images are in
-[`render/process_b2`](../render/process_b2).
+[`render/process_b2`](../render/process_b2). The finished frames then go through a post pass (`b2_post.py`, stage 10
+below) that gives the flat light panels a body and adds the SORA TAXI billboard on the lower-left wall.
 
 | Block (colour in the .ai) | Rendered as |
 |---|---|
@@ -63,6 +64,7 @@ Final images (2400x3600, 2:3): [`building_2_render.jpg`](../render/building_2_re
 | green/pink gradient-mesh balls (big one with a peach band, small one on the ring band) | spherical LED screens playing a 360-degree news channel; the peach band is the BREAKING ticker |
 | three green parallelograms, mint L | ラーメン / 餃子 / 生ビール izakaya blade signs, 24h L-sign |
 | coral/purple/magenta ring band, checker, black recess, pink ledge | RING SEVEN curved LED band (bioluminescent cell screen, 夜市 night-market tiles) over a lit hangar opening |
+| (not in the .ai: added in the post pass) | SORA TAXI flying-taxi billboard on the lower-left wall, under the 24h L-sign: a blue LED board in a metal frame in the HOTEL LUNA family |
 
 | # | Script (`building_2/scripts`) | What it does |
 |---|---|---|
@@ -76,5 +78,6 @@ Final images (2400x3600, 2:3): [`building_2_render.jpg`](../render/building_2_re
 | 8 | `b2_composite.py`, `b2_atmos.py` | Spill, bloom and diffuse poster glow, plus depth haze into the well. Also: fine detail, a distant skyline above the rim, craft circling on the ring's ellipses, searchlights, and textured haze lit by the signs. |
 | 6b | `b2_sphere.py`, `tex/news360.html`, `tex/news360_big.html` | Spherical LED news screens. The two green/pink balls are gradient meshes that exist only in the PDF layer of the .ai (shading type 7), so their circles come from the PDF clip paths. Each ball maps an equirectangular NEWS 360 texture onto a sphere seen by the tilted camera: mip-filtered anisotropic lookup, an LED grid sized to the same physical pitch as the flat screens, viewing-angle falloff, a glossy cover with Fresnel reflection and a glint. Only the billboard ball gets a mounting collar. The big ball's axis is tipped back 25 deg and its ticker sits at +10.5 deg so it follows the drawn band; it lights the wall behind it as a two-sided emitter. The three balls show different parts of the channel. |
 | 9 | `b2_lens.py`, then shared `film.py` / `dither.py` | 5 deg downward re-tilt through a 20 mm-class pinhole, 2:3 frame, barrel distortion, lateral CA, vignette and glare. Then the Portra 400 / cinematic film stage. |
+| 10 | `b2_post.py`, `tex/sora_taxi.html` | Post pass on the finished 2400x3600 frames. (a) Body for the flat light panels (くすり, 環状七号線, ホテル MIDORI, PURIN, HOTEL LUNA, the three izakaya blades, the METRO kiosk, the 夜光 BAR boxes), which were drawn as decals and read as floating: dark painted-metal returns on the faces that look toward the camera (the top, and the side turned away from the far point of the ring, from the wall normal at that point of the ring and the camera pitch), a thin lit bezel where the face meets the return, and a contact shadow on the wall around the mounting footprint; the hovering NEWS 360 ball stays in front of HOTEL LUNA. (b) The SORA TAXI billboard: a 3:2 board on the lower-left wall following its rows, same LED pixel grid, metal frame and returns as the other screens, its light spilled and bloomed onto the wall, the lens vignette of that corner, then the film chain (halation, shoulder/toe, grade, scan sharpening, grain) of the frame it sits in. Panel outlines are segmented from the Portra frame (every variant shares the geometry; the blades are given as quads because they light the wall too strongly to segment), the cinematic and Portra frames are edited with their own looks, and the dither variant is re-quantised from the edited Portra frame inside the edited area. It runs on the finished frames because the `.ai` assets of stages 1-9 are not in the repository. Process image: `process_b2/08_panel_body_and_sora_taxi.jpg`. |
 
 Run: `scripts/run_b2.sh` (see the header for the expected layout).

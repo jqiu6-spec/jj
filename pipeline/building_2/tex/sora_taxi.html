@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../fonts/fonts.css"><style>
+html,body{margin:0;padding:0;width:1200px;height:800px;overflow:hidden;background:transparent}
+.f{position:absolute;inset:0;overflow:hidden}
+.c{position:absolute;display:flex;align-items:center;justify-content:center}
+</style></head><body>
+<!-- SORA TAXI: flying-taxi billboard in the HOTEL LUNA family (deep blue LED, cream display type, star field, 1200 x 800) -->
+<div class="f" style="background:radial-gradient(90% 80% at 50% 35%,#2840ff 0%,#1420d8 45%,#0a0c80 100%)"></div>
+<svg class="f" width="1200" height="800" viewBox="0 0 1200 800">
+<defs>
+  <filter id="gl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="gl2" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="14"/></filter>
+  <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1c4" stop-opacity=".45"/><stop offset="1" stop-color="#fff1c4" stop-opacity="0"/></linearGradient>
+  <linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbe6"/><stop offset=".55" stop-color="#ffe9a8"/><stop offset="1" stop-color="#e2c276"/></linearGradient>
+</defs>
+<g id="stars"></g>
+<!-- distant towers -->
+<g id="city"></g>
+<!-- flight path -->
+<path d="M60,610 C300,540 520,470 820,300" fill="none" stroke="#9fe8ff" stroke-width="5" stroke-dasharray="4 26" stroke-linecap="round" opacity=".8"/>
+<!-- landing beam + taxi -->
+<g transform="translate(905,262) rotate(-14)">
+  <path d="M-30,40 L-150,380 L150,380 L30,40Z" fill="url(#beam)"/>
+  <ellipse cx="0" cy="0" rx="150" ry="70" fill="#fff1c4" opacity=".25" filter="url(#gl2)"/>
+  <path d="M-150,10 C-150,-50 -90,-62 0,-62 C90,-62 150,-50 150,10 C150,46 100,50 0,50 C-100,50 -150,46 -150,10Z" fill="url(#body)" filter="url(#gl)"/>
+  <path d="M-104,-30 C-80,-56 80,-56 104,-30 L92,-6 L-92,-6Z" fill="#1a2470"/>
+  <rect x="-120" y="-80" width="240" height="14" rx="7" fill="#fff1c4" opacity=".9"/>
+  <rect x="-176" y="-86" width="40" height="22" rx="8" fill="#ffd36a"/><rect x="136" y="-86" width="40" height="22" rx="8" fill="#ffd36a"/>
+  <rect x="-60" y="52" width="120" height="12" rx="6" fill="#c9a96a"/>
+  <circle cx="-150" cy="10" r="9" fill="#ff5a5a"/><circle cx="150" cy="10" r="9" fill="#5aff8a"/>
+</g>
+</svg>
+<div class="c" style="left:64px;top:52px;font-family:'Zen Antique';font-size:112px;color:#fff4d0;text-shadow:0 0 14px #fff1b8,0 0 40px #8fa8ff">空飛ぶタクシー</div>
+<div class="c" style="left:0;right:0;top:548px;font-family:'Limelight';font-size:150px;letter-spacing:16px;color:#fff1c4;text-shadow:0 0 18px #ffe9a0,0 0 60px #6f86ff">SORA TAXI</div>
+<div class="c" style="left:0;right:0;top:712px;font-family:'Rajdhani';font-weight:700;font-size:44px;letter-spacing:7px;color:#bfeaff;text-shadow:0 0 10px #7fb0ff">呼べば3分 &nbsp;▸&nbsp; 第七環 全階発着 &nbsp;▸&nbsp; 24H</div>
+<script>
+const NS='http://www.w3.org/2000/svg'; let seed=13; const rnd=()=> (seed=(seed*16807)%2147483647)/2147483647;
+const S=document.getElementById('stars');
+for(let i=0;i<190;i++){const c=document.createElementNS(NS,'circle');c.setAttribute('cx',(rnd()*1200).toFixed(1));c.setAttribute('cy',(rnd()*620).toFixed(1));c.setAttribute('r',(1+rnd()*2.2).toFixed(2));c.setAttribute('fill','#e8f0ff');c.setAttribute('opacity',(.3+rnd()*.5).toFixed(2));S.appendChild(c);}
+const C=document.getElementById('city'); let x=0;
+while(x<1200){const w=30+rnd()*70,h=90+rnd()*170,y=800-h-20; const r=document.createElementNS(NS,'rect');r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h+40);r.setAttribute('fill',rnd()<.5?'#0b0f5a':'#070940');C.appendChild(r);
+ for(let k=0;k<Math.floor(w*h/900);k++){const q=document.createElementNS(NS,'rect');q.setAttribute('x',(x+6+rnd()*(w-14)).toFixed(0));q.setAttribute('y',(y+10+rnd()*(h-24)).toFixed(0));q.setAttribute('width',5);q.setAttribute('height',7);q.setAttribute('fill','#ffd98a');q.setAttribute('opacity',(.35+rnd()*.5).toFixed(2));C.appendChild(q);} x+=w+4+rnd()*12;}
+const g=document.createElementNS(NS,'rect');g.setAttribute('x',0);g.setAttribute('y',600);g.setAttribute('width',1200);g.setAttribute('height',200);g.setAttribute('fill','#05073a');g.setAttribute('opacity','.55');C.insertBefore(g,C.firstChild);
+</script>
+</body></html>

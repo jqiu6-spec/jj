@@ -133,6 +133,7 @@ def put_geo(xs, ys, nrm, off, emissive, two=False):
     n = nrm if nrm.ndim == 2 else np.repeat(nrm[None], len(xs), 0)
     SN[y1, x1] = n; SM[y1, x1] = 1
     base_p = GPN if CUR['anchor'] == 'near' else GPF
+    off = np.asarray(off, np.float32).reshape(-1, 1) if np.ndim(off) else off
     SP[y1, x1] = base_p[y1, x1] + toward[None] * off
     if emissive: EM[y1, x1] = 1
     if two: TWO[y1, x1] = 1
@@ -235,7 +236,7 @@ def draw_face(name, tex_name=None, mode='coons'):
     canvas[ys, xs] = canvas[ys, xs] * (1 - a) + col * a
     nrm, off = face_normal(name, xs, ys)
     put_geo(xs, ys, nrm, off, emissive=kind in ('screen', 'disc', 'top') and emis.mean() > 0.05, two=name in TWO_SIDED)
-    if name == 'moon': draw_disc_mask(hole, 'moon_disc')
+    if name == 'moon': draw_ball(hole)
     return len(xs)
 
 TILE_ORDER = ['tile_r28', 'tile_r26', 'tile_r30', 'tile_r27', 'tile_r31', 'tile_r29']    # drawing (stacking) order
@@ -277,6 +278,65 @@ def tile_texture(name, b, xs, ys, uv):
         bb = d.textbbox((0, 0), txt, font=f)
         d.text(((bu + bw_ / 2) * W_ - (bb[0] + bb[2]) / 2, (bv + bh_ / 2) * H_ - (bb[1] + bb[3]) / 2), txt, font=f, fill=fg)
     im.save(f'tex/{name}.png')
+
+def draw_ball(hole):
+    """the ball set into the HOTEL LUNA billboard: a spherical LED screen playing a 360-degree news channel"""
+    import b2_sphere
+    c = max(cv2.findContours(hole.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[0], key=cv2.contourArea)
+    (cx, cy), (a1, a2), _ = cv2.fitEllipse(c); r = (a1 + a2) / 4
+    b2_sphere.LED_CELLS = led_cells(r); b2_sphere.LED_GAP = 0.2
+    env = cv2.GaussianBlur(canvas, (0, 0), 6)
+    # turned 180 deg: the back NEWS 360 logo and another ticker/weather segment face the camera (not a copy of the big ball)
+    res = b2_sphere.render_sphere(canvas, cx, cy, r, news_tex('news360'), th, rot_deg=180.0, exposure=1.0, env=env)
+    xs, ys = np.asarray(res['xs']).astype(int), np.asarray(res['ys']).astype(int)
+    keep = np.asarray(res['alpha']) > 0.5
+    n = np.asarray(res['normals'], np.float32)[keep]
+    put_geo(xs[keep], ys[keep], n, 12 + 0.5 * r * np.clip(-n[:, 2], 0, 1), emissive=True)
+    print('ball: centre (%.1f, %.1f) r %.1f px, %d px' % (cx, cy, r, keep.sum()))
+
+# gradient-mesh balls of the design (PDF shading type 7; not present in the AI layer data):
+# centre/radius from their PDF clip paths, converted to the 2x canvas: x2 = (x_pdf + 129.4292)*SC*2, y2 = (1357.3197 - y_pdf)*SC*2
+SCL = 1.37926365188936
+def pdf2c(x, y): return (x + 129.429184403833) * SCL * 2, (1357.319672131148 - y) * SCL * 2
+MESH_BALLS = {
+    # name: (pdf centre x, y, pdf radius, axis tilt deg (+ = pole toward viewer), spin deg, hover px@1x, texture)
+    # big ball: the ticker is the designer's peach band - a latitude ring at +10.5 deg (texture news360_big) seen on a ball
+    # whose axis is tipped back 25 deg; it hovers in front of the wall (no mounting collar, no contact shadow)
+    'ball_big': (88.033, 725.160, 105.82, -25.0, 0.0, 220.0, 'news360_big'),
+    # small ball resting on the RING SEVEN roof, turned to the 第七環 / NIGHT MARKET OPENS segment
+    'ball_small': (775.960, 834.066, 18.37, 0.0, 100.0, 30.0, 'news360'),
+}
+_NEWS = {}
+def led_cells(r):
+    """same physical LED pitch as the flat screens (~3.6 px per LED at the front), at least 112 around"""
+    nu = max(112, int(round(2 * np.pi * r / 3.6 / 8)) * 8)
+    return (nu, nu // 2)
+
+def news_tex(name):
+    from b2_sphere import prepare_texture
+    if name not in _NEWS:
+        _NEWS[name] = prepare_texture(np.asarray(Image.open(f'tex/{name}.png').convert('RGBA'), np.float32) / 255)
+    return _NEWS[name]
+
+def draw_mesh_ball(name):
+    import b2_sphere
+    xp, yp, rp, tilt, spin, hover, texn = MESH_BALLS[name]
+    cx, cy = pdf2c(xp, yp); r = rp * SCL * 2
+    b2_sphere.LED_CELLS = led_cells(r); b2_sphere.LED_GAP = 0.2
+    CUR['anchor'] = 'near' if name == 'ball_small' else 'far'
+    env = cv2.GaussianBlur(canvas, (0, 0), 8)
+    res = b2_sphere.render_sphere(canvas, cx, cy, r, news_tex(texn), th, rot_deg=spin, tilt_deg=tilt, exposure=1.0, env=env,
+                                  collar=False, shadow=0.0)
+    xs, ys = np.asarray(res['xs']).astype(int), np.asarray(res['ys']).astype(int)
+    keep = (np.asarray(res['alpha']) > 0.5) & (xs >= 0) & (ys >= 0) & (xs < W2) & (ys < H2)
+    n = np.asarray(res['normals'], np.float32)[keep]
+    if name == 'ball_big':
+        # a free-hovering sphere also lights the wall behind it with its hidden back half: register the visible cells
+        # at the ball-centre depth as two-sided emitters (stand-in for the far hemisphere)
+        put_geo(xs[keep], ys[keep], n, hover, emissive=True, two=True)
+    else:
+        put_geo(xs[keep], ys[keep], n, hover + 0.5 * r * np.clip(-n[:, 2], 0, 1), emissive=True)
+    print('%s: centre (%.0f, %.0f) r %.1f px, tilt %.1f, LED %s' % (name, cx, cy, r, tilt, b2_sphere.LED_CELLS))
 
 def draw_disc_mask(bm, tex_name, rim=True):
     cnts, _ = cv2.findContours(bm.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
@@ -371,16 +431,17 @@ procedural_band_front()
 ORDER = [
     ('rec_black', 'rec_black'), ('rec_dots', 'rec_dots'), ('rec_floor', 'rec_floor'), ('rec_wall2', 'rec_wall2'), ('rec_wall', 'rec_wall'),
     ('band_front', 'band_front'), ('tile_r28', 'tile_r28'), ('tile_r26', 'tile_r26'), ('tile_r30', 'tile_r30'), ('tile_r27', 'tile_r27'),
-    ('tile_r31', 'tile_r31'), ('tile_r29', 'tile_r29'), ('band_end', 'band_end'), ('band_top', 'band_top'),
+    ('tile_r31', 'tile_r31'), ('tile_r29', 'tile_r29'), ('band_end', 'band_end'), ('band_top', 'band_top'), ('ball_small', None),
     ('moon_frame', None), ('moon', 'moon'), ('mag', 'mag'), ('mascot', 'mascot'),
-    ('mint_v1', 'mint_v1'), ('cream_h', 'cream_h'), ('mint_v2', 'mint_v2'), ('pill', 'pill'), ('kiosk', 'kiosk'), ('arc', 'arc'),
-    ('cap_top', 'cap_top'), ('cap_front', 'cap_front'), ('cap_end', 'cap_end'), ('wedge_under', None), ('wedge_side', None), ('wedge_face', 'wedge_face'),
+    ('mint_v1', 'mint_v1'), ('cream_h', 'cream_h'), ('mint_v2', 'mint_v2'), ('pill', 'pill'), ('kiosk', 'kiosk'),
+    ('cap_top', 'cap_top'), ('cap_front', 'cap_front'), ('cap_end', 'cap_end'), ('ball_big', None), ('wedge_under', None), ('wedge_side', None), ('wedge_face', 'wedge_face'),
     ('trbox_top', 'trbox_top'), ('trbox_left', 'trbox_left'), ('trbox_front', 'trbox_front'),
     ('pink_side', None), ('pink_bot', 'pink_bot'), ('pink_mid', 'pink_mid'), ('pink_top', 'pink_top'),
     ('blade3', 'blade3'), ('blade2', 'blade2'), ('blade1', 'blade1'),
     ('L_bot', None), ('L_side', None), ('L_face', 'L_face'),
 ]
 for name, tx in ORDER:
+    if name in MESH_BALLS: draw_mesh_ball(name); continue
     n = draw_face(name, tx); print(name, n, flush=True)
 for p in ('r34', 'r35', 'r36', 'r37'): draw_neon(p)
 for p in ('v43', 'v44', 'v45', 'v46', 'v47', 'v48'): draw_lamp(p)

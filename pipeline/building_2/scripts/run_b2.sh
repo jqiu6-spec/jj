@@ -14,6 +14,9 @@ python3 -I scripts/b2_vvp.py && python3 -I scripts/b2_ortho.py           # verti
 python3 -I scripts/b2_geom.py                                            # depth / normal proxy
 python3 -I scripts/b2_faces.py                                           # faces + corners
 python3 -I scripts/b2_tex.py && node scripts/b2_texrender.js tex/list.json
+# NEWS 360 ball textures (html sources in building_2/tex/, copied into tex/)
+echo '[{"name":"news360","w":2048,"h":1024,"file":"tex/news360.html"},{"name":"news360_big","w":2048,"h":1024,"file":"tex/news360_big.html"}]' > tex/news360_list.json
+node scripts/b2_texrender.js tex/news360_list.json
 python3 -I scripts/b2_signs.py
 python3 -I scripts/b2_relight.py out/full_2x.png out/relit_2x.png --gain 3 --debug out/relit_light.png
 python3 -I scripts/b2_composite.py out/relit_2x.png scene/base.png out/scene_2x.png out/full_2x.png

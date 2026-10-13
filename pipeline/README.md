@@ -58,8 +58,9 @@ Final images (2400x3600, 2:3): [`building_2_render.jpg`](../render/building_2_re
 | magenta curved screen + pale-yellow rounded square | curved LED screen with the PURIN pudding mascot |
 | four thin curved strokes, six dots | neon tubes and indicator lamps |
 | blue curved box + peach wedge | SKY LOUNGE 72F capsule sign with a wedge-shaped lightbox fin |
-| peach arc, blue pill, blue ellipses | WELCOME TO RING SEVEN banner, 銭湯 bath-house column, round kanji lanterns |
-| blue panel with crescent + grey frame | HOTEL LUNA billboard (crescent moon) in a metal frame |
+| blue pill, blue ellipses | 銭湯 bath-house column, round kanji lanterns |
+| blue panel with a round hole + grey frame | HOTEL LUNA billboard in a metal frame, with a NEWS 360 LED ball set into the hole |
+| green/pink gradient-mesh balls (big one with a peach band, small one on the ring band) | spherical LED screens playing a 360-degree news channel; the peach band is the BREAKING ticker |
 | three green parallelograms, mint L | ラーメン / 餃子 / 生ビール izakaya blade signs, 24h L-sign |
 | coral/purple/magenta ring band, checker, black recess, pink ledge | RING SEVEN curved LED band (bioluminescent cell screen, 夜市 night-market tiles) over a lit hangar opening |
 
@@ -73,6 +74,7 @@ Final images (2400x3600, 2:3): [`building_2_render.jpg`](../render/building_2_re
 | 6 | `b2_signs.py` | Each texture is mapped onto its block with a Coons patch built from the block's own boundary curves (curved screens follow the ring), with mild perspective foreshortening. Tiles use homographies. Materials: LED pixel grid, lightbox diffuser with metal bezel, dark painted returns, neon tubes, lamps. Procedural textures: the cell screen and the hangar interior. It also records each face's 3-D position and normal on the surface it is mounted on. |
 | 7 | `b2_relight.py` | Area-light transport from every emitting cell: inverse square, cosine at both ends, haze extinction, one- or two-sided emission. Receivers are the proxy surfaces with balcony micro-geometry (offset and wrapped cosine), lit with the photo's own texture as albedo. |
 | 8 | `b2_composite.py`, `b2_atmos.py` | Spill, bloom and diffuse poster glow, plus depth haze into the well. Also: fine detail, a distant skyline above the rim, craft circling on the ring's ellipses, searchlights, and textured haze lit by the signs. |
+| 6b | `b2_sphere.py`, `tex/news360.html`, `tex/news360_big.html` | Spherical LED news screens. The two green/pink balls are gradient meshes that exist only in the PDF layer of the .ai (shading type 7), so their circles come from the PDF clip paths. Each ball maps an equirectangular NEWS 360 texture onto a sphere seen by the tilted camera: mip-filtered anisotropic lookup, an LED grid sized to the same physical pitch as the flat screens, viewing-angle falloff, a glossy cover with Fresnel reflection and a glint. Only the billboard ball gets a mounting collar. The big ball's axis is tipped back 25 deg and its ticker sits at +10.5 deg so it follows the drawn band; it lights the wall behind it as a two-sided emitter. The three balls show different parts of the channel. |
 | 9 | `b2_lens.py`, then shared `film.py` / `dither.py` | 5 deg downward re-tilt through a 20 mm-class pinhole, 2:3 frame, barrel distortion, lateral CA, vignette and glare. Then the Portra 400 / cinematic film stage. |
 
 Run: `scripts/run_b2.sh` (see the header for the expected layout).

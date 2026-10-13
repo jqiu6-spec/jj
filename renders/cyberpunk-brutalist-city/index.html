@@ -1,0 +1,27 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<script type="importmap">
+{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+</script>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style>
+</head><body>
+<canvas id="c"></canvas>
+<script type="module">
+  const q = new URLSearchParams(location.search);
+  const W = +q.get('w') || 768, H = +q.get('h') || 1024;
+  const canvas = document.getElementById('c');
+  canvas.width = W; canvas.height = H; canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  window.__done = false; window.__error = null; window.__log = [];
+  const log = (...a) => { const s = a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '); window.__log.push(s); console.log('[scene]', s); };
+  try {
+    const mod = await import('/' + q.get('scene') + '?v=' + Math.random());
+    const opts = { width: W, height: H, seed: +(q.get('seed') || 1), quality: q.get('quality') || 'preview', log, params: Object.fromEntries(q.entries()) };
+    await mod.default(canvas, opts);
+    window.__done = true;
+  } catch (e) {
+    window.__error = (e && e.stack) || String(e);
+    console.error('[scene-error]', window.__error);
+    window.__done = true;
+  }
+</script>
+</body></html>

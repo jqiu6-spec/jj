@@ -12,7 +12,9 @@ required). The image starts noisy and refines every frame.
   an emitter. Light is traced with next-event estimation, so colour bleeds from the
   signs onto the facades, bounces between walls, reflects in window glass and in the
   wet street, and scatters in a thin haze along the camera ray.
-- **Low-poly block city.** The whole scene is about a hundred axis-aligned boxes.
+- **Low-poly block city.** The whole scene is about a hundred boxes (a few of them rotated, such as the diagonal walkway).
+  Every sign and building is placed by projecting its position in the reference photo back into 3D from the
+  photo's camera, so the composition matches the original frame.
   Facades get a procedural window grid; signs are drawn once on a canvas atlas and
   used as textured emitters (Japanese and Chinese text included).
 - **Retro pass.** The render runs at a reduced internal resolution and is upscaled
@@ -22,7 +24,7 @@ required). The image starts noisy and refines every frame.
 
 | Control | Effect |
 | --- | --- |
-| Camera | `Street, looking up` matches the reference photo. `GTA1 top-down` is the steep overhead view. `Bridge level` looks along the walkway. |
+| Camera | `Street, looking up` reproduces the reference photo's composition. `GTA1 top-down` is the steep overhead view. `Under the walkway` is a wide street-level look up at the signs. |
 | Pixel | Size of the output pixels (1 = full resolution, 6 = very chunky). |
 | Bounces | Maximum path length. 1 shows direct light only. |
 | Lighting | `Full`, `Direct only` (light straight from emitters) or `Bounced only` (light that has reflected at least once). |

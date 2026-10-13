@@ -54,7 +54,7 @@ footer em { color: var(--accent2); font-style: normal; }
   <label>Camera <select id="camera">
     <option value="street">Street, looking up (photo)</option>
     <option value="gta">GTA1 top-down</option>
-    <option value="bridge">Bridge level</option>
+    <option value="bridge">Under the walkway</option>
   </select></label>
   <label>Pixel <input id="pixel" type="range" min="1" max="6" step="1" value="3"><span class="val" id="pixelV">3</span></label>
   <label>Bounces <input id="bounces" type="range" min="1" max="8" step="1" value="4"><span class="val" id="bouncesV">4</span></label>
@@ -63,7 +63,7 @@ footer em { color: var(--accent2); font-style: normal; }
     <option value="1">Direct only</option>
     <option value="2">Bounced only</option>
   </select></label>
-  <label>Exposure <input id="exposure" type="range" min="-6" max="2" step="0.1" value="-1.2"><span class="val" id="exposureV">-1.2</span></label>
+  <label>Exposure <input id="exposure" type="range" min="-6" max="2" step="0.1" value="-1.0"><span class="val" id="exposureV">-1.0</span></label>
   <label><input id="dither" type="checkbox" checked> Palette dither</label>
   <label><input id="bloom" type="checkbox" checked> Bloom</label>
   <label><input id="haze" type="checkbox" checked> Haze</label>
@@ -87,8 +87,8 @@ const TRACE_FS = `#version 300 es
 precision highp float; precision highp int; precision highp sampler2D;
 #define MAXB 128
 #define PI 3.14159265
-uniform vec4 uBMin[MAXB];
-uniform vec4 uBMax[MAXB];
+uniform vec4 uBC[MAXB];   // box centre xyz, cos(yaw)
+uniform vec4 uBH[MAXB];   // box half extents xyz, sin(yaw)
 uniform int uNB, uNL;
 uniform sampler2D uMat;    // 4 texels per box: albedo+rough | f0,type,emitFace,0 | emission | extra
 uniform sampler2D uLights; // per light: boxId, faceId, cdf, prob
@@ -106,65 +106,79 @@ uint pcg(){ seed = seed*747796405u + 2891336453u; uint w = ((seed >> ((seed >> 2
 float rnd(){ return float(pcg()) * (1.0/4294967296.0); }
 float hash2(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
 
+// yaw rotation about Y: world -> local and local -> world
+vec3 toLocal(vec3 v, float cs, float sn){ return vec3(cs*v.x - sn*v.z, v.y, sn*v.x + cs*v.z); }
+vec3 toWorldR(vec3 v, float cs, float sn){ return vec3(cs*v.x + sn*v.z, v.y, -sn*v.x + cs*v.z); }
 int faceOf(vec3 n){ return n.x<-0.5?0 : n.x>0.5?1 : n.y<-0.5?2 : n.y>0.5?3 : n.z<-0.5?4 : 5; }
 
-float boxT(vec3 ro, vec3 rd, vec3 ird, vec3 bmin, vec3 bmax, float tMax, out vec3 n){
-  vec3 t0 = (bmin-ro)*ird, t1 = (bmax-ro)*ird;
+// Ray vs oriented box i. Returns t (or -1) and the world-space normal.
+float boxT(int i, vec3 ro, vec3 rd, vec3 ird, float tMax, out vec3 n){
+  vec4 C = uBC[i], H = uBH[i]; vec3 lo, ld, lird;
+  if (H.w == 0.0) { lo = ro - C.xyz; ld = rd; lird = ird; }
+  else { lo = toLocal(ro - C.xyz, C.w, H.w); ld = toLocal(rd, C.w, H.w); lird = 1.0/ld; }
+  vec3 t0 = (-H.xyz - lo)*lird, t1 = (H.xyz - lo)*lird;
   vec3 tn3 = min(t0,t1), tf3 = max(t0,t1);
   float tn = max(max(tn3.x,tn3.y),tn3.z), tf = min(min(tf3.x,tf3.y),tf3.z);
   if (tn>tf || tf<=0.0 || tn<=0.0 || tn>=tMax) return -1.0;
-  n = (tn==tn3.x) ? vec3(-sign(rd.x),0,0) : (tn==tn3.y) ? vec3(0,-sign(rd.y),0) : vec3(0,0,-sign(rd.z));
+  vec3 nl = (tn==tn3.x) ? vec3(-sign(ld.x),0,0) : (tn==tn3.y) ? vec3(0,-sign(ld.y),0) : vec3(0,0,-sign(ld.z));
+  n = (H.w == 0.0) ? nl : toWorldR(nl, C.w, H.w);
   return tn;
 }
 int trace(vec3 ro, vec3 rd, float tMax, out float tOut, out vec3 nOut){
   vec3 ird = 1.0/rd; int id = -1; vec3 n = vec3(0,1,0);
-  for (int i=0;i<uNB;i++){ vec3 nn; float t = boxT(ro,rd,ird,uBMin[i].xyz,uBMax[i].xyz,tMax,nn); if (t>0.0){ tMax=t; id=i; n=nn; } }
+  for (int i=0;i<uNB;i++){ vec3 nn; float t = boxT(i,ro,rd,ird,tMax,nn); if (t>0.0){ tMax=t; id=i; n=nn; } }
   tOut = tMax; nOut = n; return id;
 }
 bool occluded(vec3 ro, vec3 rd, float tMax){
   vec3 ird = 1.0/rd;
-  for (int i=0;i<uNB;i++){ vec3 nn; if (boxT(ro,rd,ird,uBMin[i].xyz,uBMax[i].xyz,tMax,nn)>0.0) return true; }
+  for (int i=0;i<uNB;i++){ vec3 nn; if (boxT(i,ro,rd,ird,tMax,nn)>0.0) return true; }
   return false;
 }
+// world point -> local coordinates measured from the box's local min corner (0..2h)
+vec3 localOf(int i, vec3 p){ vec4 C = uBC[i], H = uBH[i]; vec3 d = p - C.xyz; if (H.w != 0.0) d = toLocal(d, C.w, H.w); return d + H.xyz; }
+// local face normal -> world
+vec3 faceNormalW(int i, int f){ vec3 nl = (f==0)?vec3(-1,0,0):(f==1)?vec3(1,0,0):(f==2)?vec3(0,-1,0):(f==3)?vec3(0,1,0):(f==4)?vec3(0,0,-1):vec3(0,0,1);
+  vec4 C = uBC[i], H = uBH[i]; return (H.w==0.0) ? nl : toWorldR(nl, C.w, H.w); }
 
 struct Surf { vec3 alb; float rough; float f0; vec3 emis; bool listed; };
 bool faceEmits(int code, int f){ if (code<0) return false; if (code==9) return true; if (code<6) return code==f; return (f/2)==(code-6); }
-vec2 faceUV(vec3 p, vec3 bmin, vec3 bmax, int f){
-  vec3 s = (p-bmin)/max(bmax-bmin, vec3(1e-4));
+vec2 faceUV(vec3 pl, vec3 size, int f){
+  vec3 s = pl/max(size, vec3(1e-4));
   if (f==4) return vec2(s.x, s.y); if (f==5) return vec2(1.0-s.x, s.y);
   if (f==0) return vec2(s.z, s.y); if (f==1) return vec2(1.0-s.z, s.y);
   if (f==3) return vec2(s.x, 1.0-s.z); return vec2(s.x, s.z);
 }
-Surf shade(int id, int f, vec3 p){
+// pl: hit point in the box's local frame (0..2h)
+Surf shade(int id, int f, vec3 pl){
   Surf s;
   vec4 m0 = texelFetch(uMat, ivec2(id*4,0), 0), m1 = texelFetch(uMat, ivec2(id*4+1,0), 0);
   vec4 m2 = texelFetch(uMat, ivec2(id*4+2,0), 0), m3 = texelFetch(uMat, ivec2(id*4+3,0), 0);
   s.alb = m0.rgb; s.rough = m0.a; s.f0 = m1.x; s.emis = vec3(0); s.listed = false;
   int type = int(m1.y+0.5); int ef = int(floor(m1.z+0.5));
-  vec3 bmin = uBMin[id].xyz, bmax = uBMax[id].xyz;
+  vec3 size = uBH[id].xyz*2.0;
   if (type==1) {            // textured sign
-    if (faceEmits(ef,f)) { vec2 uv = faceUV(p,bmin,bmax,f); vec3 t = texture(uAtlas, m3.xy + uv*m3.zw).rgb; t = t*t; s.emis = t*m2.rgb*uSignI; s.listed = true; }
+    if (faceEmits(ef,f)) { vec2 uv = faceUV(pl,size,f); vec3 t = texture(uAtlas, m3.xy + uv*m3.zw).rgb; t = t*t; s.emis = t*m2.rgb*uSignI; s.listed = true; }
   } else if (type==3) {     // uniform emitter
     if (faceEmits(ef,f)) { s.emis = m2.rgb; s.listed = true; }
-  } else if (type==2) {     // facade with a window grid (unlisted emitters)
+  } else if (type==2) {     // facade with a window grid
     if (f!=2 && f!=3) {
-      vec2 l = (f<2) ? vec2(p.z,p.y) : vec2(p.x,p.y);
+      vec2 l = (f<2) ? vec2(pl.z,pl.y) : vec2(pl.x,pl.y);
       vec2 cell = floor(l/m3.xy), fr = fract(l/m3.xy);
-      bool pane = fr.x>0.14 && fr.x<0.86 && fr.y>0.22 && fr.y<0.80;
+      bool pane = fr.x>0.16 && fr.x<0.84 && fr.y>0.24 && fr.y<0.80;
       if (pane) {
         float h = hash2(cell + vec2(float(id)*7.1 + float(f)*3.3, m3.w));
         float fh = hash2(vec2(cell.y, float(id)*2.7 + m3.w + float(f)));
         s.alb = vec3(0.02); s.rough = 0.12; s.f0 = 0.06;
-        if (h < m3.z || fh < 0.05) {
+        if (h < m3.z || fh < 0.04) {
           float w = hash2(cell*1.7 + 3.0);
-          vec3 c = (w>0.82) ? vec3(0.80,0.90,1.0) : (w>0.72 ? vec3(1.0,0.55,0.35) : vec3(1.0,0.78,0.45));
+          vec3 c = (w>0.84) ? vec3(0.80,0.90,1.0) : (w>0.74 ? vec3(1.0,0.55,0.35) : vec3(1.0,0.78,0.45));
           s.emis = c * uWinI * (0.5 + 0.9*hash2(cell*2.3 + 1.0));
         }
       }
       s.listed = faceEmits(ef,f);
     }
   } else if (type==4) {     // wet street: blocky puddle tiles
-    float t = hash2(floor(p.xz/2.5) + 0.37);
+    float t = hash2(floor(pl.xz/2.5) + 0.37);
     if (t < 0.4) { s.rough = 0.03; s.f0 = 0.06; s.alb *= 0.6; } else { s.rough = 0.35; s.f0 = 0.04; }
   }
   return s;
@@ -176,16 +190,18 @@ vec3 cosineDir(vec3 n){ float u1=rnd(), u2=rnd(); float r=sqrt(u1), ph=6.2831853
 vec3 sampleGGX(vec3 n, float a){ float u1=rnd(), u2=rnd(); a=max(a,1e-3); float ct=sqrt((1.0-u1)/(1.0+(a*a-1.0)*u1)); float st=sqrt(max(0.0,1.0-ct*ct)); float ph=6.2831853*u2; return toWorld(n, vec3(st*cos(ph), st*sin(ph), ct)); }
 vec3 sky(vec3 rd){ float h = clamp(rd.y,0.0,1.0); return mix(vec3(0.16,0.15,0.26), vec3(0.03,0.04,0.09), pow(h,0.6)) * uSky; }
 
-// Pick one emitter by its power and a uniform point on its face.
-void sampleLight(out int lb, out int lf, out vec3 lp, out vec3 ln, out float area, out float prob){
+// Pick one emitter by its power and a uniform point on its face (world point, world normal, local point).
+void sampleLight(out int lb, out int lf, out vec3 lp, out vec3 lpl, out vec3 ln, out float area, out float prob){
   float u = rnd(); int li = uNL-1;
   for (int i=0;i<uNL;i++){ if (u < texelFetch(uLights, ivec2(i,0), 0).z) { li=i; break; } }
   vec4 L = texelFetch(uLights, ivec2(li,0), 0); lb = int(L.x+0.5); lf = int(L.y+0.5); prob = max(L.w, 1e-5);
-  vec3 bmin = uBMin[lb].xyz, bmax = uBMax[lb].xyz, ext = bmax-bmin;
+  vec4 C = uBC[lb], H = uBH[lb]; vec3 ext = H.xyz*2.0;
   float r1 = rnd(), r2 = rnd();
-  if (lf<2) { lp = vec3(lf==0?bmin.x:bmax.x, bmin.y+r1*ext.y, bmin.z+r2*ext.z); ln = vec3(lf==0?-1.0:1.0,0,0); area = ext.y*ext.z; }
-  else if (lf<4) { lp = vec3(bmin.x+r1*ext.x, lf==2?bmin.y:bmax.y, bmin.z+r2*ext.z); ln = vec3(0,lf==2?-1.0:1.0,0); area = ext.x*ext.z; }
-  else { lp = vec3(bmin.x+r1*ext.x, bmin.y+r2*ext.y, lf==4?bmin.z:bmax.z); ln = vec3(0,0,lf==4?-1.0:1.0); area = ext.x*ext.y; }
+  if (lf<2) { lpl = vec3(lf==0?0.0:ext.x, r1*ext.y, r2*ext.z); area = ext.y*ext.z; }
+  else if (lf<4) { lpl = vec3(r1*ext.x, lf==2?0.0:ext.y, r2*ext.z); area = ext.x*ext.z; }
+  else { lpl = vec3(r1*ext.x, r2*ext.y, lf==4?0.0:ext.z); area = ext.x*ext.y; }
+  vec3 d = lpl - H.xyz; if (H.w != 0.0) d = toWorldR(d, C.w, H.w); lp = C.xyz + d;
+  ln = faceNormalW(lb, lf);
 }
 float hg(float c, float g){ float d = 1.0+g*g-2.0*g*c; return (1.0-g*g)/(4.0*PI*d*sqrt(d)); }
 
@@ -200,10 +216,10 @@ vec3 radiance(vec3 ro, vec3 rd){
       float tHit = (id<0) ? 500.0 : t; float Tr = exp(-uFog*tHit);
       for (int k=0; k<3; k++) {
         float u = (float(k)+rnd())/3.0; float ts = -log(1.0 - u*(1.0-Tr))/uFog; float pdf = uFog*exp(-uFog*ts)/(1.0-Tr);
-        vec3 xs = ro + rd*ts; int lb, lf; vec3 lp, ln; float area, prob; sampleLight(lb, lf, lp, ln, area, prob);
+        vec3 xs = ro + rd*ts; int lb, lf; vec3 lp, lpl, ln; float area, prob; sampleLight(lb, lf, lp, lpl, ln, area, prob);
         vec3 d = lp-xs; float d2 = dot(d,d); float dist = sqrt(d2); vec3 wi = d/dist; float cl = -dot(ln,wi);
         if (cl>0.0 && !occluded(xs, wi, dist*0.998)) {
-          vec3 Le = shade(lb, lf, lp).emis;
+          vec3 Le = shade(lb, lf, lpl).emis;
           vec3 c = Le * cl/d2 * area/prob * (uFog*0.85) * hg(dot(wi,rd), 0.45) * exp(-uFog*(dist+ts)) / pdf;
           col += min(c, vec3(6.0)) * wI / 3.0;
         }
@@ -211,8 +227,8 @@ vec3 radiance(vec3 ro, vec3 rd){
       thr *= Tr;
     }
     if (id<0) { col += thr*sky(rd)*(b==0 ? wD : wI); break; }
-    vec3 p = ro + rd*t; int f = faceOf(n);
-    Surf s = shade(id, f, p);
+    vec3 p = ro + rd*t; int f = faceOf((uBH[id].w==0.0) ? n : toLocal(n, uBC[id].w, uBH[id].w));
+    Surf s = shade(id, f, localOf(id, p));
     if (s.emis.x+s.emis.y+s.emis.z > 0.0) {
       bool direct = (b==0) || (b==1 && prevSpec);
       if (!(s.listed && prevDiff)) col += thr*s.emis*(direct ? wD : wI);
@@ -227,11 +243,11 @@ vec3 radiance(vec3 ro, vec3 rd){
       rd = r; ro = p; prevSpec = true; prevDiff = false;
     } else {
       if (uNL>0) {
-        int lb, lf; vec3 lp, ln; float area, prob; sampleLight(lb, lf, lp, ln, area, prob);
+        int lb, lf; vec3 lp, lpl, ln; float area, prob; sampleLight(lb, lf, lp, lpl, ln, area, prob);
         vec3 d = lp-p; float d2 = dot(d,d); float dist = sqrt(d2); vec3 wi = d/dist;
         float cs = dot(n,wi), cl = -dot(ln,wi);
         if (cs>0.0 && cl>0.0 && !occluded(p, wi, dist*0.998)) {
-          Surf ls = shade(lb, lf, lp);
+          Surf ls = shade(lb, lf, lpl);
           vec3 c = thr * s.alb/PI * ls.emis * cs*cl/d2 * area/prob * exp(-uFog*dist);
           col += min(c, vec3(40.0)) * (b==0 ? wD : wI);
         }
@@ -282,77 +298,95 @@ void main(){
 }`;
 </script>
 <script>
-// ---------- Scene: a low-poly block city built from axis-aligned boxes ----------
-// Face codes: 0:-x 1:+x 2:-y 3:+y 4:-z 5:+z 6:±x 7:±y 8:±z 9:all
+// ---------- Scene ----------
+// The composition is defined in the reference photo's screen space (x,y in 0..1, y from the top) and projected
+// into the world from the reference camera, so every sign lands where it does in the photo.
+const REF = {pos:[0,18,0], pitch:16, fov:72, aspect:2/3};
+function refRay(sx, sy){ const th = Math.tan(REF.fov*Math.PI/360); const u = (sx*2-1)*th*REF.aspect, v = (1-sy*2)*th;
+  const p = REF.pitch*Math.PI/180; return [u, Math.sin(p) + Math.cos(p)*v, Math.cos(p) - Math.sin(p)*v]; }
+function onZ(sx, sy, z){ const d = refRay(sx,sy); const t = (z-REF.pos[2])/d[2]; return [REF.pos[0]+d[0]*t, REF.pos[1]+d[1]*t, z]; }
+function onPlane(sx, sy, p0, n){ const d = refRay(sx,sy); const t = ((p0[0]-REF.pos[0])*n[0]+(p0[1]-REF.pos[1])*n[1]+(p0[2]-REF.pos[2])*n[2])/(d[0]*n[0]+d[1]*n[1]+d[2]*n[2]);
+  return [REF.pos[0]+d[0]*t, REF.pos[1]+d[1]*t, REF.pos[2]+d[2]*t]; }
+// screen rect [x0,y0,x1,y1] on the frontal plane z -> world extents (edges averaged to tame the keystone)
+function rectZ(r, z){ const a = onZ(r[0],r[1],z), b = onZ(r[2],r[1],z), c = onZ(r[0],r[3],z), d = onZ(r[2],r[3],z);
+  return {x0:(a[0]+c[0])/2, x1:(b[0]+d[0])/2, y0:(c[1]+d[1])/2, y1:(a[1]+b[1])/2}; }
+
+// Every box: centre c, half extents h, yaw (deg about Y). Face codes are local: 0:-x 1:+x 2:-y 3:+y 4:-z 5:+z 6:±x 7:±y 8:±z 9:all
 const boxes = [];
-function add(min, max, m){ boxes.push({min, max, type: m.type||0, alb: m.alb||[0.1,0.1,0.1], rough: m.rough??0.6, f0: m.f0??0.04,
-  emis: m.emis||[0,0,0], face: m.face??-1, extra: m.extra||[0,0,0,0], draw: m.draw||null, lum: m.lum??1, w: m.w, h: m.h}); return boxes.length-1; }
+function addBox(c, h, yaw, m){ boxes.push({c, h, yaw, type:m.type||0, alb:m.alb||[0.1,0.1,0.1], rough:m.rough??0.6, f0:m.f0??0.04,
+  emis:m.emis||[0,0,0], face:m.face??-1, extra:m.extra||[0,0,0,0], draw:m.draw||null, lum:m.lum??1, sw:m.sw, sh:m.sh}); return boxes.length-1; }
+function add(min, max, m){ return addBox([(min[0]+max[0])/2,(min[1]+max[1])/2,(min[2]+max[2])/2], [(max[0]-min[0])/2,(max[1]-min[1])/2,(max[2]-min[2])/2], 0, m); }
 const block = (min,max,alb,rough=0.6,f0=0.04) => add(min,max,{alb,rough,f0});
-const tower = (min,max,alb,lit,seed,face,cell=[3.4,3.8]) => add(min,max,{type:2, alb: alb.map(c=>c*2.2), rough:0.75, f0:0.03, face, extra:[cell[0],cell[1],lit,seed]});
+const tower = (min,max,alb,lit,seed,face,cell=[2.2,2.6]) => add(min,max,{type:2, alb: alb.map(c=>c*2.2), rough:0.75, f0:0.03, face, extra:[cell[0],cell[1],lit,seed]});
 const glow = (min,max,color,I,face) => add(min,max,{type:3, alb:[0.6,0.6,0.6], rough:0.3, f0:0.05, emis:color.map(c=>c*I), face});
-// Textured sign: axis 'z' faces the camera (±z), axis 'x' sits on a side wall (±x). w,h in metres, d thickness.
-function sign(o){
-  const [cx,cy,cz] = o.pos, d = o.d||0.5, hw = o.w/2, hh = o.h/2;
-  const min = o.axis==='x' ? [cx-d/2, cy-hh, cz-hw] : [cx-hw, cy-hh, cz-d/2];
-  const max = o.axis==='x' ? [cx+d/2, cy+hh, cz+hw] : [cx+hw, cy+hh, cz+d/2];
-  return add(min, max, {type:1, alb:[0.08,0.08,0.09], rough:0.45, f0:0.04, emis:[o.I||10, o.I||10, o.I||10], face:o.face, draw:o.draw, w:o.w, h:o.h});
-}
-function car(x, z, dir, alb){ // dir +1 drives toward +z
-  const L=4.4, W=2.0; const z0=z-L/2, z1=z+L/2;
-  block([x-W/2,0.3,z0],[x+W/2,1.5,z1], alb, 0.25, 0.3);
-  block([x-W/2+0.3,1.5,z0+1.2],[x+W/2-0.3,2.15,z1-1.0], alb.map(c=>c*0.8), 0.25, 0.3);
-  block([x-W/2+0.2,0,z0+0.3],[x+W/2-0.2,0.5,z1-0.3], [0.03,0.03,0.03], 0.9, 0.02);
-  const fz = dir>0 ? z1 : z0, bz = dir>0 ? z0 : z1;
-  glow([x-W/2+0.15, 0.75, fz-0.12], [x+W/2-0.15, 1.05, fz+0.12], [1.0,0.95,0.85], 35, dir>0?5:4);
-  glow([x-W/2+0.15, 0.75, bz-0.12], [x+W/2-0.15, 1.05, bz+0.12], [1.0,0.08,0.05], 25, dir>0?4:5);
-}
+function signBox(c, w, h, d, yaw, o){ const I = o.I||10; return addBox(c, [w/2,h/2,d/2], yaw, {type:1, alb:[0.08,0.08,0.09], rough:0.45, f0:0.04, emis:[I,I,I], face:o.face??4, draw:o.draw, sw:w, sh:h}); }
+// Frontal sign on the wall whose face is at z (box sits just in front of it); face 8 makes a two-sided flag.
+function signZ(r, z, o){ const R = rectZ(r,z), d = o.d||0.5; return signBox([(R.x0+R.x1)/2, (R.y0+R.y1)/2, (o.face===8) ? z : z-d/2], R.x1-R.x0, R.y1-R.y0, d, 0, o); }
+function glowZ(r, z, color, I, d=0.3, face=9){ const R = rectZ(r,z); return glow([R.x0, R.y0, z-d], [R.x1, R.y1, z], color, I, face); }
 
-// Ground: wet asphalt with blocky puddles
+// The elevated walkway recedes to the right. WA runs along it, WN is its street-facing normal.
+const WY = -19, cw = Math.cos(WY*Math.PI/180), sw = Math.sin(WY*Math.PI/180);
+const WA = [cw, 0, -sw], WN = [-sw, 0, -cw];
+const WP0 = onZ(0.0, 0.47, 30);
+const onW = (sx, sy) => onPlane(sx, sy, WP0, WN);
+const sOf = p => (p[0]-WP0[0])*WA[0] + (p[2]-WP0[2])*WA[2];
+// rect on the walkway plane: x range sx0..sx1, and the y range measured at the left edge
+function rectW(sx0, sx1, syTop, syBot){ const ym = (syTop+syBot)/2; const a = onW(sx0, ym), b = onW(sx1, ym), t = onW(sx0, syTop), u = onW(sx0, syBot);
+  return {s0:sOf(a), s1:sOf(b), y0:u[1], y1:t[1]}; }
+function wCentre(sm, ym, off){ return [WP0[0]+WA[0]*sm+WN[0]*off, ym, WP0[2]+WA[2]*sm+WN[2]*off]; }
+function signW(sx0, sx1, syTop, syBot, o){ const R = rectW(sx0,sx1,syTop,syBot), d = o.d||0.5; return signBox(wCentre((R.s0+R.s1)/2, (R.y0+R.y1)/2, d/2), R.s1-R.s0, R.y1-R.y0, d, WY, o); }
+function glowW(sx0, sx1, syTop, syBot, color, I, d=0.3){ const R = rectW(sx0,sx1,syTop,syBot); return addBox(wCentre((R.s0+R.s1)/2, (R.y0+R.y1)/2, d/2), [(R.s1-R.s0)/2, (R.y1-R.y0)/2, d/2], WY, {type:3, alb:[0.6,0.6,0.6], rough:0.3, f0:0.05, emis:color.map(c=>c*I), face:9}); }
+
+// --- Ground, street
 add([-400,-2,-400],[400,0,400], {type:4, alb:[0.06,0.065,0.08], rough:0.3, f0:0.04});
-// Pavements
-block([-16,0,-80],[-13.5,0.3,100], [0.12,0.12,0.13], 0.8); block([13.5,0,-80],[16,0.3,100], [0.12,0.12,0.13], 0.8);
+block([-8,0,-80],[-6,0.3,34], [0.12,0.12,0.13], 0.8); block([8,0,-80],[9.5,0.3,36], [0.12,0.12,0.13], 0.8);
+block([0.55,0,-80],[0.95,0.02,34],[0.75,0.75,0.6],0.7); block([-6.2,0,-80],[-5.8,0.02,34],[0.7,0.7,0.7],0.7); block([7.6,0,-80],[8,0.02,34],[0.7,0.7,0.7],0.7);
+block([-6,0,6],[8,0.02,9.5],[0.65,0.65,0.65],0.7);
 
-// Towers (facades with window grids)
-tower([-70,0,4],[-16,160,34],   [0.10,0.11,0.15], 0.14, 1, 1);
-tower([-70,0,34],[-18,230,70],  [0.09,0.10,0.13], 0.11, 2, 1, [3.2,3.6]);
-tower([16,0,2],[70,150,30],     [0.11,0.10,0.12], 0.15, 3, 0);
-tower([18,0,30],[70,240,70],    [0.09,0.09,0.11], 0.10, 4, 0, [3.0,3.4]);
-tower([-30,0,48],[30,280,100],  [0.08,0.09,0.12], 0.13, 5, 4);
-tower([-80,0,70],[-30,210,110], [0.09,0.09,0.11], 0.09, 6, 4);
-tower([30,0,70],[80,220,110],   [0.10,0.09,0.10], 0.09, 7, 4);
-tower([-8,0,34],[8,30,48],      [0.10,0.10,0.11], 0.18, 8, 9, [2.8,3.2]);   // low podium under the back wall
-tower([-70,0,-60],[-14,120,-4], [0.10,0.10,0.13], 0.13, 9, 9);
-tower([14,0,-60],[70,130,-6],   [0.11,0.10,0.12], 0.13, 10, 9);
-// Ledges, setbacks, pipes, roof clutter (plain dark blocks)
-block([-16,52,8],[-13,54,34], [0.09,0.09,0.1]); block([13,70,6],[16,72,30], [0.09,0.09,0.1]);
-block([-16.4,0,26],[-15.8,160,26.6], [0.14,0.12,0.1], 0.5, 0.1); block([15.8,0,20],[16.4,150,20.6], [0.14,0.12,0.1], 0.5, 0.1);
-block([-16,100,4],[-10,103,34], [0.09,0.09,0.1]); block([10,118,2],[16,121,30], [0.09,0.09,0.1]);
-block([-8,30,36],[8,31,46], [0.12,0.12,0.12]); block([-5,31,40],[-2,33,43], [0.3,0.3,0.32], 0.4, 0.3); block([2,31,38],[5,33.5,41], [0.3,0.3,0.32], 0.4, 0.3);
+// --- Towers. Left near tower A (signs on its street face z=26), set-back tower B, far towers with a sky gap.
+tower([-80,0,26],[-8,230,34],   [0.10,0.11,0.15], 0.06, 1, 9);
+tower([-80,0,34],[-30,230,60],  [0.09,0.10,0.13], 0.05, 2, 1);
+tower([-45,0,60],[45,80,100],   [0.08,0.09,0.12], 0.06, 5, 4, [2.0,2.4]);         // billboard tower
+tower([-200,0,110],[-12,350,200],[0.09,0.09,0.12], 0.05, 6, 4);
+tower([12,0,110],[200,350,200], [0.10,0.09,0.11], 0.05, 7, 4);
+tower([17,0,42],[90,230,80],    [0.11,0.10,0.12], 0.09, 3, 9);                      // right tower A
+tower([9.5,0,36],[90,23,60],    [0.10,0.10,0.11], 0.07, 4, 9, [1.6,2.0]);           // right low tower C (eye sign)
+tower([5.5,0,34],[9.5,15.5,36], [0.10,0.11,0.10], 0.30, 8, 9, [1.0,1.2]);           // DA MALL annex, dense small windows
+tower([-12,0,40],[-1.5,15,60],  [0.10,0.10,0.11], 0.22, 9, 9, [1.1,1.3]);           // NEO motors building
+tower([-1.5,0,44],[5.5,11,60],  [0.09,0.09,0.10], 0.08, 10, 9);
+tower([-80,0,-60],[-8,12,14],   [0.10,0.10,0.13], 0.12, 11, 9);                     // low blocks beside the camera (top-down view)
+tower([9.5,0,-60],[80,6,30],    [0.11,0.10,0.12], 0.12, 12, 9);
+block([-80,34,26],[-8,36,38],[0.09,0.09,0.1]); block([-16,80,60],[16,82,70],[0.09,0.09,0.1]);  // ledges
+block([-8.4,0,26],[-7.8,230,26.6],[0.14,0.12,0.1],0.5,0.1); block([16.6,0,42],[17.2,230,42.6],[0.14,0.12,0.1],0.5,0.1); // corner pipes
 
-// Main elevated walkway with signs on its street-facing side
-block([-16,26,20],[16,34,27], [0.13,0.13,0.14], 0.7);
-glow([-16,25.5,19.85],[16,25.8,20.15], [0.85,0.95,1.0], 6, 9);        // LED strip along the underside edge
-glow([-16,34,19.85],[16,34.3,20.15], [0.4,0.9,1.0], 5, 9);            // cyan rail on top
-for (const x of [-14.8,-5.8,3.8,12.8]) glow([x,28.2,19.75],[x+0.35,33.6,20.05], [0.55,1.0,1.0], 7, 9); // vertical tubes
-block([-10.6,25.0,20.5],[-10.4,26,21], [0.3,0.3,0.3]);                 // EXIT sign hanger
-block([-1,34,23.1],[-0.5,42.5,23.5],[0.25,0.25,0.25]); block([14.5,34,23.1],[15,42.5,23.5],[0.25,0.25,0.25]); // billboard posts
-block([8,48,32.7],[18,48.6,33.3],[0.25,0.25,0.25]);                     // news sign bracket
+// --- Walkway body, rail and lamps
+const WT = onW(0.2,0.42)[1], WB = onW(0.2,0.56)[1], WS0 = -8, WS1 = 42, WD = 8;
+addBox(wCentre((WS0+WS1)/2, (WT+WB)/2, -WD/2), [(WS1-WS0)/2, (WT-WB)/2, WD/2], WY, {alb:[0.13,0.13,0.14], rough:0.7});
+addBox(wCentre((WS0+WS1)/2, WT+0.12, 0.1), [(WS1-WS0)/2, 0.12, 0.12], WY, {type:3, alb:[0.6,0.6,0.6], rough:0.3, f0:0.05, emis:[0.85*5,0.95*5,1.0*5], face:9}); // LED rail along the top edge
+addBox(wCentre((WS0+WS1)/2, WB+0.1, 0.1), [(WS1-WS0)/2, 0.1, 0.1], WY, {type:3, alb:[0.6,0.6,0.6], rough:0.3, f0:0.05, emis:[0.85*3,0.95*3,1.0*3], face:9});   // strip along the bottom edge
+glowW(0.365,0.375,0.42,0.455,[0.9,0.98,1.0],7,0.35); glowW(0.495,0.505,0.42,0.455,[0.9,0.98,1.0],7,0.35); glowW(0.70,0.71,0.48,0.52,[0.9,0.98,1.0],7,0.35);
+glowW(0.865,0.875,0.595,0.645,[0.5,1.0,1.0],8,0.3);
+glowW(0.6,0.98,0.502,0.51,[1.0,0.85,0.5],6,0.2);                                   // marquee bulb row receding right
+addBox(wCentre((WS0+WS1)/2, WB-0.8, -WD/2), [(WS1-WS0)/2, 0.3, WD/2+0.6], WY, {alb:[0.09,0.09,0.1], rough:0.8}); // underside beam
 
-// Upper transit walkway with a lit train
-block([-16,58,30],[-2,61,36], [0.12,0.12,0.13], 0.7);
-block([-15.5,61,31],[-4,65.5,35], [0.25,0.27,0.30], 0.35, 0.5);
-glow([-15,62.4,30.92],[-4.5,64.4,31.02], [1.0,0.9,0.75], 6, 4);          // train windows
-glow([-16,61,29.9],[-2,61.3,30.1], [0.9,0.95,1.0], 5, 9);               // walkway edge light
-glow([-16.05,66,10],[-15.85,69,24], [1.0,0.92,0.8], 5, 1);               // lit corridor behind glass, left tower
+// --- Elevated track and the lit train, far left
+const TR = rectZ([0.0,0.255,0.10,0.305], 52);
+block([-32,TR.y0-1.6,50],[-16,TR.y0-0.3,54], [0.12,0.12,0.13], 0.7);
+block([-31,TR.y0-0.3,50.6],[-19.5,TR.y1+0.9,53.4], [0.25,0.27,0.30], 0.35, 0.5);
+glow([-30.5,TR.y0,50.52],[-20,TR.y1,50.62], [1.0,0.9,0.75], 6, 4);
+glow([-32,TR.y0-0.3,49.9],[-16,TR.y0-0.1,50.1], [0.9,0.95,1.0], 5, 9);
 
-// Street furniture: lamps and cars
-for (const [x,z] of [[-13,-30],[13,-18],[-13,-6],[13,6],[-13,18],[13,30],[-13,42]]) { block([x-0.15,0,z-0.15],[x+0.15,9,z+0.15],[0.2,0.2,0.2],0.4,0.2); glow([x-0.9,8.6,z-0.9],[x+0.9,9.1,z+0.9],[1.0,0.85,0.6],60,9); }
-for (let k=0;k<4;k++){ const z=-44+k*22, c=[[1.0,0.7,0.4],[0.5,0.9,1.0],[1.0,0.45,0.7],[0.7,1.0,0.6]][k]; glow([-16.1,0.4,z],[-15.9,3.2,z+7],c,5,1); glow([15.9,0.4,z+10],[16.1,3.2,z+17],c,5,0); }
-block([-0.2,0,-80],[0.2,0.02,100],[0.75,0.75,0.6],0.7); block([-12.5,0,-80],[-12.1,0.02,100],[0.7,0.7,0.7],0.7); block([12.1,0,-80],[12.5,0.02,100],[0.7,0.7,0.7],0.7);
-block([-13.5,0,12],[13.5,0.02,16],[0.65,0.65,0.65],0.7);
-car(-8, 10, +1, [0.55,0.08,0.08]); car(6, 30, -1, [0.1,0.18,0.5]); car(-3, 44, +1, [0.75,0.7,0.2]); car(9, -14, -1, [0.6,0.6,0.62]);
-
-// ---------- Sign artwork (drawn on a canvas atlas) ----------
+// --- Street furniture: lamps, lit storefronts, cars
+for (const [x,z] of [[-7,-40],[8.5,-28],[-7,-16],[8.5,-4],[-7,8],[8.5,20]]) { block([x-0.15,0,z-0.15],[x+0.15,9,z+0.15],[0.2,0.2,0.2],0.4,0.2); glow([x-0.9,8.6,z-0.9],[x+0.9,9.1,z+0.9],[1.0,0.85,0.6],60,9); }
+for (let k=0;k<4;k++){ const z=-50+k*16, c=[[1.0,0.7,0.4],[0.5,0.9,1.0],[1.0,0.45,0.7],[0.7,1.0,0.6]][k]; glow([-8.1,0.4,z],[-7.9,3.2,z+7],c,5,1); glow([9.4,0.4,z+8],[9.6,3.2,z+15],c,5,0); }
+function car(x, z, dir, alb){ const L=4.4, W=2.0, z0=z-L/2, z1=z+L/2;
+  block([x-W/2,0.3,z0],[x+W/2,1.5,z1], alb, 0.25, 0.3); block([x-W/2+0.3,1.5,z0+1.2],[x+W/2-0.3,2.15,z1-1.0], alb.map(c=>c*0.8), 0.25, 0.3);
+  const fz = dir>0 ? z1 : z0, bz = dir>0 ? z0 : z1;
+  glow([x-W/2+0.15,0.75,fz-0.12],[x+W/2-0.15,1.05,fz+0.12],[1.0,0.95,0.85],35,dir>0?5:4); glow([x-W/2+0.15,0.75,bz-0.12],[x+W/2-0.15,1.05,bz+0.12],[1.0,0.08,0.05],25,dir>0?4:5); }
+car(-3, 0, +1, [0.55,0.08,0.08]); car(4.5, 18, -1, [0.1,0.18,0.5]); car(-3, -22, +1, [0.75,0.7,0.2]); car(4.5, -38, -1, [0.6,0.6,0.62]);
+</script>
+<script>
+// ---------- Sign artwork (drawn on a canvas atlas) and placement ----------
 const SANS = '"Arial Black", Impact, "Helvetica Neue", Arial, sans-serif';
 const FONT = (px, w='bold') => `${w} ${px}px ${SANS}`;
 function txt(ctx, s, x, y, px, color, {align='center', glow=0, weight='bold', base='middle'}={}){
@@ -364,68 +398,87 @@ function bg(ctx, W, H, color){ ctx.fillStyle = color; ctx.fillRect(0,0,W,H); }
 function frame(ctx, W, H, color, t){ ctx.strokeStyle = color; ctx.lineWidth = t; ctx.shadowColor = color; ctx.shadowBlur = t*2; ctx.strokeRect(t, t, W-2*t, H-2*t); ctx.shadowBlur = 0; }
 function bulbs(ctx, y, W, n, color, r){ ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = r*2; for (let i=0;i<n;i++){ ctx.beginPath(); ctx.arc((i+0.5)*W/n, y, r, 0, 6.283); ctx.fill(); } ctx.shadowBlur = 0; }
 function dots(ctx, x0, y0, w, h, cols, rows, color){ ctx.fillStyle = color; for (let j=0;j<rows;j++) for (let i=0;i<cols;i++){ if (((i*7+j*13)%5)<3) ctx.fillRect(x0+i*w/cols, y0+j*h/rows, w/cols*0.6, h/rows*0.6); } }
+function windowRows(ctx, W, H, rows){ bg(ctx,W,H,'#0a0c12'); for (const [y0,y1,x0,x1,col,n] of rows){ for (let i=0;i<n;i++){ const x = x0*W + i*(x1-x0)*W/n; ctx.fillStyle = col; ctx.fillRect(x+ (x1-x0)*W/n*0.08, y0*H, (x1-x0)*W/n*0.84, (y1-y0)*H); } } }
 
-// Back wall billboard: THE RING
-sign({pos:[-3,112,47.7], axis:'z', w:26, h:30, face:4, I:2.2, draw:(c,W,H)=>{
+// Back tower: THE RING billboard, lit office floors, jellyfish, neon script
+signZ([0.24,0.15,0.44,0.31], 60, {I:2.2, draw:(c,W,H)=>{
   const g = c.createLinearGradient(0,0,0,H); g.addColorStop(0,'#1d3f8f'); g.addColorStop(0.55,'#5b8fd6'); g.addColorStop(0.85,'#f0b27a'); g.addColorStop(1,'#c96b3a');
   c.fillStyle = g; c.fillRect(0,0,W,H);
   c.fillStyle = 'rgba(255,255,255,0.85)'; for (const [x,y,r] of [[0.2,0.55,0.11],[0.3,0.58,0.09],[0.72,0.5,0.13],[0.82,0.54,0.08],[0.5,0.7,0.1]]) { c.beginPath(); c.ellipse(x*W,y*H,r*W,r*W*0.45,0,0,6.283); c.fill(); }
-  c.fillStyle = '#1a2340'; c.fillRect(0.68*W,0.3*H,0.025*W,0.5*H); c.fillRect(0.6*W,0.3*H,0.19*W,0.02*H); // antenna mast
+  c.fillStyle = '#1a2340'; c.fillRect(0.68*W,0.3*H,0.025*W,0.5*H); c.fillRect(0.6*W,0.3*H,0.19*W,0.02*H);
   c.fillStyle = '#243a6b'; c.fillRect(0,0.86*H,W,0.14*H);
-  txt(c, 'THE RING', 0.06*W, 0.14*H, 0.11*W, '#ffffff', {align:'left', glow:6});
-  txt(c, 'Live above', 0.07*W, 0.33*H, 0.055*W, '#ffffff', {align:'left', weight:'normal'});
-  txt(c, 'the acid rain.', 0.07*W, 0.41*H, 0.055*W, '#ffffff', {align:'left', weight:'normal'});
+  txt(c, 'THE RING', 0.06*W, 0.16*H, 0.11*W, '#ffffff', {align:'left', glow:6});
+  txt(c, 'Live above', 0.07*W, 0.36*H, 0.055*W, '#ffffff', {align:'left', weight:'normal'});
+  txt(c, 'the acid rain.', 0.07*W, 0.44*H, 0.055*W, '#ffffff', {align:'left', weight:'normal'});
   txt(c, 'RESIDENCES · LEASING NOW · 02-554-RING', 0.5*W, 0.93*H, 0.034*W, '#9fb6e8', {weight:'normal'});
-  c.fillStyle = '#ff3fa4'; for (let i=0;i<12;i++){ c.fillRect(0.4*W+i*0.045*W, 0.05*H, 0.03*W, 0.012*H); }
+  c.fillStyle = '#ff3fa4'; for (let i=0;i<12;i++){ c.fillRect(0.4*W+i*0.045*W, 0.04*H, 0.03*W, 0.012*H); } c.fillStyle = '#35e4ff'; for (let i=0;i<12;i++){ c.fillRect(0.4*W+i*0.045*W, 0.06*H, 0.03*W, 0.012*H); }
 }});
-// Left-wall flag signs
-sign({pos:[-13,122,20], axis:'z', w:5, h:20, face:8, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#9b0f1e'); frame(c,W,H,'#ff6a7a',W*0.03); vtxt(c,'カラオケ',W/2,0.08*H,0.92*H,0.62*W,'#fff0f0',8); }});
-sign({pos:[-11,150,14], axis:'z', w:6, h:22, face:8, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#0f7a3a'); vtxt(c,'有道',W/2,0.03*H,0.33*H,0.55*W,'#dfffe8',4); vtxt(c,'麺面',W/2,0.34*H,0.64*H,0.55*W,'#dfffe8',4); dots(c,0.1*W,0.68*H,0.8*W,0.28*H,8,14,'#f6ff9a'); }});
-sign({pos:[-12,44,14], axis:'z', w:7, h:7, face:8, I:9, draw:(c,W,H)=>{ bg(c,W,H,'#0d2a7a');
+signZ([0.11,0.31,0.45,0.405], 60, {I:5, draw:(c,W,H)=>windowRows(c,W,H,[[0.03,0.2,0.0,1.0,'#ffe6b8',26],[0.26,0.36,0.0,0.55,'#ffd9a0',14],[0.45,0.62,0.45,1.0,'#fff0d0',16],[0.68,0.82,0.5,1.0,'#ffe2b0',16],[0.86,0.97,0.0,0.4,'#ffd9a0',10]])});
+signZ([0.465,0.21,0.545,0.295], 60, {I:8, draw:(c,W,H)=>{ bg(c,W,H,'#120a1c'); frame(c,W,H,'#b04bff',W*0.03); c.strokeStyle='#d98cff'; c.lineWidth=W*0.03; c.shadowColor='#d98cff'; c.shadowBlur=W*0.05;
+  c.beginPath(); c.arc(0.5*W,0.42*H,0.22*W,3.1416,0); c.stroke(); c.beginPath(); c.moveTo(0.28*W,0.42*H); c.lineTo(0.72*W,0.42*H); c.stroke();
+  for (let i=0;i<5;i++){ const x=0.32*W+i*0.09*W; c.beginPath(); c.moveTo(x,0.44*H); c.bezierCurveTo(x-0.05*W,0.6*H,x+0.05*W,0.7*H,x,0.86*H); c.stroke(); } c.shadowBlur=0; }});
+signZ([0.45,0.33,0.66,0.35], 60, {I:9, draw:(c,W,H)=>{ bg(c,W,H,'#0b0b10'); txt(c,'LATE AFTER · KEEP CARE · OPEN · 深夜営業',W/2,0.5*H,0.55*H,'#ff7a3d',{glow:10,weight:'normal'}); }});
+signZ([0.598,0.322,0.627,0.348], 60, {I:10, draw:(c,W,H)=>{ bg(c,W,H,'#060a08'); c.strokeStyle='#5dff7a'; c.lineWidth=W*0.1; c.shadowColor='#5dff7a'; c.shadowBlur=W*0.1; c.beginPath(); c.arc(W/2,H/2,W*0.3,0,6.283); c.stroke(); c.shadowBlur=0; }});
+
+// Left near tower, street face z=26
+signZ([0.08,0.14,0.12,0.21], 26, {I:8, draw:(c,W,H)=>{ bg(c,W,H,'#9b0f1e'); frame(c,W,H,'#ff6a7a',W*0.04); vtxt(c,'カラオケ',W/2,0.06*H,0.94*H,0.6*W,'#fff0f0',8); }});
+signZ([0.055,0.395,0.19,0.475], 26, {I:9, draw:(c,W,H)=>{ bg(c,W,H,'#0d2a7a');
   c.strokeStyle='#ff9a2e'; c.lineWidth=W*0.03; c.shadowColor='#ff9a2e'; c.shadowBlur=W*0.04;
   c.beginPath(); c.ellipse(0.26*W,0.5*H,0.17*W,0.07*H,0,0,6.283); c.stroke(); c.beginPath(); c.arc(0.26*W,0.5*H,0.17*W,0,3.1416); c.stroke();
   for (const dx of [-0.07,0,0.07]) { c.beginPath(); c.moveTo((0.26+dx)*W,0.4*H); c.quadraticCurveTo((0.3+dx)*W,0.32*H,(0.26+dx)*W,0.24*H); c.stroke(); } c.shadowBlur=0;
   txt(c,'拉麺',0.7*W,0.42*H,0.3*W,'#ff9a2e',{glow:8}); txt(c,'TONKOTSU ¥800',0.7*W,0.72*H,0.1*W,'#ffd9a8',{weight:'normal'}); }});
-sign({pos:[-15.74,44,9], axis:'x', w:3, h:12, face:1, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#1b47c9'); vtxt(c,'電脳',W/2,0.1*H,0.9*H,0.7*W,'#ffffff',6); }});
-sign({pos:[-11.5,12,10], axis:'z', w:7, h:6, face:8, I:9, draw:(c,W,H)=>{ bg(c,W,H,'#0b0d12'); c.strokeStyle='#35e4ff'; c.lineWidth=W*0.02; c.shadowColor='#35e4ff'; c.shadowBlur=W*0.03;
+signZ([0.0,0.375,0.035,0.44], 26, {I:7, draw:(c,W,H)=>{ bg(c,W,H,'#1b47c9'); vtxt(c,'電脳',W/2,0.1*H,0.9*H,0.7*W,'#ffffff',6); }});
+signZ([0.0,0.30,0.13,0.36], 26, {I:5, draw:(c,W,H)=>windowRows(c,W,H,[[0.08,0.2,0,1,'#ffe6b8',12],[0.42,0.52,0,1,'#ffd9a0',12],[0.74,0.86,0.2,1,'#ffe6b8',10]])});
+signZ([0.02,0.735,0.135,0.8], 26, {I:9, draw:(c,W,H)=>{ bg(c,W,H,'#0b0d12'); c.strokeStyle='#35e4ff'; c.lineWidth=W*0.02; c.shadowColor='#35e4ff'; c.shadowBlur=W*0.03;
   for (const [x,y,sx,sy] of [[0.05,0.08,1,1],[0.95,0.08,-1,1],[0.05,0.92,1,-1],[0.95,0.92,-1,-1]]) { c.beginPath(); c.moveTo(x*W+sx*0.2*W,y*H); c.lineTo(x*W,y*H); c.lineTo(x*W,y*H+sy*0.25*H); c.stroke(); } c.shadowBlur=0;
-  txt(c,'MECH WORKS',W/2,0.5*H,0.14*W,'#ffb347',{glow:10}); txt(c,'整備・改造',W/2,0.76*H,0.08*W,'#8fd9ff',{weight:'normal'}); }});
-sign({pos:[-9,3.2,12], axis:'z', w:8, h:2.4, face:8, I:8, draw:(c,W,H)=>{ bg(c,W,H,'#4a1a9c'); txt(c,'OPEN 24H',0.6*W,0.5*H,0.5*H,'#ffffff',{glow:6}); c.fillStyle='#ffffff'; c.fillRect(0.08*W,0.3*H,0.16*W,0.4*H); c.fillStyle='#4a1a9c'; c.fillRect(0.11*W,0.38*H,0.1*W,0.24*H); }});
-sign({pos:[-11,74,12], axis:'z', w:8, h:2.8, face:8, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#101014'); txt(c,'BREAKING',0.3*W,0.42*H,0.4*H,'#ffb347',{glow:5}); txt(c,'▮▮▮ 22:40 ▮▮▮',0.72*W,0.42*H,0.22*H,'#ffb347',{weight:'normal'}); txt(c,'DOWNTOWN LINE · PLATFORM 4 · DELAYED',0.5*W,0.78*H,0.2*H,'#ffd9a8',{weight:'normal'}); }});
-// Right-wall flag signs
-sign({pos:[12.5,95,30], axis:'z', w:5, h:26, face:8, I:8, draw:(c,W,H)=>{ bg(c,W,H,'#120a0c'); frame(c,W,H,'#ff2a3a',W*0.035); vtxt(c,'近近平無常',W/2,0.05*H,0.95*H,0.58*W,'#ff4d5a',10); }});
-sign({pos:[12,142,12], axis:'z', w:7, h:14, face:8, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#f2c21b'); txt(c,'RAAR',W/2,0.14*H,0.42*W,'#c8102e'); c.fillStyle='#1a1a1a'; c.fillRect(0.1*W,0.27*H,0.8*W,0.015*H); vtxt(c,'東京発',W/2,0.3*H,0.72*H,0.4*W,'#1a1a1a'); txt(c,'¥30',W/2,0.86*H,0.3*W,'#c8102e'); }});
-sign({pos:[11,8,16], axis:'z', w:9, h:5, face:8, I:8, draw:(c,W,H)=>{ bg(c,W,H,'#0d2b1c'); frame(c,W,H,'#38e07a',W*0.015); txt(c,'DA MALL 3000',W/2,0.4*H,0.13*W,'#9dffc0',{glow:8}); txt(c,'本館 · B2–7F · 営業中',W/2,0.76*H,0.07*W,'#38e07a',{weight:'normal'}); }});
-sign({pos:[12.5,18,11], axis:'z', w:6, h:10, face:8, I:8, draw:(c,W,H)=>{ bg(c,W,H,'#0a0b12'); c.strokeStyle='#35e4ff'; c.lineWidth=W*0.035; c.shadowColor='#35e4ff'; c.shadowBlur=W*0.06;
-  c.beginPath(); c.moveTo(0.1*W,0.45*H); c.quadraticCurveTo(0.5*W,0.1*H,0.9*W,0.45*H); c.quadraticCurveTo(0.5*W,0.8*H,0.1*W,0.45*H); c.stroke();
-  c.beginPath(); c.arc(0.5*W,0.45*H,0.17*W,0,6.283); c.stroke(); c.strokeStyle='#ffd23f'; c.shadowColor='#ffd23f'; c.beginPath(); c.arc(0.5*W,0.45*H,0.07*W,0,6.283); c.stroke();
-  for (let i=0;i<7;i++){ const a=-2.6+i*0.37; c.beginPath(); c.moveTo(0.5*W+Math.cos(a)*0.46*W,0.45*H+Math.sin(a)*0.3*H); c.lineTo(0.5*W+Math.cos(a)*0.55*W,0.45*H+Math.sin(a)*0.38*H); c.stroke(); } c.shadowBlur=0;
-  txt(c,'見 · OPTIKA',W/2,0.88*H,0.13*W,'#35e4ff',{weight:'normal'}); }});
-// Back wall details
-sign({pos:[14,103,47.7], axis:'z', w:8, h:9, face:4, I:8, draw:(c,W,H)=>{ bg(c,W,H,'#120a1c'); frame(c,W,H,'#b04bff',W*0.03); c.strokeStyle='#d98cff'; c.lineWidth=W*0.03; c.shadowColor='#d98cff'; c.shadowBlur=W*0.05;
-  c.beginPath(); c.arc(0.5*W,0.42*H,0.22*W,3.1416,0); c.stroke(); c.beginPath(); c.moveTo(0.28*W,0.42*H); c.lineTo(0.72*W,0.42*H); c.stroke();
-  for (let i=0;i<5;i++){ const x=0.32*W+i*0.09*W; c.beginPath(); c.moveTo(x,0.44*H); c.bezierCurveTo(x-0.05*W,0.6*H,x+0.05*W,0.7*H,x,0.86*H); c.stroke(); } c.shadowBlur=0; }});
-sign({pos:[2,64,47.7], axis:'z', w:22, h:3.5, face:4, I:9, draw:(c,W,H)=>{ bg(c,W,H,'#0b0b10'); txt(c,'LATE AFTER NIGHT · KISSA · OPEN · 深夜営業',W/2,0.5*H,0.5*H,'#ff7a3d',{glow:10,weight:'normal'}); }});
-sign({pos:[0,16,33.7], axis:'z', w:4.5, h:24, face:4, I:6, draw:(c,W,H)=>{ bg(c,W,H,'#ff2f8f'); vtxt(c,'ネオ自動車',W/2,0.03*H,0.72*H,0.6*W,'#ffffff',8); txt(c,'NEO',W/2,0.8*H,0.32*W,'#ffffff'); txt(c,'MOTORS',W/2,0.86*H,0.17*W,'#ffd6ea'); txt(c,'新車',W/2,0.94*H,0.2*W,'#ffffff',{weight:'normal'}); }});
-// Walkway signs
-sign({pos:[-6.5,31,19.75], axis:'z', w:9, h:3.2, face:4, I:9, draw:(c,W,H)=>{ bg(c,W,H,'#07090d'); txt(c,'BAR ZERO',W/2,0.42*H,0.5*H,'#35f2e6',{glow:12}); txt(c,'cocktails · 零 · 3F',W/2,0.8*H,0.18*H,'#9ff7f0',{weight:'normal'}); }});
-sign({pos:[2.5,27.2,19.75], axis:'z', w:16, h:2.6, face:4, I:9, draw:(c,W,H)=>{ bg(c,W,H,'#1b0b3a'); txt(c,'OPTIC IMPLANTS',0.5*W,0.36*H,0.5*H,'#ffb4e6',{glow:8}); txt(c,'CYBERWARE · サイバーウェア',0.5*W,0.76*H,0.26*H,'#b8a6ff',{weight:'normal'}); txt(c,'視覚移植 体',0.93*W,0.76*H,0.2*H,'#b8a6ff',{weight:'normal',align:'right'}); }});
-sign({pos:[-10.5,24.3,20.5], axis:'z', w:3, h:1.6, face:4, I:10, draw:(c,W,H)=>{ bg(c,W,H,'#0e8a3c'); c.fillStyle='#ffffff'; c.beginPath(); c.arc(0.2*W,0.3*H,0.07*W,0,6.283); c.fill(); c.fillRect(0.17*W,0.38*H,0.06*W,0.3*H); c.fillRect(0.12*W,0.62*H,0.16*W,0.06*W); c.fillRect(0.1*W,0.4*H,0.2*W,0.05*W); txt(c,'非常口',0.62*W,0.32*H,0.3*H,'#ffffff',{weight:'normal'}); txt(c,'EXIT',0.62*W,0.7*H,0.4*H,'#ffffff'); }});
-sign({pos:[7,38.5,23.3], axis:'z', w:16, h:8.5, face:8, I:6, draw:(c,W,H)=>{ bg(c,W,H,'#b3121f'); c.fillStyle='#1a0507'; c.beginPath(); c.arc(0.82*W,0.42*H,0.14*W,0,6.283); c.fill(); c.fillRect(0.74*W,0.42*H,0.16*W,0.3*H);
-  txt(c,'BNEPEAI',0.08*W,0.3*H,0.17*W,'#ffffff',{align:'left',glow:4}); txt(c,'¥22,000/DAY',0.08*W,0.55*H,0.09*W,'#ffd166',{align:'left'}); txt(c,'STAY LONGER · CAPSULE SUITES · 深夜割引',0.08*W,0.7*H,0.04*W,'#ffd9d9',{align:'left',weight:'normal'});
-  c.fillStyle='#ffffff'; for (let i=0;i<20;i++) c.fillRect(0.02*W+i*0.03*W,0.04*H,0.018*W,0.03*H); bulbs(c,0.88*H,W,26,'#ffe28a',W*0.011); }});
-sign({pos:[12,40,33], axis:'z', w:8, h:17, face:8, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#0b1020'); txt(c,'CH 3000 NEWS',0.5*W,0.08*H,0.11*W,'#ffffff'); c.fillStyle='#e01b2b'; c.fillRect(0.72*W,0.13*H,0.2*W,0.05*H); txt(c,'LIVE',0.82*W,0.155*H,0.07*W,'#ffffff');
-  c.fillStyle='#e01b2b'; c.fillRect(0,0.42*H,W,0.14*H); txt(c,'BREAKING',0.5*W,0.49*H,0.15*W,'#ffffff');
-  c.fillStyle='#f4f4f4'; c.fillRect(0,0.56*H,W,0.22*H); txt(c,'DOWNTOWN LINE',0.5*W,0.63*H,0.1*W,'#101010'); txt(c,'DELAYED',0.5*W,0.72*H,0.1*W,'#101010');
-  c.fillStyle='#1d3fb0'; c.fillRect(0,0.78*H,W,0.22*H); txt(c,'市内線 遅延 · 22:41',0.5*W,0.84*H,0.07*W,'#ffffff',{weight:'normal'}); txt(c,'次の列車 未定',0.5*W,0.93*H,0.07*W,'#ffffff',{weight:'normal'}); }});
+  c.fillStyle='#ff3fa4'; c.fillRect(0.3*W,0.12*H,0.3*W,0.16*H); txt(c,'整備',0.45*W,0.2*H,0.1*W,'#ffffff',{weight:'normal'});
+  txt(c,'MECH WORKS',W/2,0.55*H,0.14*W,'#ffb347',{glow:10}); txt(c,'整備・改造',W/2,0.8*H,0.08*W,'#8fd9ff',{weight:'normal'}); }});
+glowZ([0.03,0.815,0.11,0.89], 26, [1.0,0.85,0.6], 4, 0.3, 4);
+// Flags hanging in the canyon
+{ const G = rectZ([0.17,-0.06,0.29,0.17], 24); signZ([0.17,-0.06,0.29,0.17], 24, {face:8, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#0f7a3a'); vtxt(c,'真直',W/2,0.03*H,0.3*H,0.55*W,'#dfffe8',4); vtxt(c,'麺面',W/2,0.32*H,0.6*H,0.55*W,'#dfffe8',4); dots(c,0.1*W,0.64*H,0.8*W,0.33*H,8,16,'#f6ff9a'); }});
+  block([G.x0-0.3,G.y1-4,24],[G.x0+0.3,G.y1-3.4,26],[0.25,0.25,0.25]); block([G.x0-0.3,G.y0+1,24],[G.x0+0.3,G.y0+1.6,26],[0.25,0.25,0.25]); }
+signZ([0.145,0.235,0.21,0.27], 50, {face:8, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#101014'); txt(c,'BREAKING',0.5*W,0.22*H,0.3*H,'#ffb347',{glow:5}); c.fillStyle='#1d3fb0'; c.fillRect(0.1*W,0.48*H,0.8*W,0.42*H); txt(c,'E:11 · 22:40',0.5*W,0.69*H,0.22*H,'#ffffff',{weight:'normal'}); }});
+{ const R = rectZ([0.69,0.22,0.755,0.34], 50); signZ([0.69,0.22,0.755,0.34], 50, {face:8, I:8, draw:(c,W,H)=>{ bg(c,W,H,'#120a0c'); frame(c,W,H,'#ff2a3a',W*0.035); vtxt(c,'近近平無常',W/2,0.05*H,0.95*H,0.58*W,'#ff4d5a',10); }});
+  block([R.x1,(R.y0+R.y1)/2,49.7],[17.2,(R.y0+R.y1)/2+0.5,50.3],[0.25,0.25,0.25]); }
+// Right tower A, street face z=42
+signZ([0.87,0.05,0.96,0.15], 42, {I:7, draw:(c,W,H)=>{ bg(c,W,H,'#f2c21b'); txt(c,'RAAR',W/2,0.14*H,0.42*W,'#c8102e'); c.fillStyle='#1a1a1a'; c.fillRect(0.1*W,0.27*H,0.8*W,0.015*H); vtxt(c,'東京発',W/2,0.3*H,0.72*H,0.4*W,'#1a1a1a'); txt(c,'¥30',W/2,0.86*H,0.3*W,'#c8102e'); }});
+signZ([0.945,0.165,0.975,0.21], 42, {I:8, draw:(c,W,H)=>{ bg(c,W,H,'#0a0812'); c.fillStyle='#b04bff'; c.shadowColor='#b04bff'; c.shadowBlur=W*0.1; c.beginPath(); c.moveTo(0.1*W,0.1*H); c.lineTo(0.9*W,0.3*H); c.lineTo(0.5*W,0.9*H); c.closePath(); c.fill(); c.shadowBlur=0; }});
+// Right low tower C, face z=36: eye sign, tube
+signZ([0.875,0.80,0.945,0.95], 36, {I:8, draw:(c,W,H)=>{ bg(c,W,H,'#0a0b12'); c.strokeStyle='#35e4ff'; c.lineWidth=W*0.035; c.shadowColor='#35e4ff'; c.shadowBlur=W*0.06;
+  c.beginPath(); c.moveTo(0.1*W,0.3*H); c.quadraticCurveTo(0.5*W,0.08*H,0.9*W,0.3*H); c.quadraticCurveTo(0.5*W,0.52*H,0.1*W,0.3*H); c.stroke();
+  c.beginPath(); c.arc(0.5*W,0.3*H,0.17*W,0,6.283); c.stroke(); c.strokeStyle='#ffd23f'; c.shadowColor='#ffd23f'; c.beginPath(); c.arc(0.5*W,0.3*H,0.07*W,0,6.283); c.stroke();
+  for (let i=0;i<7;i++){ const a=-2.6+i*0.37; c.beginPath(); c.moveTo(0.5*W+Math.cos(a)*0.46*W,0.3*H+Math.sin(a)*0.2*H); c.lineTo(0.5*W+Math.cos(a)*0.55*W,0.3*H+Math.sin(a)*0.26*H); c.stroke(); } c.shadowBlur=0;
+  vtxt(c,'見る',W/2,0.58*H,0.8*H,0.3*W,'#35e4ff',4); txt(c,'OPTIKA',W/2,0.9*H,0.16*W,'#35e4ff',{weight:'normal'}); }});
+glowZ([0.955,0.86,0.965,0.955], 36, [0.5,1.0,1.0], 8, 0.3, 9);
+signZ([0.915,0.955,0.955,0.975], 36, {I:8, draw:(c,W,H)=>{ bg(c,W,H,'#4a1a9c'); txt(c,'OPEN',W/2,0.5*H,0.5*H,'#ffffff'); }});
+// DA MALL annex z=34
+signZ([0.71,0.855,0.81,0.89], 34, {I:8, draw:(c,W,H)=>{ bg(c,W,H,'#0d2b1c'); frame(c,W,H,'#38e07a',W*0.015); txt(c,'DA MALL 3000 · 本館',W/2,0.5*H,0.09*W,'#9dffc0',{glow:8}); }});
+glowZ([0.698,0.78,0.704,0.84], 34, [1.0,0.9,0.6], 6, 0.2, 9);
+// NEO motors building z=40
+signZ([0.425,0.715,0.47,0.915], 39.6, {face:8, d:0.6, I:6, draw:(c,W,H)=>{ bg(c,W,H,'#ff2f8f'); vtxt(c,'ネオ自動車',W/2,0.03*H,0.6*H,0.62*W,'#ffffff',8); txt(c,'NEO',W/2,0.69*H,0.34*W,'#ffffff'); txt(c,'MOTORS',W/2,0.75*H,0.17*W,'#ffd6ea'); txt(c,'新車',W/2,0.86*H,0.24*W,'#ffffff',{weight:'normal'}); }});
+signZ([0.36,0.79,0.42,0.805], 40, {I:8, draw:(c,W,H)=>{ bg(c,W,H,'#14080a'); txt(c,'丸和 商事 · 営業中',W/2,0.5*H,0.55*H,'#ff5a4a',{glow:6,weight:'normal'}); }});
+signZ([0.165,0.915,0.3,0.955], 40, {I:8, draw:(c,W,H)=>{ bg(c,W,H,'#4a1a9c'); txt(c,'OPEN 24H',0.6*W,0.5*H,0.5*H,'#ffffff',{glow:6}); c.fillStyle='#ffffff'; c.fillRect(0.08*W,0.3*H,0.16*W,0.4*H); c.fillStyle='#4a1a9c'; c.fillRect(0.11*W,0.38*H,0.1*W,0.24*H); }});
+// Walkway plane
+signW(0.265,0.365,0.48,0.51, {I:9, draw:(c,W,H)=>{ bg(c,W,H,'#07090d'); txt(c,'BAR ZERO',W/2,0.42*H,0.5*H,'#35f2e6',{glow:12}); txt(c,'cocktails · 零 · 3F',W/2,0.8*H,0.18*H,'#9ff7f0',{weight:'normal'}); }});
+signW(0.44,0.68,0.525,0.59, {I:9, draw:(c,W,H)=>{ bg(c,W,H,'#1b0b3a'); txt(c,'OPTIC IMPLANTS',0.5*W,0.36*H,0.5*H,'#ffb4e6',{glow:8}); txt(c,'CYBERWARE · サイバーウェア',0.5*W,0.76*H,0.26*H,'#b8a6ff',{weight:'normal'}); txt(c,'視覚移植 体',0.93*W,0.76*H,0.2*H,'#b8a6ff',{weight:'normal',align:'right'}); }});
+signW(0.365,0.445,0.595,0.64, {I:10, draw:(c,W,H)=>{ bg(c,W,H,'#0e8a3c'); c.fillStyle='#ffffff'; c.beginPath(); c.arc(0.2*W,0.3*H,0.07*W,0,6.283); c.fill(); c.fillRect(0.17*W,0.38*H,0.06*W,0.3*H); c.fillRect(0.12*W,0.62*H,0.16*W,0.06*W); c.fillRect(0.1*W,0.4*H,0.2*W,0.05*W); txt(c,'非常口',0.62*W,0.32*H,0.3*H,'#ffffff',{weight:'normal'}); txt(c,'EXIT',0.62*W,0.7*H,0.4*H,'#ffffff'); }});
+signW(0.53,0.73,0.385,0.49, {I:6, d:0.6, draw:(c,W,H)=>{ bg(c,W,H,'#b3121f'); c.fillStyle='#1a0507'; c.beginPath(); c.arc(0.82*W,0.42*H,0.14*W,0,6.283); c.fill(); c.fillRect(0.74*W,0.42*H,0.16*W,0.3*H);
+  c.fillStyle='#1f7a3a'; c.fillRect(0,0,0.07*W,H); c.fillStyle='#ff3b3b'; c.beginPath(); for (let i=0;i<5;i++){ const a=-1.571+i*2.513; c.lineTo(0.035*W+Math.cos(a)*0.03*W,0.12*H+Math.sin(a)*0.03*W); } c.closePath(); c.fill(); vtxt(c,'TPYA',0.035*W,0.25*H,0.9*H,0.05*W,'#ffd9d9',2);
+  txt(c,'BNEPEAI',0.12*W,0.3*H,0.16*W,'#ffffff',{align:'left',glow:4}); txt(c,'¥22,000/DAY',0.12*W,0.55*H,0.085*W,'#ffd166',{align:'left'}); txt(c,'STAY LONGER · CAPSULE SUITES · 深夜割引',0.12*W,0.7*H,0.04*W,'#ffd9d9',{align:'left',weight:'normal'});
+  c.fillStyle='#ffffff'; for (let i=0;i<20;i++) c.fillRect(0.1*W+i*0.03*W,0.04*H,0.018*W,0.03*H); bulbs(c,0.9*H,W,26,'#ffe28a',W*0.011); }});
+signW(0.75,0.97,0.375,0.6, {I:7, d:0.6, draw:(c,W,H)=>{ bg(c,W,H,'#0b1020'); txt(c,'CH 3000 NEWS',0.5*W,0.07*H,0.11*W,'#ffffff'); c.fillStyle='#e01b2b'; c.fillRect(0.72*W,0.12*H,0.2*W,0.05*H); txt(c,'LIVE',0.82*W,0.145*H,0.07*W,'#ffffff');
+  c.fillStyle='#17203a'; for (let j=0;j<4;j++) for (let i=0;i<6;i++) c.fillRect(0.06*W+i*0.15*W,0.2*H+j*0.07*H,0.1*W,0.045*H);
+  c.fillStyle='#e01b2b'; c.fillRect(0,0.56*H,W,0.1*H); txt(c,'BREAKING',0.5*W,0.61*H,0.14*W,'#ffffff');
+  c.fillStyle='#f4f4f4'; c.fillRect(0,0.66*H,W,0.2*H); txt(c,'DOWNTOWN LINE',0.5*W,0.72*H,0.1*W,'#101010'); txt(c,'DELAYED',0.5*W,0.8*H,0.1*W,'#101010');
+  c.fillStyle='#1d3fb0'; c.fillRect(0,0.86*H,W,0.14*H); txt(c,'市内線 遅延 · 22:41 · 次の列車 未定',0.5*W,0.93*H,0.06*W,'#ffffff',{weight:'normal'}); }});
 
 function buildAtlas(){
-  const W = 2048, H = 2048, PPM = 24, pad = 4;
+  const W = 2048, H = 2048, PPM = 26, pad = 4;
   const items = boxes.map((b,i)=>({i,b})).filter(x=>x.b.draw).map(x=>{
-    const s = Math.min(1, 900/(Math.max(x.b.w, x.b.h)*PPM));
-    return {i:x.i, b:x.b, w:Math.max(48, Math.round(x.b.w*PPM*s)), h:Math.max(48, Math.round(x.b.h*PPM*s))}; });
+    const s = Math.min(1, 900/(Math.max(x.b.sw, x.b.sh)*PPM));
+    return {i:x.i, b:x.b, w:Math.max(40, Math.round(x.b.sw*PPM*s)), h:Math.max(40, Math.round(x.b.sh*PPM*s))}; });
   items.sort((a,b)=>b.h-a.h);
-  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d', {willReadFrequently:true});
   ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H);
   let x = pad, y = pad, rowH = 0;
   for (const it of items){
@@ -473,32 +526,32 @@ gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 const NB = boxes.length; if (NB > 128) fail('Too many boxes: ' + NB);
-const bmin = new Float32Array(128*4), bmax = new Float32Array(128*4), mat = new Float32Array(NB*16);
-boxes.forEach((b,i)=>{ bmin.set([...b.min,0], i*4); bmax.set([...b.max,0], i*4);
+const bc = new Float32Array(128*4), bh = new Float32Array(128*4), mat = new Float32Array(NB*16);
+boxes.forEach((b,i)=>{ const a = b.yaw*Math.PI/180; bc.set([...b.c, Math.cos(a)], i*4); bh.set([...b.h, b.yaw ? Math.sin(a) : 0], i*4);
   mat.set([...b.alb, b.rough, b.f0, b.type, b.face, 0, ...b.emis, 0, ...b.extra], i*16); });
-const faceArea = (b,f) => { const e = [b.max[0]-b.min[0], b.max[1]-b.min[1], b.max[2]-b.min[2]]; return f<2 ? e[1]*e[2] : f<4 ? e[0]*e[2] : e[0]*e[1]; };
+const faceArea = (b,f) => 4*(f<2 ? b.h[1]*b.h[2] : f<4 ? b.h[0]*b.h[2] : b.h[0]*b.h[1]);
 const lights = [];
 boxes.forEach((b,i)=>{ if (b.face<0 || b.type===0 || b.type===4) return;
   const faces = b.face===9 ? [0,1,2,3,4,5] : b.face<6 ? [b.face] : [(b.face-6)*2, (b.face-6)*2+1];
   for (const f of faces){ const a = faceArea(b,f); if (a < 0.05) continue;
-    if (b.type===2) { if (f===2 || f===3) continue; lights.push({i, f, w: a*b.extra[2]*0.42*4.0*0.75}); continue; }
+    if (b.type===2) { if (f===2 || f===3) continue; lights.push({i, f, w: a*b.extra[2]*0.42*2.6*0.75}); continue; }
     const L = 0.3*b.emis[0]+0.5*b.emis[1]+0.2*b.emis[2]; lights.push({i, f, w: a*L*(b.type===1 ? b.lum*18 : 1)}); } });
 const NL = lights.length, wsum = lights.reduce((s,l)=>s+l.w, 0); let cdf = 0;
 const lightData = new Float32Array(NL*4);
 lights.forEach((l,k)=>{ const p = 0.85*l.w/wsum + 0.15/NL; cdf += p; lightData.set([l.i, l.f, cdf, p], k*4); });
 const matTex = tex2D(NB*4, 1, gl.RGBA32F, gl.RGBA, gl.FLOAT, mat);
 const lightTex = tex2D(NL, 1, gl.RGBA32F, gl.RGBA, gl.FLOAT, lightData);
-gl.useProgram(PT.p); gl.uniform4fv(PT.u['uBMin[0]'], bmin); gl.uniform4fv(PT.u['uBMax[0]'], bmax); gl.uniform1i(PT.u.uNB, NB); gl.uniform1i(PT.u.uNL, NL);
+gl.useProgram(PT.p); gl.uniform4fv(PT.u['uBC[0]'], bc); gl.uniform4fv(PT.u['uBH[0]'], bh); gl.uniform1i(PT.u.uNB, NB); gl.uniform1i(PT.u.uNL, NL);
 gl.uniform1i(PT.u.uMat, 1); gl.uniform1i(PT.u.uLights, 2); gl.uniform1i(PT.u.uAtlas, 3); gl.uniform1i(PT.u.uPrev, 0);
-gl.uniform1f(PT.u.uWinI, 4.0); gl.uniform1f(PT.u.uSignI, 2.0); gl.uniform1f(PT.u.uSky, 2.0);
+gl.uniform1f(PT.u.uWinI, 2.6); gl.uniform1f(PT.u.uSignI, 2.0); gl.uniform1f(PT.u.uSky, 3.0);
 
-// Camera presets. yaw: 0 looks down +z; pitch in degrees, up is positive.
+// Camera presets. yaw: 0 looks down +z; pitch in degrees, up is positive. "street" is the reference camera the composition was built from.
 const PRESETS = {
-  street: {pos:[0.4,6,-2], yaw:0, pitch:53, fov:82, w:720, h:1080, exposure:-1.2},
-  gta:    {pos:[0,52,6], yaw:0, pitch:-80, fov:76, w:1200, h:900, exposure:-0.4},
-  bridge: {pos:[0,38,-14], yaw:0, pitch:-4, fov:72, w:1200, h:800, exposure:-1.0},
+  street: {pos:[...REF.pos], yaw:0, pitch:REF.pitch, fov:REF.fov, w:720, h:1080, exposure:-1.0},
+  gta:    {pos:[1,78,0], yaw:0, pitch:-82, fov:70, w:1200, h:900, exposure:-0.4},
+  bridge: {pos:[-1,3,8], yaw:5, pitch:45, fov:85, w:1200, h:800, exposure:-1.0},
 };
-const S = { preset:'street', ps:3, bounces:4, lightMode:0, exposure:-1.2, dither:true, bloom:true, haze:true, paused:false, levels:16 };
+const S = { preset:'street', ps:3, bounces:4, lightMode:0, exposure:-1.0, dither:true, bloom:true, haze:true, paused:false, levels:16 };
 const cam = {pos:[0,2,0], yaw:0, pitch:0, fov:90, w:720, h:1080};
 let acc = [], accFb = [], bloomT = [], bloomFb = [], iw = 0, ih = 0, cur = 0, N = 0, frame = 0, spp = 1;
 let stat = {t0: performance.now(), n0: 0};
@@ -551,7 +604,7 @@ let lastT = performance.now();
 function loop(){
   requestAnimationFrame(loop);
   if (!S.paused && N < 200000){
-    const t = performance.now(); tracePass(); gl.finish ? null : 0;
+    const t = performance.now(); tracePass();
     const dt = performance.now() - t; if (dt < 10 && spp < 4) spp++; else if (dt > 40 && spp > 1) spp--;
   }
   if (S.bloom) bloomPass(); showPass();

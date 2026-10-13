@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon Block Render</title>
+<style>
+  @font-face { font-family: 'Noto Sans JP'; font-weight: 900; src: url(vendor/fonts/noto-sans-jp-latin-900-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+25A0-25FF; }
+  @font-face { font-family: 'Noto Sans JP'; font-weight: 900; src: url(vendor/fonts/noto-sans-jp-japanese-900-normal.woff2) format('woff2'); unicode-range: U+3000-30FF, U+4E00-9FFF, U+FF00-FFEF; }
+  @font-face { font-family: 'Noto Sans JP'; font-weight: 700; src: url(vendor/fonts/noto-sans-jp-japanese-700-normal.woff2) format('woff2'); unicode-range: U+3000-30FF, U+4E00-9FFF, U+FF00-FFEF; }
+  @font-face { font-family: 'Orbitron'; font-weight: 700; src: url(vendor/fonts/orbitron-latin-700-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Orbitron'; font-weight: 900; src: url(vendor/fonts/orbitron-latin-900-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Bebas Neue'; src: url(vendor/fonts/bebas-neue-latin-400-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Press Start 2P'; src: url(vendor/fonts/press-start-2p-latin-400-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Limelight'; src: url(vendor/fonts/limelight-latin-400-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Monoton'; src: url(vendor/fonts/monoton-latin-400-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Russo One'; src: url(vendor/fonts/russo-one-latin-400-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F; }
+  @font-face { font-family: 'Russo One'; src: url(vendor/fonts/russo-one-cyrillic-400-normal.woff2) format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  html, body { margin: 0; background: #030308; height: 100%; overflow: hidden; }
+  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; }
+  #hint { position: fixed; left: 12px; bottom: 10px; font: 12px/1.4 system-ui, sans-serif; color: #6a6f85; letter-spacing: .04em; pointer-events: none; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="hint">LED / neon render · move mouse to shift the haze · press S to save PNG</div>
+<script type="module" src="scene.js"></script>
+</body>
+</html>

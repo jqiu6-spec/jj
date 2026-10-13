@@ -71,6 +71,13 @@ bright = np.maximum(out - 0.3, 0)
 bloom = gblur(bright, 3) * 0.22 + gblur(bright, 10) * 0.18 + gblur(bright, 32) * 0.12 + gblur(bright, 100) * 0.03
 out = out + bloom
 
+# 2b) diffuse light bloom: big bright posters scatter light into the night haze and the lens.
+#     Emission convolved with a wide multi-scale PSF -> large emitters get large soft halos, small neon stays tight.
+yy0 = np.linspace(1, 0, H, dtype=np.float32)[:, None, None]
+k2 = W / 2910.0
+glow = gblur(E, 16 * k2) * 0.55 + gblur(E, 50 * k2) * 0.50 + gblur(E, 130 * k2) * 0.20
+out = out + glow * (0.85 + 0.45 * yy0) * (1 - 0.6 * M)
+
 # 3) atmospheric perspective: the tower is ~2 km tall, so signs higher in frame are farther away
 #    -> lower contrast, lifted toward the night-haze colour, softer
 yy = np.linspace(1, 0, H, dtype=np.float32)[:, None, None]   # 1 at top (far), 0 at bottom

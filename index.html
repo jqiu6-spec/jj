@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neon Canyon</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: the render is the page. One dark surface, a slim control rail above it, stats in the corner. */
+:root {
+  --bg: #070a12; --panel: #0d1220; --line: #1c2538; --fg: #dde5f3; --muted: #8391ab;
+  --accent: #35e4ff; --accent2: #ff3fa4; --warn: #ffb347;
+  --display: "Chakra Petch", "Trebuchet MS", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.45 var(--mono);
+  display: flex; flex-direction: column; padding-inline: 16px; padding-block: 0; box-sizing: border-box; min-height: 100%; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; padding-block: 12px 6px; }
+header h1 { font: 700 20px/1.1 var(--display); letter-spacing: 0.04em; margin: 0; text-transform: uppercase; }
+header h1 span { color: var(--accent); }
+header p { margin: 0; color: var(--muted); font-size: 12px; }
+#stats { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#stats b { color: var(--fg); font-weight: 500; }
+.rail { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.rail label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.rail select, .rail input[type=range], .rail button { font: 12px var(--mono); color: var(--fg); background: #141b2d; border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
+.rail input[type=range] { padding: 0; width: 90px; accent-color: var(--accent); }
+.rail input[type=checkbox] { accent-color: var(--accent2); margin: 0; }
+.rail button { cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; }
+.rail button:hover { border-color: var(--accent); }
+.rail button:focus-visible, .rail select:focus-visible, .rail input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rail .val { color: var(--fg); min-width: 2.2em; text-align: right; }
+main { flex: 1 1 auto; min-height: 320px; display: flex; align-items: center; justify-content: center; padding-block: 10px; }
+canvas { image-rendering: pixelated; image-rendering: crisp-edges; max-width: 100%; max-height: calc(100vh - 170px); min-height: 280px;
+  background: #000; border: 1px solid var(--line); cursor: grab; touch-action: none; }
+canvas:active { cursor: grabbing; }
+footer { color: var(--muted); font-size: 11px; padding-block: 4px 12px; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+footer em { color: var(--accent2); font-style: normal; }
+#err { display: none; color: var(--warn); padding: 12px; border: 1px solid var(--warn); border-radius: 6px; max-width: 60ch; }
+@media (prefers-reduced-motion: reduce) { canvas { transition: none; } }
+@media (max-width: 480px) { header h1 { font-size: 17px; } .rail input[type=range] { width: 70px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Neon <span>Canyon</span></h1>
+  <p>Path-traced block city. Every sign, window and headlight is a real light source; colour bleeds, bounces and reflects in the wet street.</p>
+  <div id="stats"><b id="sSamples">0</b> spp · <b id="sRate">0</b> spp/s · <b id="sRes">–</b></div>
+</header>
+<div class="rail">
+  <label>Camera <select id="camera">
+    <option value="street">Street, looking up (photo)</option>
+    <option value="gta">GTA1 top-down</option>
+    <option value="bridge">Bridge level</option>
+  </select></label>
+  <label>Pixel <input id="pixel" type="range" min="1" max="6" step="1" value="3"><span class="val" id="pixelV">3</span></label>
+  <label>Bounces <input id="bounces" type="range" min="1" max="8" step="1" value="4"><span class="val" id="bouncesV">4</span></label>
+  <label>Lighting <select id="lightmode">
+    <option value="0">Full (direct + bounced)</option>
+    <option value="1">Direct only</option>
+    <option value="2">Bounced only</option>
+  </select></label>
+  <label>Exposure <input id="exposure" type="range" min="-6" max="2" step="0.1" value="-1.2"><span class="val" id="exposureV">-1.2</span></label>
+  <label><input id="dither" type="checkbox" checked> Palette dither</label>
+  <label><input id="bloom" type="checkbox" checked> Bloom</label>
+  <label><input id="haze" type="checkbox" checked> Haze</label>
+  <button id="pause" type="button">Pause</button>
+  <button id="reset" type="button">Reset view</button>
+</div>
+<main>
+  <canvas id="c" width="720" height="1080" aria-label="Path-traced neon city render"></canvas>
+  <div id="err"></div>
+</main>
+<footer>
+  <span>Drag to look around · wheel to zoom · the image refines while you wait.</span>
+  <span><em>Direct only</em> shows light straight from the emitters; <em>Bounced only</em> shows only what has reflected off something first.</span>
+</footer>
+<script>
+// ---------- Shaders ----------
+const VS = `#version 300 es
+void main(){ vec2 p = vec2((gl_VertexID<<1)&2, gl_VertexID&2); gl_Position = vec4(p*2.0-1.0, 0.0, 1.0); }`;
+
+const TRACE_FS = `#version 300 es
+precision highp float; precision highp int; precision highp sampler2D;
+#define MAXB 128
+#define PI 3.14159265
+uniform vec4 uBMin[MAXB];
+uniform vec4 uBMax[MAXB];
+uniform int uNB, uNL;
+uniform sampler2D uMat;    // 4 texels per box: albedo+rough | f0,type,emitFace,0 | emission | extra
+uniform sampler2D uLights; // per light: boxId, faceId, cdf, prob
+uniform sampler2D uAtlas;
+uniform sampler2D uPrev;
+uniform vec2 uRes;
+uniform uint uFrame;
+uniform int uSpp, uBounces, uLightMode;
+uniform vec3 uCamPos, uCamF, uCamR, uCamU;
+uniform float uTanHalf, uAspect, uWinI, uSignI, uSky, uFog;
+out vec4 o;
+
+uint seed;
+uint pcg(){ seed = seed*747796405u + 2891336453u; uint w = ((seed >> ((seed >> 28u) + 4u)) ^ seed) * 277803737u; return (w >> 22u) ^ w; }
+float rnd(){ return float(pcg()) * (1.0/4294967296.0); }
+float hash2(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
+
+int faceOf(vec3 n){ return n.x<-0.5?0 : n.x>0.5?1 : n.y<-0.5?2 : n.y>0.5?3 : n.z<-0.5?4 : 5; }
+
+float boxT(vec3 ro, vec3 rd, vec3 ird, vec3 bmin, vec3 bmax, float tMax, out vec3 n){
+  vec3 t0 = (bmin-ro)*ird, t1 = (bmax-ro)*ird;
+  vec3 tn3 = min(t0,t1), tf3 = max(t0,t1);
+  float tn = max(max(tn3.x,tn3.y),tn3.z), tf = min(min(tf3.x,tf3.y),tf3.z);
+  if (tn>tf || tf<=0.0 || tn<=0.0 || tn>=tMax) return -1.0;
+  n = (tn==tn3.x) ? vec3(-sign(rd.x),0,0) : (tn==tn3.y) ? vec3(0,-sign(rd.y),0) : vec3(0,0,-sign(rd.z));
+  return tn;
+}
+int trace(vec3 ro, vec3 rd, float tMax, out float tOut, out vec3 nOut){
+  vec3 ird = 1.0/rd; int id = -1; vec3 n = vec3(0,1,0);
+  for (int i=0;i<uNB;i++){ vec3 nn; float t = boxT(ro,rd,ird,uBMin[i].xyz,uBMax[i].xyz,tMax,nn); if (t>0.0){ tMax=t; id=i; n=nn; } }
+  tOut = tMax; nOut = n; return id;
+}
+bool occluded(vec3 ro, vec3 rd, float tMax){
+  vec3 ird = 1.0/rd;
+  for (int i=0;i<uNB;i++){ vec3 nn; if (boxT(ro,rd,ird,uBMin[i].xyz,uBMax[i].xyz,tMax,nn)>0.0) return true; }
+  return false;
+}
+
+struct Surf { vec3 alb; float rough; float f0; vec3 emis; bool listed; };
+bool faceEmits(int code, int f){ if (code<0) return false; if (code==9) return true; if (code<6) return code==f; return (f/2)==(code-6); }
+vec2 faceUV(vec3 p, vec3 bmin, vec3 bmax, int f){
+  vec3 s = (p-bmin)/max(bmax-bmin, vec3(1e-4));
+  if (f==4) return vec2(s.x, s.y); if (f==5) return vec2(1.0-s.x, s.y);
+  if (f==0) return vec2(s.z, s.y); if (f==1) return vec2(1.0-s.z, s.y);
+  if (f==3) return vec2(s.x, 1.0-s.z); return vec2(s.x, s.z);
+}
+Surf shade(int id, int f, vec3 p){
+  Surf s;
+  vec4 m0 = texelFetch(uMat, ivec2(id*4,0), 0), m1 = texelFetch(uMat, ivec2(id*4+1,0), 0);
+  vec4 m2 = texelFetch(uMat, ivec2(id*4+2,0), 0), m3 = texelFetch(uMat, ivec2(id*4+3,0), 0);
+  s.alb = m0.rgb; s.rough = m0.a; s.f0 = m1.x; s.emis = vec3(0); s.listed = false;
+  int type = int(m1.y+0.5); int ef = int(floor(m1.z+0.5));
+  vec3 bmin = uBMin[id].xyz, bmax = uBMax[id].xyz;
+  if (type==1) {            // textured sign
+    if (faceEmits(ef,f)) { vec2 uv = faceUV(p,bmin,bmax,f); vec3 t = texture(uAtlas, m3.xy + uv*m3.zw).rgb; t = t*t; s.emis = t*m2.rgb*uSignI; s.listed = true; }
+  } else if (type==3) {     // uniform emitter
+    if (faceEmits(ef,f)) { s.emis = m2.rgb; s.listed = true; }
+  } else if (type==2) {     // facade with a window grid (unlisted emitters)
+    if (f!=2 && f!=3) {
+      vec2 l = (f<2) ? vec2(p.z,p.y) : vec2(p.x,p.y);
+      vec2 cell = floor(l/m3.xy), fr = fract(l/m3.xy);
+      bool pane = fr.x>0.14 && fr.x<0.86 && fr.y>0.22 && fr.y<0.80;
+      if (pane) {
+        float h = hash2(cell + vec2(float(id)*7.1 + float(f)*3.3, m3.w));
+        float fh = hash2(vec2(cell.y, float(id)*2.7 + m3.w + float(f)));
+        s.alb = vec3(0.02); s.rough = 0.12; s.f0 = 0.06;
+        if (h < m3.z || fh < 0.05) {
+          float w = hash2(cell*1.7 + 3.0);
+          vec3 c = (w>0.82) ? vec3(0.80,0.90,1.0) : (w>0.72 ? vec3(1.0,0.55,0.35) : vec3(1.0,0.78,0.45));
+          s.emis = c * uWinI * (0.5 + 0.9*hash2(cell*2.3 + 1.0));
+        }
+      }
+      s.listed = faceEmits(ef,f);
+    }
+  } else if (type==4) {     // wet street: blocky puddle tiles
+    float t = hash2(floor(p.xz/2.5) + 0.37);
+    if (t < 0.4) { s.rough = 0.03; s.f0 = 0.06; s.alb *= 0.6; } else { s.rough = 0.35; s.f0 = 0.04; }
+  }
+  return s;
+}
+
+vec3 ortho(vec3 n){ return abs(n.x)>0.5 ? normalize(cross(n,vec3(0,1,0))) : normalize(cross(n,vec3(1,0,0))); }
+vec3 toWorld(vec3 n, vec3 v){ vec3 t = ortho(n); vec3 b = cross(n,t); return t*v.x + b*v.y + n*v.z; }
+vec3 cosineDir(vec3 n){ float u1=rnd(), u2=rnd(); float r=sqrt(u1), ph=6.2831853*u2; return toWorld(n, vec3(r*cos(ph), r*sin(ph), sqrt(max(0.0,1.0-u1)))); }
+vec3 sampleGGX(vec3 n, float a){ float u1=rnd(), u2=rnd(); a=max(a,1e-3); float ct=sqrt((1.0-u1)/(1.0+(a*a-1.0)*u1)); float st=sqrt(max(0.0,1.0-ct*ct)); float ph=6.2831853*u2; return toWorld(n, vec3(st*cos(ph), st*sin(ph), ct)); }
+vec3 sky(vec3 rd){ float h = clamp(rd.y,0.0,1.0); return mix(vec3(0.16,0.15,0.26), vec3(0.03,0.04,0.09), pow(h,0.6)) * uSky; }
+
+// Pick one emitter by its power and a uniform point on its face.
+void sampleLight(out int lb, out int lf, out vec3 lp, out vec3 ln, out float area, out float prob){
+  float u = rnd(); int li = uNL-1;
+  for (int i=0;i<uNL;i++){ if (u < texelFetch(uLights, ivec2(i,0), 0).z) { li=i; break; } }
+  vec4 L = texelFetch(uLights, ivec2(li,0), 0); lb = int(L.x+0.5); lf = int(L.y+0.5); prob = max(L.w, 1e-5);
+  vec3 bmin = uBMin[lb].xyz, bmax = uBMax[lb].xyz, ext = bmax-bmin;
+  float r1 = rnd(), r2 = rnd();
+  if (lf<2) { lp = vec3(lf==0?bmin.x:bmax.x, bmin.y+r1*ext.y, bmin.z+r2*ext.z); ln = vec3(lf==0?-1.0:1.0,0,0); area = ext.y*ext.z; }
+  else if (lf<4) { lp = vec3(bmin.x+r1*ext.x, lf==2?bmin.y:bmax.y, bmin.z+r2*ext.z); ln = vec3(0,lf==2?-1.0:1.0,0); area = ext.x*ext.z; }
+  else { lp = vec3(bmin.x+r1*ext.x, bmin.y+r2*ext.y, lf==4?bmin.z:bmax.z); ln = vec3(0,0,lf==4?-1.0:1.0); area = ext.x*ext.y; }
+}
+float hg(float c, float g){ float d = 1.0+g*g-2.0*g*c; return (1.0-g*g)/(4.0*PI*d*sqrt(d)); }
+
+vec3 radiance(vec3 ro, vec3 rd){
+  vec3 col = vec3(0), thr = vec3(1);
+  bool prevDiff = false, prevSpec = false;
+  float wD = (uLightMode==2) ? 0.0 : 1.0, wI = (uLightMode==1) ? 0.0 : 1.0;
+  for (int b=0; b<=uBounces; b++){
+    float t; vec3 n; int id = trace(ro, rd, 1e9, t, n);
+    if (b==0 && uFog>0.0 && uNL>0) {
+      // Single scattering in the haze along the camera ray: light from one emitter reaching a point in the air.
+      float tHit = (id<0) ? 500.0 : t; float Tr = exp(-uFog*tHit);
+      for (int k=0; k<3; k++) {
+        float u = (float(k)+rnd())/3.0; float ts = -log(1.0 - u*(1.0-Tr))/uFog; float pdf = uFog*exp(-uFog*ts)/(1.0-Tr);
+        vec3 xs = ro + rd*ts; int lb, lf; vec3 lp, ln; float area, prob; sampleLight(lb, lf, lp, ln, area, prob);
+        vec3 d = lp-xs; float d2 = dot(d,d); float dist = sqrt(d2); vec3 wi = d/dist; float cl = -dot(ln,wi);
+        if (cl>0.0 && !occluded(xs, wi, dist*0.998)) {
+          vec3 Le = shade(lb, lf, lp).emis;
+          vec3 c = Le * cl/d2 * area/prob * (uFog*0.85) * hg(dot(wi,rd), 0.45) * exp(-uFog*(dist+ts)) / pdf;
+          col += min(c, vec3(6.0)) * wI / 3.0;
+        }
+      }
+      thr *= Tr;
+    }
+    if (id<0) { col += thr*sky(rd)*(b==0 ? wD : wI); break; }
+    vec3 p = ro + rd*t; int f = faceOf(n);
+    Surf s = shade(id, f, p);
+    if (s.emis.x+s.emis.y+s.emis.z > 0.0) {
+      bool direct = (b==0) || (b==1 && prevSpec);
+      if (!(s.listed && prevDiff)) col += thr*s.emis*(direct ? wD : wI);
+    }
+    if (b==uBounces) break;
+    float cosv = max(dot(n,-rd), 0.0);
+    float F = s.f0 + (1.0-s.f0)*pow(1.0-cosv, 5.0);
+    p += n*2e-3;
+    if (rnd() < F) {
+      vec3 h = sampleGGX(n, s.rough*s.rough); vec3 r = reflect(rd, h);
+      if (dot(r,n) <= 0.0) break;
+      rd = r; ro = p; prevSpec = true; prevDiff = false;
+    } else {
+      if (uNL>0) {
+        int lb, lf; vec3 lp, ln; float area, prob; sampleLight(lb, lf, lp, ln, area, prob);
+        vec3 d = lp-p; float d2 = dot(d,d); float dist = sqrt(d2); vec3 wi = d/dist;
+        float cs = dot(n,wi), cl = -dot(ln,wi);
+        if (cs>0.0 && cl>0.0 && !occluded(p, wi, dist*0.998)) {
+          Surf ls = shade(lb, lf, lp);
+          vec3 c = thr * s.alb/PI * ls.emis * cs*cl/d2 * area/prob * exp(-uFog*dist);
+          col += min(c, vec3(40.0)) * (b==0 ? wD : wI);
+        }
+      }
+      thr *= s.alb; rd = cosineDir(n); ro = p; prevDiff = true; prevSpec = false;
+    }
+    if (b>=2) { float q = clamp(max(thr.x,max(thr.y,thr.z)), 0.05, 0.95); if (rnd()>q) break; thr /= q; }
+  }
+  return col;
+}
+
+void main(){
+  ivec2 pix = ivec2(gl_FragCoord.xy);
+  vec3 sum = vec3(0);
+  for (int si=0; si<uSpp; si++){
+    seed = uint(pix.x)*1973u ^ uint(pix.y)*9277u ^ (uFrame*uint(uSpp)+uint(si))*26699u; pcg(); pcg();
+    vec2 uv = ((vec2(pix) + vec2(rnd(),rnd())) / uRes) * 2.0 - 1.0;
+    vec3 rd = normalize(uCamF + uCamR*(uv.x*uTanHalf*uAspect) + uCamU*(uv.y*uTanHalf));
+    vec3 c = radiance(uCamPos, rd);
+    sum += min(c, vec3(24.0));
+  }
+  o = texelFetch(uPrev, pix, 0) + vec4(sum, float(uSpp));
+}`;
+
+const BLUR_FS = `#version 300 es
+precision highp float; precision highp sampler2D;
+uniform sampler2D uSrc; uniform float uScale, uThresh; uniform ivec2 uDir; uniform ivec2 uSize;
+out vec4 o;
+vec3 fetch(ivec2 p){ p = clamp(p, ivec2(0), uSize-1); vec3 c = texelFetch(uSrc,p,0).rgb*uScale;
+  if (uThresh>0.0){ float l = dot(c, vec3(0.3,0.5,0.2)); c *= max(l-uThresh,0.0)/max(l,1e-4); } return c; }
+void main(){ ivec2 p = ivec2(gl_FragCoord.xy); float w[5] = float[5](0.227, 0.195, 0.122, 0.054, 0.016);
+  vec3 c = fetch(p)*w[0]; for (int i=1;i<5;i++){ c += (fetch(p+uDir*i*2) + fetch(p-uDir*i*2))*w[i]; } o = vec4(c,1.0); }`;
+
+const SHOW_FS = `#version 300 es
+precision highp float; precision highp sampler2D;
+uniform sampler2D uAcc, uBloom; uniform float uN, uExposure, uBloomStr; uniform int uDither, uLevels, uPS;
+out vec4 o;
+float aces1(float x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
+vec3 aces(vec3 c){ float Y = dot(c, vec3(0.2126,0.7152,0.0722)); vec3 r = c * (aces1(Y)/max(Y,1e-5));
+  float m = max(r.x, max(r.y, r.z)); if (m > 1.0) r = mix(r/m, vec3(1.0), 0.55*smoothstep(1.0, 6.0, m)); return clamp(r, 0.0, 1.0); }
+float bayer(ivec2 p){ int m[16] = int[16](0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5); return float(m[(p.y&3)*4+(p.x&3)])/16.0; }
+void main(){
+  ivec2 pix = ivec2(gl_FragCoord.xy)/uPS;
+  vec3 c = texelFetch(uAcc,pix,0).rgb/max(uN,1.0)*uExposure + texelFetch(uBloom,pix,0).rgb*uBloomStr;
+  c = aces(c); c = pow(c, vec3(1.0/2.2));
+  if (uDither==1){ float L = float(uLevels-1); c = floor(c*L + bayer(pix))/L; }
+  o = vec4(c, 1.0);
+}`;
+</script>
+<script>
+// ---------- Scene: a low-poly block city built from axis-aligned boxes ----------
+// Face codes: 0:-x 1:+x 2:-y 3:+y 4:-z 5:+z 6:±x 7:±y 8:±z 9:all
+const boxes = [];
+function add(min, max, m){ boxes.push({min, max, type: m.type||0, alb: m.alb||[0.1,0.1,0.1], rough: m.rough??0.6, f0: m.f0??0.04,
+  emis: m.emis||[0,0,0], face: m.face??-1, extra: m.extra||[0,0,0,0], draw: m.draw||null, lum: m.lum??1, w: m.w, h: m.h}); return boxes.length-1; }
+const block = (min,max,alb,rough=0.6,f0=0.04) => add(min,max,{alb,rough,f0});
+const tower = (min,max,alb,lit,seed,face,cell=[3.4,3.8]) => add(min,max,{type:2, alb: alb.map(c=>c*2.2), rough:0.75, f0:0.03, face, extra:[cell[0],cell[1],lit,seed]});
+const glow = (min,max,color,I,face) => add(min,max,{type:3, alb:[0.6,0.6,0.6], rough:0.3, f0:0.05, emis:color.map(c=>c*I), face});
+// Textured sign: axis 'z' faces the camera (±z), axis 'x' sits on a side wall (±x). w,h in metres, d thickness.
+function sign(o){
+  const [cx,cy,cz] = o.pos, d = o.d||0.5, hw = o.w/2, hh = o.h/2;
+  const min = o.axis==='x' ? [cx-d/2, cy-hh, cz-hw] : [cx-hw, cy-hh, cz-d/2];
+  const max = o.axis==='x' ? [cx+d/2, cy+hh, cz+hw] : [cx+hw, cy+hh, cz+d/2];
+  return add(min, max, {type:1, alb:[0.08,0.08,0.09], rough:0.45, f0:0.04, emis:[o.I||10, o.I||10, o.I||10], face:o.face, draw:o.draw, w:o.w, h:o.h});
+}
+function car(x, z, dir, alb){ // dir +1 drives toward +z
+  const L=4.4, W=2.0; const z0=z-L/2, z1=z+L/2;
+  block([x-W/2,0.3,z0],[x+W/2,1.5,z1], alb, 0.25, 0.3);
+  block([x-W/2+0.3,1.5,z0+1.2],[x+W/2-0.3,2.15,z1-1.0], alb.map(c=>c*0.8), 0.25, 0.3);
+  block([x-W/2+0.2,0,z0+0.3],[x+W/2-0.2,0.5,z1-0.3], [0.03,0.03,0.03], 0.9, 0.02);
+  const fz = dir>0 ? z1 : z0, bz = dir>0 ? z0 : z1;
+  glow([x-W/2+0.15, 0.75, fz-0.12], [x+W/2-0.15, 1.05, fz+0.12], [1.0,0.95,0.85], 35, dir>0?5:4);
+  glow([x-W/2+0.15, 0.75, bz-0.12], [x+W/2-0.15, 1.05, bz+0.12], [1.0,0.08,0.05], 25, dir>0?4:5);
+}
+
+// Ground: wet asphalt with blocky puddles
+add([-400,-2,-400],[400,0,400], {type:4, alb:[0.06,0.065,0.08], rough:0.3, f0:0.04});
+// Pavements
+block([-16,0,-80],[-13.5,0.3,100], [0.12,0.12,0.13], 0.8); block([13.5,0,-80],[16,0.3,100], [0.12,0.12,0.13], 0.8);
+
+// Towers (facades with window grids)
+tower([-70,0,4],[-16,160,34],   [0.10,0.11,0.15], 0.14, 1, 1);
+tower([-70,0,34],[-18,230,70],  [0.09,0.10,0.13], 0.11, 2, 1, [3.2,3.6]);
+tower([16,0,2],[70,150,30],     [0.11,0.10,0.12], 0.15, 3, 0);
+tower([18,0,30],[70,240,70],    [0.09,0.09,0.11], 0.10, 4, 0, [3.0,3.4]);
+tower([-30,0,48],[30,280,100],  [0.08,0.09,0.12], 0.13, 5, 4);
+tower([-80,0,70],[-30,210,110], [0.09,0.09,0.11], 0.09, 6, 4);
+tower([30,0,70],[80,220,110],   [0.10,0.09,0.10], 0.09, 7, 4);
+tower([-8,0,34],[8,30,48],      [0.10,0.10,0.11], 0.18, 8, 9, [2.8,3.2]);   // low podium under the back wall
+tower([-70,0,-60],[-14,120,-4], [0.10,0.10,0.13], 0.13, 9, 9);
+tower([14,0,-60],[70,130,-6],   [0.11,0.10,0.12], 0.13, 10, 9);
+// Ledges, setbacks, pipes, roof clutter (plain dark blocks)
+block([-16,52,8],[-13,54,34], [0.09,0.09,0.1]); block([13,70,6],[16,72,30], [0.09,0.09,0.1]);
+block([-16.4,0,26],[-15.8,160,26.6], [0.14,0.12,0.1], 0.5, 0.1); block([15.8,0,20],[16.4,150,20.6], [0.14,0.12,0.1], 0.5, 0.1);
+block([-16,100,4],[-10,103,34], [0.09,0.09,0.1]); block([10,118,2],[16,121,30], [0.09,0.09,0.1]);
+block([-8,30,36],[8,31,46], [0.12,0.12,0.12]); block([-5,31,40],[-2,33,43], [0.3,0.3,0.32], 0.4, 0.3); block([2,31,38],[5,33.5,41], [0.3,0.3,0.32], 0.4, 0.3);
+
+// Main elevated walkway with signs on its street-facing side
+block([-16,26,20],[16,34,27], [0.13,0.13,0.14], 0.7);
+glow([-16,25.5,19.85],[16,25.8,20.15], [0.85,0.95,1.0], 6, 9);        // LED strip along the underside edge
+glow([-16,34,19.85],[16,34.3,20.15], [0.4,0.9,1.0], 5, 9);            // cyan rail on top
+for (const x of [-14.8,-5.8,3.8,12.8]) glow([x,28.2,19.75],[x+0.35,33.6,20.05], [0.55,1.0,1.0], 7, 9); // vertical tubes
+block([-10.6,25.0,20.5],[-10.4,26,21], [0.3,0.3,0.3]);                 // EXIT sign hanger
+block([-1,34,23.1],[-0.5,42.5,23.5],[0.25,0.25,0.25]); block([14.5,34,23.1],[15,42.5,23.5],[0.25,0.25,0.25]); // billboard posts
+block([8,48,32.7],[18,48.6,33.3],[0.25,0.25,0.25]);                     // news sign bracket
+
+// Upper transit walkway with a lit train
+block([-16,58,30],[-2,61,36], [0.12,0.12,0.13], 0.7);
+block([-15.5,61,31],[-4,65.5,35], [0.25,0.27,0.30], 0.35, 0.5);
+glow([-15,62.4,30.92],[-4.5,64.4,31.02], [1.0,0.9,0.75], 6, 4);          // train windows
+glow([-16,61,29.9],[-2,61.3,30.1], [0.9,0.95,1.0], 5, 9);               // walkway edge light
+glow([-16.05,66,10],[-15.85,69,24], [1.0,0.92,0.8], 5, 1);               // lit corridor behind glass, left tower
+
+// Street furniture: lamps and cars
+for (const [x,z] of [[-13,-30],[13,-18],[-13,-6],[13,6],[-13,18],[13,30],[-13,42]]) { block([x-0.15,0,z-0.15],[x+0.15,9,z+0.15],[0.2,0.2,0.2],0.4,0.2); glow([x-0.9,8.6,z-0.9],[x+0.9,9.1,z+0.9],[1.0,0.85,0.6],60,9); }
+for (let k=0;k<4;k++){ const z=-44+k*22, c=[[1.0,0.7,0.4],[0.5,0.9,1.0],[1.0,0.45,0.7],[0.7,1.0,0.6]][k]; glow([-16.1,0.4,z],[-15.9,3.2,z+7],c,5,1); glow([15.9,0.4,z+10],[16.1,3.2,z+17],c,5,0); }
+block([-0.2,0,-80],[0.2,0.02,100],[0.75,0.75,0.6],0.7); block([-12.5,0,-80],[-12.1,0.02,100],[0.7,0.7,0.7],0.7); block([12.1,0,-80],[12.5,0.02,100],[0.7,0.7,0.7],0.7);
+block([-13.5,0,12],[13.5,0.02,16],[0.65,0.65,0.65],0.7);
+car(-8, 10, +1, [0.55,0.08,0.08]); car(6, 30, -1, [0.1,0.18,0.5]); car(-3, 44, +1, [0.75,0.7,0.2]); car(9, -14, -1, [0.6,0.6,0.62]);
+
+// ---------- Sign artwork (drawn on a canvas atlas) ----------
+const SANS = '"Arial Black", Impact, "Helvetica Neue", Arial, sans-serif';
+const FONT = (px, w='bold') => `${w} ${px}px ${SANS}`;
+function txt(ctx, s, x, y, px, color, {align='center', glow=0, weight='bold', base='middle'}={}){
+  ctx.font = FONT(px, weight); ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = base;
+  if (glow){ ctx.shadowColor = color; ctx.shadowBlur = glow; } ctx.fillText(s, x, y); ctx.shadowBlur = 0;
+}
+function vtxt(ctx, s, cx, y0, y1, px, color, glow=0){ const n=s.length, step=(y1-y0)/n; for (let i=0;i<n;i++) txt(ctx, s[i], cx, y0+step*(i+0.5), px, color, {glow}); }
+function bg(ctx, W, H, color){ ctx.fillStyle = color; ctx.fillRect(0,0,W,H); }
+function frame(ctx, W, H, color, t){ ctx.strokeStyle = color; ctx.lineWidth = t; ctx.shadowColor = color; ctx.shadowBlur = t*2; ctx.strokeRect(t, t, W-2*t, H-2*t); ctx.shadowBlur = 0; }
+function bulbs(ctx, y, W, n, color, r){ ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = r*2; for (let i=0;i<n;i++){ ctx.beginPath(); ctx.arc((i+0.5)*W/n, y, r, 0, 6.283); ctx.fill(); } ctx.shadowBlur = 0; }
+function dots(ctx, x0, y0, w, h, cols, rows, color){ ctx.fillStyle = color; for (let j=0;j<rows;j++) for (let i=0;i<cols;i++){ if (((i*7+j*13)%5)<3) ctx.fillRect(x0+i*w/cols, y0+j*h/rows, w/cols*0.6, h/rows*0.6); } }
+
+// Back wall billboard: THE RING
+sign({pos:[-3,112,47.7], axis:'z', w:26, h:30, face:4, I:2.2, draw:(c,W,H)=>{
+  const g = c.createLinearGradient(0,0,0,H); g.addColorStop(0,'#1d3f8f'); g.addColorStop(0.55,'#5b8fd6'); g.addColorStop(0.85,'#f0b27a'); g.addColorStop(1,'#c96b3a');
+  c.fillStyle = g; c.fillRect(0,0,W,H);
+  c.fillStyle = 'rgba(255,255,255,0.85)'; for (const [x,y,r] of [[0.2,0.55,0.11],[0.3,0.58,0.09],[0.72,0.5,0.13],[0.82,0.54,0.08],[0.5,0.7,0.1]]) { c.beginPath(); c.ellipse(x*W,y*H,r*W,r*W*0.45,0,0,6.283); c.fill(); }
+  c.fillStyle = '#1a2340'; c.fillRect(0.68*W,0.3*H,0.025*W,0.5*H); c.fillRect(0.6*W,0.3*H,0.19*W,0.02*H); // antenna mast
+  c.fillStyle = '#243a6b'; c.fillRect(0,0.86*H,W,0.14*H);
+  txt(c, 'THE RING', 0.06*W, 0.14*H, 0.11*W, '#ffffff', {align:'left', glow:6});
+  txt(c, 'Live above', 0.07*W, 0.33*H, 0.055*W, '#ffffff', {align:'left', weight:'normal'});
+  txt(c, 'the acid rain.', 0.07*W, 0.41*H, 0.055*W, '#ffffff', {align:'left', weight:'normal'});
+  txt(c, 'RESIDENCES · LEASING NOW · 02-554-RING', 0.5*W, 0.93*H, 0.034*W, '#9fb6e8', {weight:'normal'});
+  c.fillStyle = '#ff3fa4'; for (let i=0;i<12;i++){ c.fillRect(0.4*W+i*0.045*W, 0.05*H, 0.03*W, 0.012*H); }
+}});
+// Left-wall flag signs
+sign({pos:[-13,122,20], axis:'z', w:5, h:20, face:8, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#9b0f1e'); frame(c,W,H,'#ff6a7a',W*0.03); vtxt(c,'カラオケ',W/2,0.08*H,0.92*H,0.62*W,'#fff0f0',8); }});
+sign({pos:[-11,150,14], axis:'z', w:6, h:22, face:8, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#0f7a3a'); vtxt(c,'有道',W/2,0.03*H,0.33*H,0.55*W,'#dfffe8',4); vtxt(c,'麺面',W/2,0.34*H,0.64*H,0.55*W,'#dfffe8',4); dots(c,0.1*W,0.68*H,0.8*W,0.28*H,8,14,'#f6ff9a'); }});
+sign({pos:[-12,44,14], axis:'z', w:7, h:7, face:8, I:9, draw:(c,W,H)=>{ bg(c,W,H,'#0d2a7a');
+  c.strokeStyle='#ff9a2e'; c.lineWidth=W*0.03; c.shadowColor='#ff9a2e'; c.shadowBlur=W*0.04;
+  c.beginPath(); c.ellipse(0.26*W,0.5*H,0.17*W,0.07*H,0,0,6.283); c.stroke(); c.beginPath(); c.arc(0.26*W,0.5*H,0.17*W,0,3.1416); c.stroke();
+  for (const dx of [-0.07,0,0.07]) { c.beginPath(); c.moveTo((0.26+dx)*W,0.4*H); c.quadraticCurveTo((0.3+dx)*W,0.32*H,(0.26+dx)*W,0.24*H); c.stroke(); } c.shadowBlur=0;
+  txt(c,'拉麺',0.7*W,0.42*H,0.3*W,'#ff9a2e',{glow:8}); txt(c,'TONKOTSU ¥800',0.7*W,0.72*H,0.1*W,'#ffd9a8',{weight:'normal'}); }});
+sign({pos:[-15.74,44,9], axis:'x', w:3, h:12, face:1, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#1b47c9'); vtxt(c,'電脳',W/2,0.1*H,0.9*H,0.7*W,'#ffffff',6); }});
+sign({pos:[-11.5,12,10], axis:'z', w:7, h:6, face:8, I:9, draw:(c,W,H)=>{ bg(c,W,H,'#0b0d12'); c.strokeStyle='#35e4ff'; c.lineWidth=W*0.02; c.shadowColor='#35e4ff'; c.shadowBlur=W*0.03;
+  for (const [x,y,sx,sy] of [[0.05,0.08,1,1],[0.95,0.08,-1,1],[0.05,0.92,1,-1],[0.95,0.92,-1,-1]]) { c.beginPath(); c.moveTo(x*W+sx*0.2*W,y*H); c.lineTo(x*W,y*H); c.lineTo(x*W,y*H+sy*0.25*H); c.stroke(); } c.shadowBlur=0;
+  txt(c,'MECH WORKS',W/2,0.5*H,0.14*W,'#ffb347',{glow:10}); txt(c,'整備・改造',W/2,0.76*H,0.08*W,'#8fd9ff',{weight:'normal'}); }});
+sign({pos:[-9,3.2,12], axis:'z', w:8, h:2.4, face:8, I:8, draw:(c,W,H)=>{ bg(c,W,H,'#4a1a9c'); txt(c,'OPEN 24H',0.6*W,0.5*H,0.5*H,'#ffffff',{glow:6}); c.fillStyle='#ffffff'; c.fillRect(0.08*W,0.3*H,0.16*W,0.4*H); c.fillStyle='#4a1a9c'; c.fillRect(0.11*W,0.38*H,0.1*W,0.24*H); }});
+sign({pos:[-11,74,12], axis:'z', w:8, h:2.8, face:8, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#101014'); txt(c,'BREAKING',0.3*W,0.42*H,0.4*H,'#ffb347',{glow:5}); txt(c,'▮▮▮ 22:40 ▮▮▮',0.72*W,0.42*H,0.22*H,'#ffb347',{weight:'normal'}); txt(c,'DOWNTOWN LINE · PLATFORM 4 · DELAYED',0.5*W,0.78*H,0.2*H,'#ffd9a8',{weight:'normal'}); }});
+// Right-wall flag signs
+sign({pos:[12.5,95,30], axis:'z', w:5, h:26, face:8, I:8, draw:(c,W,H)=>{ bg(c,W,H,'#120a0c'); frame(c,W,H,'#ff2a3a',W*0.035); vtxt(c,'近近平無常',W/2,0.05*H,0.95*H,0.58*W,'#ff4d5a',10); }});
+sign({pos:[12,142,12], axis:'z', w:7, h:14, face:8, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#f2c21b'); txt(c,'RAAR',W/2,0.14*H,0.42*W,'#c8102e'); c.fillStyle='#1a1a1a'; c.fillRect(0.1*W,0.27*H,0.8*W,0.015*H); vtxt(c,'東京発',W/2,0.3*H,0.72*H,0.4*W,'#1a1a1a'); txt(c,'¥30',W/2,0.86*H,0.3*W,'#c8102e'); }});
+sign({pos:[11,8,16], axis:'z', w:9, h:5, face:8, I:8, draw:(c,W,H)=>{ bg(c,W,H,'#0d2b1c'); frame(c,W,H,'#38e07a',W*0.015); txt(c,'DA MALL 3000',W/2,0.4*H,0.13*W,'#9dffc0',{glow:8}); txt(c,'本館 · B2–7F · 営業中',W/2,0.76*H,0.07*W,'#38e07a',{weight:'normal'}); }});
+sign({pos:[12.5,18,11], axis:'z', w:6, h:10, face:8, I:8, draw:(c,W,H)=>{ bg(c,W,H,'#0a0b12'); c.strokeStyle='#35e4ff'; c.lineWidth=W*0.035; c.shadowColor='#35e4ff'; c.shadowBlur=W*0.06;
+  c.beginPath(); c.moveTo(0.1*W,0.45*H); c.quadraticCurveTo(0.5*W,0.1*H,0.9*W,0.45*H); c.quadraticCurveTo(0.5*W,0.8*H,0.1*W,0.45*H); c.stroke();
+  c.beginPath(); c.arc(0.5*W,0.45*H,0.17*W,0,6.283); c.stroke(); c.strokeStyle='#ffd23f'; c.shadowColor='#ffd23f'; c.beginPath(); c.arc(0.5*W,0.45*H,0.07*W,0,6.283); c.stroke();
+  for (let i=0;i<7;i++){ const a=-2.6+i*0.37; c.beginPath(); c.moveTo(0.5*W+Math.cos(a)*0.46*W,0.45*H+Math.sin(a)*0.3*H); c.lineTo(0.5*W+Math.cos(a)*0.55*W,0.45*H+Math.sin(a)*0.38*H); c.stroke(); } c.shadowBlur=0;
+  txt(c,'見 · OPTIKA',W/2,0.88*H,0.13*W,'#35e4ff',{weight:'normal'}); }});
+// Back wall details
+sign({pos:[14,103,47.7], axis:'z', w:8, h:9, face:4, I:8, draw:(c,W,H)=>{ bg(c,W,H,'#120a1c'); frame(c,W,H,'#b04bff',W*0.03); c.strokeStyle='#d98cff'; c.lineWidth=W*0.03; c.shadowColor='#d98cff'; c.shadowBlur=W*0.05;
+  c.beginPath(); c.arc(0.5*W,0.42*H,0.22*W,3.1416,0); c.stroke(); c.beginPath(); c.moveTo(0.28*W,0.42*H); c.lineTo(0.72*W,0.42*H); c.stroke();
+  for (let i=0;i<5;i++){ const x=0.32*W+i*0.09*W; c.beginPath(); c.moveTo(x,0.44*H); c.bezierCurveTo(x-0.05*W,0.6*H,x+0.05*W,0.7*H,x,0.86*H); c.stroke(); } c.shadowBlur=0; }});
+sign({pos:[2,64,47.7], axis:'z', w:22, h:3.5, face:4, I:9, draw:(c,W,H)=>{ bg(c,W,H,'#0b0b10'); txt(c,'LATE AFTER NIGHT · KISSA · OPEN · 深夜営業',W/2,0.5*H,0.5*H,'#ff7a3d',{glow:10,weight:'normal'}); }});
+sign({pos:[0,16,33.7], axis:'z', w:4.5, h:24, face:4, I:6, draw:(c,W,H)=>{ bg(c,W,H,'#ff2f8f'); vtxt(c,'ネオ自動車',W/2,0.03*H,0.72*H,0.6*W,'#ffffff',8); txt(c,'NEO',W/2,0.8*H,0.32*W,'#ffffff'); txt(c,'MOTORS',W/2,0.86*H,0.17*W,'#ffd6ea'); txt(c,'新車',W/2,0.94*H,0.2*W,'#ffffff',{weight:'normal'}); }});
+// Walkway signs
+sign({pos:[-6.5,31,19.75], axis:'z', w:9, h:3.2, face:4, I:9, draw:(c,W,H)=>{ bg(c,W,H,'#07090d'); txt(c,'BAR ZERO',W/2,0.42*H,0.5*H,'#35f2e6',{glow:12}); txt(c,'cocktails · 零 · 3F',W/2,0.8*H,0.18*H,'#9ff7f0',{weight:'normal'}); }});
+sign({pos:[2.5,27.2,19.75], axis:'z', w:16, h:2.6, face:4, I:9, draw:(c,W,H)=>{ bg(c,W,H,'#1b0b3a'); txt(c,'OPTIC IMPLANTS',0.5*W,0.36*H,0.5*H,'#ffb4e6',{glow:8}); txt(c,'CYBERWARE · サイバーウェア',0.5*W,0.76*H,0.26*H,'#b8a6ff',{weight:'normal'}); txt(c,'視覚移植 体',0.93*W,0.76*H,0.2*H,'#b8a6ff',{weight:'normal',align:'right'}); }});
+sign({pos:[-10.5,24.3,20.5], axis:'z', w:3, h:1.6, face:4, I:10, draw:(c,W,H)=>{ bg(c,W,H,'#0e8a3c'); c.fillStyle='#ffffff'; c.beginPath(); c.arc(0.2*W,0.3*H,0.07*W,0,6.283); c.fill(); c.fillRect(0.17*W,0.38*H,0.06*W,0.3*H); c.fillRect(0.12*W,0.62*H,0.16*W,0.06*W); c.fillRect(0.1*W,0.4*H,0.2*W,0.05*W); txt(c,'非常口',0.62*W,0.32*H,0.3*H,'#ffffff',{weight:'normal'}); txt(c,'EXIT',0.62*W,0.7*H,0.4*H,'#ffffff'); }});
+sign({pos:[7,38.5,23.3], axis:'z', w:16, h:8.5, face:8, I:6, draw:(c,W,H)=>{ bg(c,W,H,'#b3121f'); c.fillStyle='#1a0507'; c.beginPath(); c.arc(0.82*W,0.42*H,0.14*W,0,6.283); c.fill(); c.fillRect(0.74*W,0.42*H,0.16*W,0.3*H);
+  txt(c,'BNEPEAI',0.08*W,0.3*H,0.17*W,'#ffffff',{align:'left',glow:4}); txt(c,'¥22,000/DAY',0.08*W,0.55*H,0.09*W,'#ffd166',{align:'left'}); txt(c,'STAY LONGER · CAPSULE SUITES · 深夜割引',0.08*W,0.7*H,0.04*W,'#ffd9d9',{align:'left',weight:'normal'});
+  c.fillStyle='#ffffff'; for (let i=0;i<20;i++) c.fillRect(0.02*W+i*0.03*W,0.04*H,0.018*W,0.03*H); bulbs(c,0.88*H,W,26,'#ffe28a',W*0.011); }});
+sign({pos:[12,40,33], axis:'z', w:8, h:17, face:8, I:7, draw:(c,W,H)=>{ bg(c,W,H,'#0b1020'); txt(c,'CH 3000 NEWS',0.5*W,0.08*H,0.11*W,'#ffffff'); c.fillStyle='#e01b2b'; c.fillRect(0.72*W,0.13*H,0.2*W,0.05*H); txt(c,'LIVE',0.82*W,0.155*H,0.07*W,'#ffffff');
+  c.fillStyle='#e01b2b'; c.fillRect(0,0.42*H,W,0.14*H); txt(c,'BREAKING',0.5*W,0.49*H,0.15*W,'#ffffff');
+  c.fillStyle='#f4f4f4'; c.fillRect(0,0.56*H,W,0.22*H); txt(c,'DOWNTOWN LINE',0.5*W,0.63*H,0.1*W,'#101010'); txt(c,'DELAYED',0.5*W,0.72*H,0.1*W,'#101010');
+  c.fillStyle='#1d3fb0'; c.fillRect(0,0.78*H,W,0.22*H); txt(c,'市内線 遅延 · 22:41',0.5*W,0.84*H,0.07*W,'#ffffff',{weight:'normal'}); txt(c,'次の列車 未定',0.5*W,0.93*H,0.07*W,'#ffffff',{weight:'normal'}); }});
+
+function buildAtlas(){
+  const W = 2048, H = 2048, PPM = 24, pad = 4;
+  const items = boxes.map((b,i)=>({i,b})).filter(x=>x.b.draw).map(x=>{
+    const s = Math.min(1, 900/(Math.max(x.b.w, x.b.h)*PPM));
+    return {i:x.i, b:x.b, w:Math.max(48, Math.round(x.b.w*PPM*s)), h:Math.max(48, Math.round(x.b.h*PPM*s))}; });
+  items.sort((a,b)=>b.h-a.h);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H);
+  let x = pad, y = pad, rowH = 0;
+  for (const it of items){
+    if (x + it.w + pad > W){ x = pad; y += rowH + pad; rowH = 0; }
+    if (y + it.h + pad > H) throw new Error('atlas full');
+    ctx.save(); ctx.translate(x,y); ctx.beginPath(); ctx.rect(0,0,it.w,it.h); ctx.clip(); it.b.draw(ctx, it.w, it.h); ctx.restore();
+    const d = ctx.getImageData(x,y,it.w,it.h).data; let lum = 0;
+    for (let k=0;k<d.length;k+=16) lum += (d[k]/255)**2*0.3 + (d[k+1]/255)**2*0.5 + (d[k+2]/255)**2*0.2;
+    it.b.lum = Math.max(0.02, lum/(d.length/16));
+    it.b.extra = [x/W, 1-(y+it.h)/H, it.w/W, it.h/H];
+    x += it.w + pad; rowH = Math.max(rowH, it.h);
+  }
+  return cv;
+}
+</script>
+<script>
+// ---------- Renderer ----------
+(function(){
+const canvas = document.getElementById('c');
+const errBox = document.getElementById('err');
+const gl = canvas.getContext('webgl2', {preserveDrawingBuffer:true, antialias:false, alpha:false});
+function fail(msg){ errBox.style.display = 'block'; errBox.textContent = msg; canvas.style.display = 'none'; throw new Error(msg); }
+if (!gl) fail('This page needs WebGL2. Try a current desktop browser with hardware acceleration enabled.');
+if (!gl.getExtension('EXT_color_buffer_float')) fail('Your GPU driver does not expose float render targets (EXT_color_buffer_float), which the path tracer needs to accumulate samples.');
+
+function compile(type, src){ const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) fail('Shader error: ' + gl.getShaderInfoLog(s)); return s; }
+function program(fs){ const p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, VS)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) fail('Link error: ' + gl.getProgramInfoLog(p));
+  const u = new Proxy({}, {get:(_,k)=>gl.getUniformLocation(p,k)}); return {p, u}; }
+const PT = program(TRACE_FS), BL = program(BLUR_FS), SH = program(SHOW_FS);
+gl.bindVertexArray(gl.createVertexArray());
+
+function tex2D(w, h, internal, format, type, data, filter=gl.NEAREST){ const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, type, data);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; }
+function fbo(t){ const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); return f; }
+
+// Scene upload
+const atlasCanvas = buildAtlas();
+const atlasTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlasCanvas); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+const NB = boxes.length; if (NB > 128) fail('Too many boxes: ' + NB);
+const bmin = new Float32Array(128*4), bmax = new Float32Array(128*4), mat = new Float32Array(NB*16);
+boxes.forEach((b,i)=>{ bmin.set([...b.min,0], i*4); bmax.set([...b.max,0], i*4);
+  mat.set([...b.alb, b.rough, b.f0, b.type, b.face, 0, ...b.emis, 0, ...b.extra], i*16); });
+const faceArea = (b,f) => { const e = [b.max[0]-b.min[0], b.max[1]-b.min[1], b.max[2]-b.min[2]]; return f<2 ? e[1]*e[2] : f<4 ? e[0]*e[2] : e[0]*e[1]; };
+const lights = [];
+boxes.forEach((b,i)=>{ if (b.face<0 || b.type===0 || b.type===4) return;
+  const faces = b.face===9 ? [0,1,2,3,4,5] : b.face<6 ? [b.face] : [(b.face-6)*2, (b.face-6)*2+1];
+  for (const f of faces){ const a = faceArea(b,f); if (a < 0.05) continue;
+    if (b.type===2) { if (f===2 || f===3) continue; lights.push({i, f, w: a*b.extra[2]*0.42*4.0*0.75}); continue; }
+    const L = 0.3*b.emis[0]+0.5*b.emis[1]+0.2*b.emis[2]; lights.push({i, f, w: a*L*(b.type===1 ? b.lum*18 : 1)}); } });
+const NL = lights.length, wsum = lights.reduce((s,l)=>s+l.w, 0); let cdf = 0;
+const lightData = new Float32Array(NL*4);
+lights.forEach((l,k)=>{ const p = 0.85*l.w/wsum + 0.15/NL; cdf += p; lightData.set([l.i, l.f, cdf, p], k*4); });
+const matTex = tex2D(NB*4, 1, gl.RGBA32F, gl.RGBA, gl.FLOAT, mat);
+const lightTex = tex2D(NL, 1, gl.RGBA32F, gl.RGBA, gl.FLOAT, lightData);
+gl.useProgram(PT.p); gl.uniform4fv(PT.u['uBMin[0]'], bmin); gl.uniform4fv(PT.u['uBMax[0]'], bmax); gl.uniform1i(PT.u.uNB, NB); gl.uniform1i(PT.u.uNL, NL);
+gl.uniform1i(PT.u.uMat, 1); gl.uniform1i(PT.u.uLights, 2); gl.uniform1i(PT.u.uAtlas, 3); gl.uniform1i(PT.u.uPrev, 0);
+gl.uniform1f(PT.u.uWinI, 4.0); gl.uniform1f(PT.u.uSignI, 2.0); gl.uniform1f(PT.u.uSky, 2.0);
+
+// Camera presets. yaw: 0 looks down +z; pitch in degrees, up is positive.
+const PRESETS = {
+  street: {pos:[0.4,6,-2], yaw:0, pitch:53, fov:82, w:720, h:1080, exposure:-1.2},
+  gta:    {pos:[0,52,6], yaw:0, pitch:-80, fov:76, w:1200, h:900, exposure:-0.4},
+  bridge: {pos:[0,38,-14], yaw:0, pitch:-4, fov:72, w:1200, h:800, exposure:-1.0},
+};
+const S = { preset:'street', ps:3, bounces:4, lightMode:0, exposure:-1.2, dither:true, bloom:true, haze:true, paused:false, levels:16 };
+const cam = {pos:[0,2,0], yaw:0, pitch:0, fov:90, w:720, h:1080};
+let acc = [], accFb = [], bloomT = [], bloomFb = [], iw = 0, ih = 0, cur = 0, N = 0, frame = 0, spp = 1;
+let stat = {t0: performance.now(), n0: 0};
+
+function allocate(){
+  iw = Math.max(16, Math.floor(cam.w / S.ps)); ih = Math.max(16, Math.floor(cam.h / S.ps));
+  canvas.width = iw*S.ps; canvas.height = ih*S.ps;
+  for (const t of [...acc, ...bloomT]) gl.deleteTexture(t);
+  acc = [0,1].map(()=>tex2D(iw, ih, gl.RGBA32F, gl.RGBA, gl.FLOAT, null)); accFb = acc.map(fbo);
+  bloomT = [0,1].map(()=>tex2D(iw, ih, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, null)); bloomFb = bloomT.map(fbo);
+  document.getElementById('sRes').textContent = iw + '×' + ih;
+  reset();
+}
+function reset(){ N = 0; frame = 0; cur = 0; stat = {t0: performance.now(), n0: 0};
+  for (const f of accFb){ gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); } }
+function applyPreset(name){ const p = PRESETS[name]; S.preset = name; Object.assign(cam, {pos:[...p.pos], yaw:p.yaw, pitch:p.pitch, fov:p.fov, w:p.w, h:p.h});
+  S.exposure = p.exposure; document.getElementById('exposure').value = p.exposure; document.getElementById('exposureV').textContent = p.exposure.toFixed(1); allocate(); }
+
+function basis(){ const y = cam.yaw*Math.PI/180, p = cam.pitch*Math.PI/180;
+  const f = [Math.sin(y)*Math.cos(p), Math.sin(p), Math.cos(y)*Math.cos(p)];
+  let r = [f[2], 0, -f[0]]; const rl = Math.hypot(r[0], r[2]) || 1; r = [r[0]/rl, 0, r[2]/rl];
+  const u = [f[1]*r[2]-f[2]*r[1], f[2]*r[0]-f[0]*r[2], f[0]*r[1]-f[1]*r[0]]; return {f, r, u}; }
+
+function tracePass(){
+  const {f, r, u} = basis();
+  gl.useProgram(PT.p); gl.bindFramebuffer(gl.FRAMEBUFFER, accFb[cur^1]); gl.viewport(0,0,iw,ih);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, acc[cur]);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, matTex);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, lightTex);
+  gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, atlasTex);
+  gl.uniform2f(PT.u.uRes, iw, ih); gl.uniform1ui(PT.u.uFrame, frame); gl.uniform1i(PT.u.uSpp, spp);
+  gl.uniform1i(PT.u.uBounces, S.bounces); gl.uniform1i(PT.u.uLightMode, S.lightMode); gl.uniform1f(PT.u.uFog, S.haze ? 0.006 : 0.0);
+  gl.uniform3fv(PT.u.uCamPos, cam.pos); gl.uniform3fv(PT.u.uCamF, f); gl.uniform3fv(PT.u.uCamR, r); gl.uniform3fv(PT.u.uCamU, u);
+  gl.uniform1f(PT.u.uTanHalf, Math.tan(cam.fov*Math.PI/360)); gl.uniform1f(PT.u.uAspect, iw/ih);
+  gl.drawArrays(gl.TRIANGLES, 0, 3); cur ^= 1; N += spp; frame++;
+}
+function bloomPass(){
+  gl.useProgram(BL.p); gl.viewport(0,0,iw,ih); gl.activeTexture(gl.TEXTURE0); gl.uniform1i(BL.u.uSrc, 0); gl.uniform2i(BL.u.uSize, iw, ih);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, bloomFb[0]); gl.bindTexture(gl.TEXTURE_2D, acc[cur]); gl.uniform1f(BL.u.uScale, Math.pow(2, S.exposure)/Math.max(N,1)); gl.uniform1f(BL.u.uThresh, 1.0); gl.uniform2i(BL.u.uDir, 1, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, bloomFb[1]); gl.bindTexture(gl.TEXTURE_2D, bloomT[0]); gl.uniform1f(BL.u.uScale, 1); gl.uniform1f(BL.u.uThresh, 0); gl.uniform2i(BL.u.uDir, 0, 1); gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+function showPass(){
+  gl.useProgram(SH.p); gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0,0,canvas.width,canvas.height);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, acc[cur]); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, bloomT[1]);
+  gl.uniform1i(SH.u.uAcc, 0); gl.uniform1i(SH.u.uBloom, 1); gl.uniform1f(SH.u.uN, N); gl.uniform1f(SH.u.uExposure, Math.pow(2, S.exposure));
+  gl.uniform1f(SH.u.uBloomStr, S.bloom ? 0.35 : 0); gl.uniform1i(SH.u.uDither, S.dither ? 1 : 0); gl.uniform1i(SH.u.uLevels, S.levels); gl.uniform1i(SH.u.uPS, S.ps);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+let lastT = performance.now();
+function loop(){
+  requestAnimationFrame(loop);
+  if (!S.paused && N < 200000){
+    const t = performance.now(); tracePass(); gl.finish ? null : 0;
+    const dt = performance.now() - t; if (dt < 10 && spp < 4) spp++; else if (dt > 40 && spp > 1) spp--;
+  }
+  if (S.bloom) bloomPass(); showPass();
+  const now = performance.now();
+  if (now - lastT > 400){ lastT = now; document.getElementById('sSamples').textContent = N;
+    document.getElementById('sRate').textContent = ((N - stat.n0) / Math.max(0.001, (now - stat.t0)/1000)).toFixed(1); }
+}
+
+// ---------- Controls ----------
+const $ = id => document.getElementById(id);
+$('camera').addEventListener('change', e => applyPreset(e.target.value));
+$('pixel').addEventListener('input', e => { S.ps = +e.target.value; $('pixelV').textContent = S.ps; allocate(); });
+$('bounces').addEventListener('input', e => { S.bounces = +e.target.value; $('bouncesV').textContent = S.bounces; reset(); });
+$('lightmode').addEventListener('change', e => { S.lightMode = +e.target.value; reset(); });
+$('exposure').addEventListener('input', e => { S.exposure = +e.target.value; $('exposureV').textContent = (+e.target.value).toFixed(1); });
+$('dither').addEventListener('change', e => S.dither = e.target.checked);
+$('bloom').addEventListener('change', e => S.bloom = e.target.checked);
+$('haze').addEventListener('change', e => { S.haze = e.target.checked; reset(); });
+$('pause').addEventListener('click', e => { S.paused = !S.paused; e.target.textContent = S.paused ? 'Resume' : 'Pause'; });
+$('reset').addEventListener('click', () => applyPreset(S.preset));
+let drag = null;
+canvas.addEventListener('pointerdown', e => { drag = {x:e.clientX, y:e.clientY, yaw:cam.yaw, pitch:cam.pitch}; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => { if (!drag) return; const k = cam.fov/700;
+  cam.yaw = drag.yaw + (e.clientX - drag.x)*k; cam.pitch = Math.max(-89, Math.min(89, drag.pitch + (e.clientY - drag.y)*k)); reset(); });
+canvas.addEventListener('pointerup', () => drag = null); canvas.addEventListener('pointercancel', () => drag = null);
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.fov = Math.max(20, Math.min(120, cam.fov * (e.deltaY > 0 ? 1.08 : 0.925))); reset(); }, {passive:false});
+
+// Small scripting surface, used for headless stills
+window.app = {
+  state: S, cam, boxes, lights: lights.length,
+  get samples(){ return N; },
+  setPreset(name){ $('camera').value = name; applyPreset(name); },
+  set(key, val){ S[key] = val; if (key === 'ps') allocate(); else reset(); },
+  look(yaw, pitch, fov){ if (yaw != null) cam.yaw = yaw; if (pitch != null) cam.pitch = pitch; if (fov != null) cam.fov = fov; reset(); },
+  move(x, y, z){ cam.pos = [x,y,z]; reset(); },
+  size(w, h){ cam.w = w; cam.h = h; allocate(); },
+  snapshot(){ bloomPass(); showPass(); return canvas.toDataURL('image/png'); },
+};
+applyPreset('street'); loop();
+})();
+</script>
+</body>
+</html>

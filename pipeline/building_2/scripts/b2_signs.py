@@ -53,6 +53,13 @@ LED = {'trbox_left', 'trbox_front', 'mag', 'band_top', 'band_front', 'band_end',
        'tile_r28', 'tile_r26', 'tile_r30', 'tile_r27', 'tile_r31', 'tile_r29', 'moon', 'mascot'}
 BOX = {'pink_top', 'pink_bot', 'mint_v1', 'cream_h', 'mint_v2', 'pill', 'arc', 'wedge_face', 'blade1', 'blade2', 'blade3', 'cap_end', 'L_face', 'rec_wall', 'rec_wall2'}
 TWO_SIDED = {'blade1', 'blade2', 'blade3'}
+# big ad panels drawn as halftone LED screens (same LED style as the NEWS 360 balls, scripts/b2_ledpanel.py);
+# the small signs (pharmacy, station, MIDORI, kiosk, bath-house pill, BAR stack, lanterns) stay lightboxes
+BIG_LED = {'mag', 'mascot', 'moon', 'trbox_left', 'trbox_front', 'band_top', 'band_front', 'band_end', 'cap_front', 'cap_top',
+           'rec_floor', 'rec_wall', 'rec_wall2', 'blade1', 'blade2', 'blade3',
+           'tile_r28', 'tile_r26', 'tile_r30', 'tile_r27', 'tile_r31', 'tile_r29'}
+LED_GROUP = {'mascot': 'mag'}      # the mascot is content ON the PURIN screen: it shares the screen's LED grid
+PATCH = {}; GROUP_PX = {}
 BBOXMAP = {'trbox_top', 'pink_side', 'pink_mid', 'L_face', 'L_side', 'L_bot', 'wedge_side', 'wedge_under', 'moon_frame'}
 
 def doc_index(p):
@@ -174,7 +181,7 @@ def face_normal(name, xs, ys):
 # 3-D housings of the flat ad panels
 HOUSING = {   # name: (style, free-standing) ; 'box' = lightbox (acrylic face in a painted aluminium can), 'led' = LED cabinet
     'mint_v1': ('box', False), 'cream_h': ('box', False), 'mint_v2': ('box', False), 'pill': ('box', False),
-    'blade1': ('box', True), 'blade2': ('box', True), 'blade3': ('box', True),   # blades stand off the wall: no contact shadow
+    'blade1': ('led', True), 'blade2': ('led', True), 'blade3': ('led', True),   # blades stand off the wall: no contact shadow
     'mag': ('led', False), 'kiosk': ('led', True), 'pink': ('box', False)}
 # The housings always use the outline-consistent normals. OUTLINE_SN=True would also emit the faces' light along them
 # (physically consistent, but it dims the tuned green blade glow on the well wall and the purple wash on the walkway,
@@ -192,7 +199,7 @@ if FIX_L:
     FIXED_N['L_face'] = (np.array([-_b / _t, np.sin(th) * _a / _t, -np.cos(th) * _a / _t], np.float32), _t)
 PINK = ('pink_top', 'pink_mid', 'pink_bot')               # one 3-section sign: a single housing around the union
 CONST_N = {'blade1', 'blade2', 'blade3', 'kiosk', 'pink', 'pill'}  # straight panels: one normal from the mean edge slope
-T_OVERRIDE = {'kiosk': 10.0}                              # the hanging METRO box is deeper than a flat LED cabinet
+T_OVERRIDE = {'kiosk': 10.0, 'blade1': 18.0, 'blade2': 18.0, 'blade3': 18.0}   # double-sided LED blades are deep cabinets                              # the hanging METRO box is deeper than a flat LED cabinet
 PANEL_N = {}                                              # name -> (per-column normals, first column x)
 st, ct = float(np.sin(th)), float(np.cos(th))
 
@@ -359,12 +366,14 @@ def build_housing(name, b, C, col):
     draw_housing(key, b, ncol, x_lo, t, style, free=free, off=60.0 if key.startswith('blade') else 10.0,
                  leak_col=np.median(col, 0) if style == 'box' else None, two=key in TWO_SIDED)
 
-LEAK = {'mint_v1', 'cream_h', 'mint_v2', 'pill', 'blade1', 'blade2', 'blade3', 'pink_top', 'pink_bot'} | ({'L_face'} if FIX_L else set())
+LEAK = {'mint_v1', 'cream_h', 'mint_v2', 'pill', 'pink_top', 'pink_bot'} | ({'L_face'} if FIX_L else set())
 
 def material(name, kind, rgba, xs, ys, uv, b, wpx, hpx):
     col = s2l(rgba[:, :3]); al = rgba[:, 3]
     if kind in ('screen', 'disc'):
-        if name in LED:
+        if name in BIG_LED:
+            pass                                        # halftone LED dots applied after compositing (b2_ledpanel)
+        elif name in LED:
             nu, nv = max(20, wpx / 3.6), max(8, hpx / 3.6)
             fu, fv = (uv[:, 0] * nu) % 1, (uv[:, 1] * nv) % 1
             cell = np.clip(1 - (np.abs(fu - .5) * 2) ** 6 * 0.4, 0, 1) * np.clip(1 - (np.abs(fv - .5) * 2) ** 6 * 0.4, 0, 1)
@@ -378,6 +387,8 @@ def material(name, kind, rgba, xs, ys, uv, b, wpx, hpx):
         fw = np.clip(min(wpx, hpx) * 0.025, 1.5, 7)
         frame = np.clip(1 - (dist - fw) / 1.2, 0, 1)
         inner = np.clip(dist / (fw * 4), 0, 1)
+        if name in LED_GROUP:                           # content on another screen: no bezel of its own
+            frame = np.zeros_like(frame); inner = np.ones_like(inner)
         col = col * (0.82 + 0.18 * inner)[:, None]
         if name in LEAK:                                # thin light leak where the acrylic face meets the frame
             col = col * (1 + 0.55 * np.exp(-((dist - fw - 1.3) / 0.9) ** 2))[:, None]
@@ -392,6 +403,36 @@ def material(name, kind, rgba, xs, ys, uv, b, wpx, hpx):
     return col, al, al
 
 REGULARIZE = {'mint_v2'}      # drawn 13% wider at the bottom - impossible for a flat banner seen by this camera
+
+def led_panel(name, xs, ys, uv, C, emis, cov, b):
+    """turn the composited panel interior into halftone LEDs (b2_ledpanel); grouped content shares the host grid"""
+    import b2_ledpanel as LP
+    inside = (emis > 0.5) & (cov > 0.99)
+    host = LED_GROUP.get(name, name)
+    if host in PANEL_N: n = PANEL_N[host][0].mean(0)
+    else:
+        n = face_normal(host, xs, ys)[0]
+        n = n.mean(0) if np.ndim(n) == 2 else n
+    n = np.asarray(n, float); n = n / (np.linalg.norm(n) + 1e-9)
+    if name in LED_GROUP:                              # e.g. mascot: map its pixels into the host screen's (u,v)
+        P, U, V, Ch = PATCH[host]
+        bb = np.zeros_like(b); bb[ys[inside], xs[inside]] = 1
+        yb, xb = np.nonzero(bb)
+        gx, gy, guv = inverse_uv(P, U, V, (xb.min(), yb.min(), xb.max(), yb.max()), bb)
+        hx, hy, huv = GROUP_PX[host]
+        lin = np.r_[hy * W2 + hx, gy * W2 + gx]
+        _, first = np.unique(lin[::-1], return_index=True)                 # dedupe, prefer the group member's pixels
+        keep = len(lin) - 1 - first
+        X, Y, UV = np.r_[hx, gx][keep], np.r_[hy, gy][keep], np.r_[huv, guv][keep]
+        cu, cv, ncell = LP.led_grid(UV, Ch, n, X, Y)
+        st_ = LP.halftone(canvas, X, Y, cu, cv, seed=hash(host) % 997)
+    elif name in LED_GROUP.values():                  # host screen: wait for its content group
+        GROUP_PX[name] = (xs[inside], ys[inside], uv[inside]); return
+    else:
+        cu, cv, ncell = LP.led_grid(uv[inside], C, n, xs[inside], ys[inside])
+        st_ = LP.halftone(canvas, xs[inside], ys[inside], cu, cv, seed=sum(map(ord, name)))
+    if st_: print('  LED %-11s grid %s  pitch %.1f px  mean %s -> %s' % (host if name in LED_GROUP else name, ncell, st_['pitch_med'],
+                                                                 np.round(st_['mean_in'], 3), np.round(st_['mean_out'], 3)))
 
 def draw_face(name, tex_name=None, mode='coons'):
     CUR['anchor'] = 'near' if name in NEAR else 'far'
@@ -431,6 +472,7 @@ def draw_face(name, tex_name=None, mode='coons'):
         nu = int(np.clip(wpx / 6, 24, 220)); nv = int(np.clip(hpx / 6, 12, 160))
         P, U, V = coons(b, C, nu, nv)
         xs, ys, uv = inverse_uv(P, U, V, bbox, b)
+        PATCH[name] = (P, U, V, C)
     alpha_aa = cv2.GaussianBlur(b.astype(np.float32), (0, 0), 0.7)[ys, xs]
     if name.startswith('tile_'):
         tile_texture(name, b, xs, ys, uv)
@@ -451,6 +493,7 @@ def draw_face(name, tex_name=None, mode='coons'):
     if boxed: build_housing(name, bf, C, col)           # housing returns go under the face
     a = (al * alpha_aa)[:, None]
     canvas[ys, xs] = canvas[ys, xs] * (1 - a) + col * a
+    if name in BIG_LED: led_panel(name, xs, ys, uv, C, emis, al * alpha_aa, b)
     nrm, off = face_normal(name, xs, ys)
     put_geo(xs, ys, nrm, off, emissive=kind in ('screen', 'disc', 'top') and emis.mean() > 0.05, two=name in TWO_SIDED)
     if name == 'moon' and not SKIP_BALLS: draw_ball(hole)

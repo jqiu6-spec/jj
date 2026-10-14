@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Post pass on the finished building-2 frames (2400x3600): body for the flat light panels + the SORA TAXI billboard.
+"""Post pass on the finished building-2 frames (2400x3600): support structure for the flat light panels + the SORA
+TAXI billboard.
 
 The flat lightboxes and LED screens (くすり, 環状七号線, ホテル MIDORI, PURIN, HOTEL LUNA, the three izakaya blades, the
-METRO kiosk, the 夜光 BAR boxes) are given a real body: dark metal returns on the sides that face the camera (the top,
-and the side that faces away from the far point of the ring), a lit bezel line where the face meets the return, and a
-contact shadow on the wall around the mounting footprint. A new wall billboard in the HOTEL LUNA family (SORA TAXI,
-flying taxi) is added on the lower-left wall with the same LED material, metal frame, returns and contact shadow, its
-light spilled and bloomed onto the wall, then the lens falloff and the film treatment of the frame it sits in
-(halation, shoulder/toe, grade, scan sharpening, grain).
+METRO kiosk, the 夜光 BAR boxes) were drawn as decals and read as floating. Each wall screen becomes a thin LED cabinet
+on a steel sub-frame, held off the wall on outrigger brackets with wall plates that bolt to wall rails; side posts get
+diagonal ties and big screens a lattice between the brackets. The blades are thin sheets hung on cantilever arms with
+a tie rod. Members are sized in metres and projected with the mounting normal of that point of the ring (so the depth
+direction turns around the ring) at the local px-per-metre scale; the wall behind the panel's edge falls into its
+shadow, with a soft contact shadow beyond. A new wall billboard in the HOTEL LUNA family (SORA TAXI, flying taxi) is
+added on the lower-left wall with the same LED material, metal frame and structure, its light spilled and bloomed
+onto the wall, then the lens falloff and the film treatment of the frame it sits in (halation, shoulder/toe, grade,
+scan sharpening, grain).
 
 It works on the finished frames because the `.ai` assets of the pipeline are not in the repository: the panel outlines
 are segmented from the Portra frame (all variants share the same geometry), the cinematic and Portra frames are edited
@@ -63,30 +67,30 @@ def shift_vec(nx, nz, t):
     return t * nx, t * nz * SY
 
 # ----------------------------------------------------------------------------------------------- panel geometry
-# bbox, hue range (deg) or None, min sat, min val, parts, thickness px, frame dilation px, outline tolerance px
+# bbox, hue range (deg) or None, min sat, min val, parts, scale (px per metre), frame dilation px, outline tolerance px
 PANELS = {
-    'kusuri':    dict(bbox=(215, 480, 345, 800), hue=None, smin=0.0, vmin=0.45, n=1, t=10, grow=4, eps=5),
-    'ringline7': dict(bbox=(1085, 500, 1380, 630), hue=None, smin=0.0, vmin=0.45, n=1, t=10, grow=4, eps=5),
-    'midori':    dict(bbox=(915, 640, 1030, 1055), hue=None, smin=0.0, vmin=0.40, n=1, t=10, grow=4, eps=5),
-    'purin':     dict(bbox=(370, 900, 955, 1425), hue=(265, 335), smin=0.35, vmin=0.22, n=1, t=18, grow=4, eps=2.5,
-                      hull=False, smooth=7),
-    'luna':      dict(bbox=(425, 1790, 835, 2190), hue=(210, 258), smin=0.40, vmin=0.18, n=1, t=16, grow=4, eps=2.5,
+    'kusuri':    dict(bbox=(215, 480, 345, 800), hue=None, smin=0.0, vmin=0.45, n=1, scale=46, grow=4, eps=5),
+    'ringline7': dict(bbox=(1085, 500, 1380, 630), hue=None, smin=0.0, vmin=0.45, n=1, scale=46, grow=4, eps=5),
+    'midori':    dict(bbox=(915, 640, 1030, 1055), hue=None, smin=0.0, vmin=0.40, n=1, scale=46, grow=4, eps=5),
+    'purin':     dict(bbox=(370, 900, 955, 1405), hue=(265, 335), smin=0.35, vmin=0.22, n=1, scale=44, grow=4, eps=2.5,
+                      hull=False, smooth=7, bright=0.55, close=15),       # the cream lettering on its bottom edge joins the mask
+    'luna':      dict(bbox=(425, 1790, 835, 2190), hue=(210, 258), smin=0.40, vmin=0.18, n=1, scale=48, grow=4, eps=2.5,
                       hull=False, smooth=5, hidden_corner=(432, 1815)),
-    'kiosk':     dict(bbox=(1610, 980, 1780, 1200), hue=(210, 258), smin=0.35, vmin=0.18, n=1, t=9, grow=3, eps=5),
-    'bars':      dict(bbox=(2175, 600, 2400, 1000), hue=(265, 330), smin=0.22, vmin=0.30, n=2, t=9, grow=3, eps=5),
+    'kiosk':     dict(bbox=(1610, 980, 1780, 1200), hue=(210, 258), smin=0.35, vmin=0.18, n=1, scale=42, grow=3, eps=5),
+    'bars':      dict(bbox=(2175, 600, 2400, 1000), hue=(265, 330), smin=0.22, vmin=0.30, n=2, scale=42, grow=3, eps=5),
 }
 # the izakaya blades light the wall around them too strongly to be segmented by colour: their quads (TL, TR, BR, BL)
-# are given by hand, back to front. Thin two-sided sheets whose free edge faces the camera: top + right returns.
+# are given by hand, back to front. Thin two-sided sheets hung on a cantilever arm along the top edge with a tie rod.
 BLADES = {
-    'blade3': dict(quad=[(598, 2268), (770, 2348), (780, 3022), (608, 2942)], t=10, nx=-0.35),
-    'blade2': dict(quad=[(482, 2244), (640, 2325), (660, 3020), (502, 2939)], t=10, nx=-0.35),
-    'blade1': dict(quad=[(344, 2210), (528, 2314), (548, 2990), (350, 2962)], t=10, nx=-0.35),
+    'blade3': dict(quad=[(598, 2268), (770, 2348), (780, 3022), (608, 2942)], scale=46, nx=-0.35),
+    'blade2': dict(quad=[(482, 2244), (640, 2325), (660, 3020), (502, 2939)], scale=46, nx=-0.35),
+    'blade1': dict(quad=[(344, 2210), (528, 2314), (548, 2990), (350, 2962)], scale=46, nx=-0.35),
 }
 BALL = (432, 1653, 262)                          # the hovering NEWS 360 ball: in front of HOTEL LUNA
 
 # the new billboard: a 3:2 board on the lower-left (convex, near) wall, whose rows slope ~13 deg down to the right
 BOARD = dict(TL=(88, 3090), width=400, height=230, hdir=(0.975, 0.222), vdir=(0.09, 0.996), bow=5.0,
-             t=16, nx=-0.35, frame=5.0, exposure=1.3)
+             scale=50, nx=-0.35, frame=5.0, exposure=1.3)
 
 def segment(por):
     hsv = cv2.cvtColor((por * 255).astype(np.uint8), cv2.COLOR_RGB2HSV).astype(np.float32)
@@ -98,11 +102,12 @@ def segment(por):
         x0, y0, x1, y1 = p['bbox']
         m = (V >= p['vmin']) & (S >= p['smin'])
         if p['hue']: m &= (Hd >= p['hue'][0]) & (Hd <= p['hue'][1])
+        if p.get('bright'): m |= V >= p['bright']
         reg = np.zeros((H, W), bool); reg[y0:y1, x0:x1] = True
         m = (m & reg).astype(np.uint8)
         if name == 'luna': m[cv2.dilate(ball, disk(4)) > 0] = 0
         m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-        m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+        kc = p.get('close', 5); m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((kc, kc), np.uint8))
         for j, part in enumerate(largest(m, p['n'])):
             part = fill_holes(part)
             if p.get('hidden_corner'):                       # complete the outline behind the ball
@@ -113,64 +118,163 @@ def segment(por):
             part = cv2.dilate(clean_outline(part, p['eps'], p.get('hull', True), p.get('smooth', 0)), disk(p['grow']))
             ys, xs = np.nonzero(part); cx = xs.mean()
             nx, nz = wall_normal(cx, p.get('nx'))
-            out.append(dict(name=f'{name}{j if p["n"] > 1 else ""}', mask=part, t=p['t'], d=shift_vec(nx, nz, p['t'])))
+            out.append(dict(name=f'{name}{j if p["n"] > 1 else ""}', mask=part, scale=p['scale'], d=shift_vec(nx, nz, 1.0), kind='wall'))
+    wn = shift_vec(*wall_normal(0, 0.5), 1.0)                       # the wall the blades hang from
+    blades = []
     for name, p in BLADES.items():
         nx, nz = wall_normal(0, p['nx'])
-        out.append(dict(name=name, mask=poly_mask(p['quad']), t=p['t'], d=shift_vec(nx, nz, p['t'])))
+        blades.append(dict(name=name, mask=poly_mask(p['quad']), scale=p['scale'], d=shift_vec(nx, nz, 1.0), kind='blade',
+                           poly=np.array(p['quad'], np.float64), wall_n=wn))
+    for i, b in enumerate(blades):                                   # drawn back to front: the ones in front hide the structure
+        front = [c['mask'] for c in blades[i + 1:]]
+        if front: b['occluded_by'] = np.maximum.reduce(front)
+    out += blades
     bright = (((V > 0.30) & (S > 0.30)) | (V > 0.72)).astype(np.uint8)
     bright = cv2.morphologyEx(bright, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
     return out, ball, bright
 
 # ----------------------------------------------------------------------------------------------- the body of a panel
-def body(F, d):
-    """returns (R: pixels of the returns, s: 0 at the face edge -> 1 at the wall, top: 1 where the return is the top face)
-    for a face mask F standing off the wall by image displacement d"""
+# A wall screen is a thin LED cabinet on a steel sub-frame, held off the wall on outrigger brackets that bolt to wall
+# rails; the side posts get diagonal ties. A blade is a thin sheet hung on cantilever arms with a tie rod. Dimensions in
+# metres, projected with the mounting normal of that point of the ring (image direction nimg, length 1 for 1 m of depth
+# before the camera foreshortening already in nimg) and the local scale s (px per metre).
+CAB, PLATE = 0.12, 0.24                       # cabinet depth, wall plate; the rest scales with the panel size (add_body)
+
+def sweep(F, d):
+    """pixels swept by face F moved to the wall by image displacement d: the wall the panel's edge stands in front of"""
     dx, dy = d; n = max(2, int(np.ceil(np.hypot(dx, dy) * 1.5)))
     ys, xs = np.nonzero(F); pad = int(abs(dx) + abs(dy) + 4)
     x0, y0 = max(0, xs.min() - pad), max(0, ys.min() - pad); x1, y1 = min(W, xs.max() + pad + 1), min(H, ys.max() + pad + 1)
-    f = F[y0:y1, x0:x1]; h, w = f.shape
-    R = np.zeros((h, w), np.uint8); s = np.zeros((h, w), np.float32); top = np.zeros((h, w), np.uint8)
-    U = f.copy()
+    f = F[y0:y1, x0:x1]; h, w = f.shape; U = f.copy()
     for i in range(1, n + 1):
         k = i / n
-        sh = cv2.warpAffine(f, np.float32([[1, 0, -dx * k], [0, 1, -dy * k]]), (w, h), flags=cv2.INTER_NEAREST)
-        new = (sh > 0) & (U == 0)
-        if new.any():
-            s[new] = k; R[new] = 1
-            vert = cv2.warpAffine(f, np.float32([[1, 0, 0], [0, 1, -dy * k]]), (w, h), flags=cv2.INTER_NEAREST)
-            horz = cv2.warpAffine(f, np.float32([[1, 0, -dx * k], [0, 1, 0]]), (w, h), flags=cv2.INTER_NEAREST)
-            top[new & (vert > 0) & (horz == 0)] = 1
-        U |= sh
-    Rf = np.zeros((H, W), np.uint8); Rf[y0:y1, x0:x1] = R
-    sf = np.zeros((H, W), np.float32); sf[y0:y1, x0:x1] = s
-    tf = np.zeros((H, W), np.uint8); tf[y0:y1, x0:x1] = top
-    return Rf, sf, tf
+        U |= cv2.warpAffine(f, np.float32([[1, 0, -dx * k], [0, 1, -dy * k]]), (w, h), flags=cv2.INTER_NEAREST)
+    out = np.zeros((H, W), np.uint8); out[y0:y1, x0:x1] = U & (1 - f); return out
 
-def add_body(img, F, d, t, look, protect, touched, tint=None):
-    """draw the returns + bezel of face F into img (sRGB float), then the contact shadow around the body on the wall"""
-    R, s, top = body(F, d)
-    face_col = tint if tint is not None else np.percentile(img[F > 0], 60, axis=0)
-    rr = R > 0
-    wall = img[rr]
-    kc = 1.25 if look == 'cinematic' else 1.0
-    top_col = np.array([0.110, 0.115, 0.130], np.float32) * kc        # top face: dark metal lit by the sky and the signs above
-    side_col = np.array([0.055, 0.058, 0.066], np.float32) * kc       # side faces: in their own shadow
+def face_polygon(F, eps=4.0):
+    cnts, _ = cv2.findContours(F, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    c = cv2.approxPolyDP(max(cnts, key=cv2.contourArea), eps, True)[:, 0, :].astype(np.float64)
+    if 0.5 * np.sum(c[:, 0] * np.roll(c[:, 1], -1) - np.roll(c[:, 0], -1) * c[:, 1]) < 0: c = c[::-1]   # clockwise in image coords
+    return c
+
+class Layer:
+    """steel members drawn back to front into a crop of the frame: dark steel lit by the local glow of the scene
+    (a blurred copy of the frame around the panel), with a lit upper edge"""
+    def __init__(self, img, touched, box, amb, lift, keep=None):
+        self.img, self.touched, self.box, self.amb, self.lift, self.keep = img, touched, box, amb, lift, keep
+    def _blend(self, m, col):
+        x0, y0, x1, y1 = self.box
+        a = m.astype(np.float32)[..., None] / 255
+        if self.keep is not None: a = a * (1 - self.keep[..., None])             # things in front stay in front
+        reg = self.img[y0:y1, x0:x1]; reg[:] = reg * (1 - a) + col * a
+        t = self.touched[y0:y1, x0:x1]; t[:] = np.maximum(t, a[..., 0])
+    def _q(self, p): return (int(round(p[0] - self.box[0])), int(round(p[1] - self.box[1])))
+    def member(self, p0, p1, width, k, base, hi=True, tint=None, edge=True):
+        h, w = self.amb.shape[:2]
+        if edge:                                                          # a dark edge separates the member from the wall
+            m = np.zeros((h, w), np.uint8); cv2.line(m, self._q(p0), self._q(p1), 255, max(2, int(round(width)) + 2), cv2.LINE_AA)
+            self._blend(m, self.amb * k * 0.3 + base * 0.5 + self.lift)
+        m = np.zeros((h, w), np.uint8); cv2.line(m, self._q(p0), self._q(p1), 255, max(1, int(round(width))), cv2.LINE_AA)
+        self._blend(m, self.amb * k + base + self.lift + (0 if tint is None else tint))
+        if hi and width >= 2.5:
+            d = np.asarray(p1, float) - np.asarray(p0, float); ln = np.hypot(*d) + 1e-6
+            perp = np.array([-d[1], d[0]]) / ln
+            if perp[1] > 0: perp = -perp                              # the edge that faces up catches the light
+            off = perp * (width / 2 - 0.7)
+            m = np.zeros((h, w), np.uint8); cv2.line(m, self._q(np.asarray(p0) + off), self._q(np.asarray(p1) + off), 255, 1, cv2.LINE_AA)
+            self._blend(m, self.amb * (k * 1.9) + base * 2.5 + self.lift)
+    def strip(self, pts, k, base, tint):
+        h, w = self.amb.shape[:2]
+        m = np.zeros((h, w), np.uint8)
+        cv2.fillPoly(m, [np.array([self._q(p) for p in pts], np.int32)], 255, cv2.LINE_AA)
+        self._blend(m, self.amb * k + base + self.lift + tint * 0.04)
+
+def add_body(img, orig, F, nimg, s, kind, look, protect, touched, tint=None, poly=None, wall_n=None, occluder=None):
+    """draw the support structure of face F into img (sRGB float). nimg: image direction of the mounting normal
+    (toward the viewer) per metre of depth; s: px per metre; kind 'wall' (cabinet on brackets) or 'blade' (sheet on arms)"""
     lift = np.array([0.022, 0.031, 0.028], np.float32) if look == 'cinematic' else 0.0
-    sv = s[rr][:, None]; tp = top[rr][:, None].astype(np.float32)
-    # painted metal: a little of the wall it stands in front of, darker toward the wall, a faint leak of the face
-    base = top_col * tp + side_col * (1 - tp)
-    col = wall * (0.30 * tp + 0.25 * (1 - tp)) + (base * (1 - 0.25 * sv) + lift) + face_col * (0.05 * (1 - sv))
-    bez = np.clip(1 - (sv * np.hypot(*d) - 0.6) / 1.0, 0, 1) * 0.45                 # ~1 px metal edge on the face side
-    bezel_col = np.array([0.24, 0.25, 0.28], np.float32) * 0.5 + face_col * 0.2 + lift
-    col = col * (1 - bez) + bezel_col * bez
-    img[rr] = col
-    touched[rr] = np.maximum(touched[rr], 1.0)
-    # contact shadow: ambient occlusion on the wall around the footprint, not on other lights
-    Bd = (F | R)
-    D = cv2.distanceTransform((1 - Bd).astype(np.uint8), cv2.DIST_L2, 5)
-    ao = 0.25 * np.exp(-(D / (0.8 * t)) ** 1.3) * (D > 0) * (protect == 0)
+    face_col = tint if tint is not None else np.percentile(img[F > 0], 60, axis=0)
+    poly = face_polygon(F) if poly is None else np.asarray(poly, np.float64)
+    nimg = np.asarray(nimg, np.float64)
+    cab = CAB if kind == 'wall' else 0.08
+    # the structure scales with the panel: a 2 m lightbox sits on a light frame, a 14 m screen on a truss
+    size_m = float(max(poly.max(0) - poly.min(0))) / s
+    standoff = float(np.clip(0.07 * size_m, 0.45, 1.3))
+    mem = float(np.clip(0.05 + 0.012 * size_m, 0.08, 0.20))
+    RAIL = POST = mem; BRACKET = 0.8 * mem; TIE = 0.6 * mem; SPACING = float(np.clip(0.12 * size_m, 1.2, 2.5))
+    Dc = nimg * cab * s                                                        # face -> back of the cabinet
+    wn = nimg if wall_n is None else np.asarray(wall_n, np.float64)
+    Dw = wn * (cab + standoff) * s                                             # face -> wall
+    # the wall behind the panel's edge is in its shadow; a soft contact shadow beyond the footprint
+    G = sweep(F, Dw if kind == 'wall' else Dc)
+    front = (protect > 0) if occluder is None else occluder
+    shade = (G > 0) & ~front
+    img[shade] *= 0.4
+    D = cv2.distanceTransform((1 - (F | G)).astype(np.uint8), cv2.DIST_L2, 5)
+    ao = 0.22 * np.exp(-(D / (0.45 * s)) ** 1.2) * (D > 0) * (protect == 0)
     img *= (1 - ao)[..., None]
-    return Bd
+    # the local glow of the scene lights the dark steel
+    ys, xs = np.nonzero(F | G); pad = int(1.0 * s) + 8
+    box = (max(0, xs.min() - pad), max(0, ys.min() - pad), min(W, xs.max() + pad + 1), min(H, ys.max() + pad + 1))
+    x0, y0, x1, y1 = box
+    amb = np.clip(cv2.GaussianBlur(orig[y0:y1, x0:x1], (0, 0), 10), 0, 0.35)
+    L = Layer(img, touched, box, amb, lift, keep=None if occluder is None else occluder[y0:y1, x0:x1].astype(np.float32))
+    # exposed edges face the wall footprint: past them we look onto the structure behind the panel
+    n = len(poly); edges = []; centre = poly.mean(0)
+    for i in range(n):
+        p, q = poly[i], poly[(i + 1) % n]; e = q - p; ln = np.hypot(*e)
+        if ln < 1: continue
+        out = np.array([e[1], -e[0]]) / ln
+        # ... and lie on the wall side of the panel (a notch in the outline must not grow a truss across the face)
+        ex = float(out @ (-nimg)) > 0.12 and float(((p + q) / 2 - centre) @ (-nimg)) > 0
+        edges.append((p, q, ex))
+    if kind == 'wall':
+        for p, q, ex in edges:                                                 # wall rails (back)
+            if ex: L.member(p - Dw, q - Dw, RAIL * s, 0.42, 0.02)
+        chains, cur = [], []                                                   # outrigger brackets along the exposed chains
+        for p, q, ex in edges:
+            if ex: cur.append((p, q))
+            elif cur: chains.append(cur); cur = []
+        if cur:
+            if chains and edges[0][2]: chains[0] = cur + chains[0]
+            else: chains.append(cur)
+        for ch in chains:
+            pts = np.array([ch[0][0]] + [q for _, q in ch])
+            seg = np.linalg.norm(np.diff(pts, axis=0), axis=1); cum = np.r_[0, np.cumsum(seg)]; total = cum[-1]
+            k = max(1, int(round(total / (SPACING * s))))
+            anchors = []
+            for j in range(k + 1):
+                t = total * j / k; i = min(int(np.searchsorted(cum, t, side='right') - 1), len(seg) - 1)
+                a = pts[i] + (pts[i + 1] - pts[i]) * ((t - cum[i]) / max(seg[i], 1e-6))
+                steep = abs(pts[i + 1][1] - pts[i][1]) > abs(pts[i + 1][0] - pts[i][0])
+                perp = np.array([-wn[1], wn[0]]); perp /= np.linalg.norm(perp) + 1e-6
+                L.member(a - Dw - perp * PLATE * s / 2, a - Dw + perp * PLATE * s / 2, BRACKET * s * 0.8, 0.40, 0.02, hi=False)
+                L.member(a - Dc, a - Dw, BRACKET * s, 0.40, 0.02, hi=not steep)
+                anchors.append((a, steep))
+            if size_m > 5:                                                     # big screens: a lattice between the brackets
+                for (a, sa), (b, sb) in zip(anchors[:-1], anchors[1:]):
+                    if not (sa or sb): L.member(a - Dw, b - Dc, TIE * s, 0.36, 0.015, hi=False)
+        for p, q, ex in edges:                                                 # side posts get diagonal ties to the wall
+            if not ex: continue
+            e = q - p; ln = np.hypot(*e)
+            if abs(e[1]) > 0.7 * ln and ln > 1.2 * s:
+                top, bot = (p, q) if p[1] < q[1] else (q, p)
+                L.member(top - Dw, top * 0.5 + bot * 0.5 - Dc, TIE * s, 0.36, 0.015, hi=False)
+                L.member(bot - Dw, top * 0.5 + bot * 0.5 - Dc, TIE * s, 0.36, 0.015, hi=False)
+        for p, q, ex in edges:                                                 # the sub-frame at the back of the cabinet
+            if ex: L.member(p - Dc, q - Dc, POST * s, 0.45, 0.025, hi=abs(q[1] - p[1]) < 0.7 * np.hypot(*(q - p)))
+    else:
+        TL, TR, BR, BL = poly[:4]
+        arm = (cab + standoff) * s
+        wu = wn / (np.linalg.norm(wn) + 1e-6)
+        L.member(TL - Dc, TL - Dc - wu * arm, BRACKET * s, 0.40, 0.02)        # cantilever arm into the wall at the top
+        L.member(TL - Dc - wu * arm, TL + (TR - TL) * 0.45 - Dc, TIE * s, 0.36, 0.015, hi=False)   # tie rod
+        L.member(TL - Dc, TR - Dc, POST * s * 0.8, 0.45, 0.025)              # the sheet's top rail
+    for p, q, ex in edges:                                                     # the cabinet return and its lit edge
+        if not ex: continue
+        L.strip([p, q, q - Dc, p - Dc], 0.33, 0.02, face_col)
+        L.member(p, q, 1.2, 0.8, 0.05, hi=False, tint=face_col * 0.12, edge=False)
+    return F | G
 
 # ----------------------------------------------------------------------------------------------- the new billboard
 def film_pixels(lin, look):
@@ -251,9 +355,9 @@ def render_board(tex_path, look):
     L = np.zeros((H, W, 3), np.float32); L[ys, xs] = lin
     return F, L, E, rgba[:, 3], (xs, ys)
 
-def add_board(img, look, tex_path, protect, touched):
+def add_board(img, orig, look, tex_path, protect, touched, occluder=None):
     F, L, E, alpha, (xs, ys) = render_board(tex_path, look)
-    nx, nz = wall_normal(0, BOARD['nx']); d = shift_vec(nx, nz, BOARD['t'])
+    nx, nz = wall_normal(0, BOARD['nx']); d = shift_vec(nx, nz, 1.0)
     # light transport approximation (composite.py scaled to this frame): spill, bloom, diffuse glow on the wall
     k = W / 2910.0
     bg = s2l(img)
@@ -281,7 +385,7 @@ def add_board(img, look, tex_path, protect, touched):
     touched[ys, xs] = np.maximum(touched[ys, xs], a[:, 0])
     sharpen = np.zeros((H, W), np.float32); sharpen[ys, xs] = a[:, 0]
     tint = np.percentile(face, 60, axis=0)
-    add_body(img, F, d, BOARD['t'], look, protect, touched, tint=tint)
+    add_body(img, orig, F, d, BOARD['scale'], 'wall', look, protect, touched, tint=tint, occluder=occluder)
     return F, sharpen
 
 # ----------------------------------------------------------------------------------------------- finishing
@@ -310,10 +414,18 @@ def process(img, look, panels, ball, bright, tex_path, seed):
     protect = bright.copy()
     touched = np.zeros((H, W), np.float32)
     ball_m = cv2.dilate(ball, disk(2)) > 0
+    # every sign face and every strongly lit element stays in front of the structure drawn behind other panels
+    faces = np.maximum.reduce([p['mask'] for p in panels])
+    in_front = ((bright > 0) & (img.max(-1) > 0.55)) | (faces > 0) | ball_m
     for p in panels:
-        add_body(img, p['mask'], p['d'], p['t'], look, protect, touched)
+        occ = p.get('occluded_by')
+        if occ is not None: keep_img, keep_t = img.copy(), touched.copy()
+        add_body(img, orig, p['mask'], p['d'], p['scale'], p['kind'], look, protect, touched, poly=p.get('poly'), wall_n=p.get('wall_n'),
+                 occluder=in_front & (p['mask'] == 0))
+        if occ is not None:                                        # a blade in front hides the structure of the one behind
+            m = occ > 0; img[m] = keep_img[m]; touched[m] = keep_t[m]
     img[ball_m] = orig[ball_m]; touched[ball_m] = 0            # the ball hovers in front of HOTEL LUNA
-    Fb, sharpen = add_board(img, look, tex_path, protect, touched)
+    Fb, sharpen = add_board(img, orig, look, tex_path, protect, touched, occluder=in_front)
     img = finish(img, touched, sharpen, look, seed)
     return img, touched, Fb
 
@@ -349,7 +461,7 @@ def main():
     cin, por, dit = load(a.cinematic), load(a.portra), load(a.dither)
     assert cin.shape[:2] == (H, W) and por.shape[:2] == (H, W) and dit.shape[:2] == (H, W)
     panels, ball, bright = segment(por)
-    print('panels:', ', '.join('%s t=%d d=(%.1f,%.1f)' % (p['name'], p['t'], *p['d']) for p in panels))
+    print('panels:', ', '.join('%s s=%d n=(%.2f,%.2f)' % (p['name'], p['scale'], *p['d']) for p in panels))
     por_new, touched, Fb = process(por, 'portra', panels, ball, bright, a.tex, a.seed)
     cin_new, _, _ = process(cin, 'cinematic', panels, ball, bright, a.tex, a.seed)
     dit_new = dither_variant(por_new, dit, touched)

@@ -67,6 +67,7 @@ HT_SAT = 1.0                    # saturation of the dot colour around its lumina
 HT_BLEED = 0.10                 # diffuser bleed glow on the substrate around a dot (fraction of the dot radiance,
                                 # reached for dots >= the HT_FILL size)
 HT_BLEED_W = 0.15               # bleed decay length (fraction of the narrower cell side)
+POLE_RINGS = (60.0, 75.5, 82.8)  # |lat| where each LED ring halves its LED count (halftone style)
 HT_FADE = (1.7, 2.7)            # screen pitch (px) range over which dots fade in (below: plain averaged colour)
 HT_DETAIL = (1.0, 4.2, 3.6)     # dot size + colour = mix(cell's, from the per-pixel texture, d): d = [0] at pitch
                                 # <= [2] px, 0 at pitch >= [1] px (one colour per dot); legible small-ball text
@@ -438,6 +439,7 @@ def _pole_supersample(pt, nx, ny, r, M, rot, K=8):
 
 
 def _shade(nx, ny, r, cx, cy, pt, M, rot, up_c, exposure, envf):
+    global LED_CELLS
     W0, H0 = pt['W'], pt['H']
     n, nz, u, v, p, a, b, c, d, s1, s2, ntap, lod, au, av = _footprint(nx, ny, r, M, rot, W0, H0)
     # ---- LED cell coordinates and their on-screen size
@@ -450,8 +452,26 @@ def _shade(nx, ny, r, cx, cy, pt, M, rot, up_c, exposure, envf):
     fall = 0.35 + 0.65 * mu ** 0.6                     # LED viewing-angle falloff + slight colour shift
     tint = 1 + ((1 - mu) ** 2)[:, None] * np.array([-0.06, -0.015, 0.08], np.float32)
     if LED_STYLE == 'halftone':
-        led, emis = _shade_halftone(pt, nx, ny, r, M, rot, u, v, p, a, b, c, d, s1, s2, ntap, lod, au, av, cu, cv,
-                                    pu, pv, exposure)
+        # latitude rings like a real LED sphere: fewer LEDs per ring toward the poles (x2 above 60 deg, x4 above
+        # 75.5, x8 above 82.8) so the dots stay round and above the fade pitch instead of melting into the cap
+        lat = 90.0 - (v / H0) * 180.0
+        alat = np.abs(lat)
+        band = np.where(alat < POLE_RINGS[0], 1, np.where(alat < POLE_RINGS[1], 2, np.where(alat < POLE_RINGS[2], 4, 8)))
+        led = np.zeros((len(nx), 3), np.float32); emis = np.zeros((len(nx), 3), np.float32)
+        keep_cells = LED_CELLS
+        try:
+            for f in (1, 2, 4, 8):
+                ix = np.nonzero(band == f)[0]
+                if not len(ix): continue
+                ncu_f = max(8, NCU // f)
+                LED_CELLS = (ncu_f, NCV)
+                cu_f = u[ix] * ncu_f / W0
+                pu_f = 1 / (np.sqrt(a[ix] ** 2 + b[ix] ** 2) * ncu_f / W0 + 1e-9)
+                led[ix], emis[ix] = _shade_halftone(pt, nx[ix], ny[ix], r, M, rot, u[ix], v[ix], p[ix], a[ix], b[ix], c[ix],
+                                                    d[ix], s1[ix], s2[ix], ntap[ix], lod[ix], au[ix], av[ix], cu_f, cv[ix],
+                                                    pu_f, pv[ix], exposure)
+        finally:
+            LED_CELLS = keep_cells
     else:
         led, emis = _shade_grid(pt, nx, ny, r, M, rot, u, v, p, s1, s2, ntap, lod, au, av, cu, cv, pu, pv, exposure)
     led = led * fall[:, None].astype(np.float32) * tint

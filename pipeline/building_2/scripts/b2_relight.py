@@ -52,14 +52,17 @@ Lp, Ln, Lr, Lt, La = Lp[keep], Ln[keep], Lr[keep], Lt[keep], La[keep]
 print('light cells', len(Lp))
 
 # ---------------- receivers ----------------
+# walls/decks on a coarse grid; sign housing returns (thin, non-emissive sign parts) densely at 1x, so their very
+# different light never bleeds into the wall next to them when the grid is upsampled
 s = a.stride
 ry, rx = np.mgrid[s // 2:H:s, s // 2:W:s]
-Rm = (cls[ry, rx] > 0) & (EM[ry, rx] < 0.5)
-use_sign = (SM[ry, rx] > 0.5) & (EM[ry, rx] < 0.5)
-Rp = np.where(use_sign[..., None], SP[ry, rx], P[ry, rx]); Rn = np.where(use_sign[..., None], SN[ry, rx], N[ry, rx])
-Rp, Rn = Rp[Rm].astype(np.float32), Rn[Rm].astype(np.float32)
+Rm = (cls[ry, rx] > 0) & (EM[ry, rx] < 0.5) & (SM[ry, rx] < 0.5)
+hy, hx = np.nonzero((SM > 0.5) & (EM < 0.5) & (cls > 0))
+Rp = np.concatenate([P[ry, rx][Rm], SP[hy, hx]]).astype(np.float32)
+Rn = np.concatenate([N[ry, rx][Rm], SN[hy, hx]]).astype(np.float32)
 Rn /= np.linalg.norm(Rn, axis=1, keepdims=True) + 1e-9
-Rc = np.where(use_sign, 9, cls[ry, rx])[Rm]
+Rc = np.concatenate([cls[ry, rx][Rm], np.full(len(hy), 9, cls.dtype)])
+nW = int(Rm.sum())
 # micro-geometry: balcony slabs, ledges and railings stand ~15 px proud of the smooth wall and face every way,
 # so receivers sit slightly in front of the proxy surface and use a wrapped cosine on the structured walls
 Rp = Rp + Rn * np.where(Rc == 9, 0, 15)[:, None].astype(np.float32)
@@ -80,16 +83,35 @@ for i in range(0, len(Rp), 1500):
     hv = wn + view; hv /= np.linalg.norm(hv, axis=-1, keepdims=True)
     lobe = np.clip((hv * n).sum(-1), 0, None) ** 30
     Es[i:i + 1500] = (lobe * cl * La[None] / np.maximum(d2, d0 * d0) * att * (cr > 0)) @ Lr
-gridE = np.zeros(ry.shape + (3,), np.float32); gridE[Rm] = Ed
-gridS = np.zeros(ry.shape + (3,), np.float32); gridS[Rm] = Es
-# fill gaps (non-receiver cells) by normalized convolution, then upsample to 2x
-wgt = Rm.astype(np.float32)
-def fill(g):
-    num = cv2.GaussianBlur(g, (0, 0), 1.0); den = cv2.GaussianBlur(wgt, (0, 0), 1.0)[..., None]
-    return np.where(wgt[..., None] > 0, g, num / (den + 1e-6))
-Ed2 = cv2.resize(fill(gridE), (W2, H2), interpolation=cv2.INTER_CUBIC) / np.pi
-Es2 = cv2.resize(fill(gridS), (W2, H2), interpolation=cv2.INTER_CUBIC)
+# walls: fill and upsample each surface class on its own (no bleeding across far wall / near wall / deck edges)
+cls2 = cv2.resize(cls, (W2, H2), interpolation=cv2.INTER_NEAREST)
+gcls = np.where(Rm, cls[ry, rx], 0)
+Ed2 = np.zeros((H2, W2, 3), np.float32); Es2 = np.zeros((H2, W2, 3), np.float32)
+for c in (1, 2, 3):
+    m = (gcls == c).astype(np.float32)
+    if m.sum() == 0: continue
+    sel = (gcls == c)[Rm]
+    gE = np.zeros(ry.shape + (3,), np.float32); gS = np.zeros(ry.shape + (3,), np.float32)
+    gE[gcls == c] = Ed[:nW][sel]; gS[gcls == c] = Es[:nW][sel]
+    def fill(g):
+        num = cv2.GaussianBlur(g * m[..., None], (0, 0), 1.0); den = cv2.GaussianBlur(m, (0, 0), 1.0)[..., None]
+        out_ = num / (den + 1e-6)
+        for _ in range(3):                                       # grow into cells with no sample of this class
+            num = cv2.GaussianBlur(out_ * (den > 1e-3), (0, 0), 2.0); dd = cv2.GaussianBlur((den > 1e-3).astype(np.float32), (0, 0), 2.0)[..., None]
+            out_ = np.where(den > 1e-3, out_, num / (dd + 1e-6)); den = np.maximum(den, dd)
+        return np.where(m[..., None] > 0, g, out_)
+    k2 = (cls2 == c)[..., None]
+    Ed2 = np.where(k2, cv2.resize(fill(gE), (W2, H2), interpolation=cv2.INTER_CUBIC), Ed2)
+    Es2 = np.where(k2, cv2.resize(fill(gS), (W2, H2), interpolation=cv2.INTER_CUBIC), Es2)
+# housings: dense 1x values, upsampled with nearest neighbour inside the housing mask only
+hE = np.zeros((H, W, 3), np.float32); hS = np.zeros((H, W, 3), np.float32)
+hE[hy, hx] = Ed[nW:]; hS[hy, hx] = Es[nW:]
+hm = np.zeros((H, W), np.float32); hm[hy, hx] = 1
+hm2 = cv2.resize(hm, (W2, H2), interpolation=cv2.INTER_NEAREST)[..., None] > 0.5
+Ed2 = np.where(hm2, cv2.resize(hE, (W2, H2), interpolation=cv2.INTER_NEAREST), Ed2) / np.pi
+Es2 = np.where(hm2, cv2.resize(hS, (W2, H2), interpolation=cv2.INTER_NEAREST), Es2)
 Ed2, Es2 = np.clip(Ed2, 0, None), np.clip(Es2, 0, None)
+print('receivers: %d wall grid + %d housing px' % (nW, len(hy)))
 print('irradiance p99 %.4f' % np.percentile(Ed2, 99))
 
 # ---------------- albedo / gloss ----------------
@@ -100,7 +122,6 @@ chroma = (B + 0.002) / (Lb[..., None] + 0.002); chroma = 0.6 + 0.4 * np.clip(chr
 albedo = 0.32 * tex[..., None] * chroma
 SM2 = cv2.resize(SM, (W2, H2), interpolation=cv2.INTER_NEAREST); EM2 = cv2.resize(EM, (W2, H2), interpolation=cv2.INTER_LINEAR)
 albedo = np.where((SM2 > 0.5)[..., None], 0.22, albedo)               # sign returns / frames: painted metal
-cls2 = cv2.resize(cls, (W2, H2), interpolation=cv2.INTER_NEAREST)
 gloss = np.where(cls2 == 3, 0.10, 0.03).astype(np.float32); gloss[SM2 > 0.5] = 0.25
 recv = (1 - np.clip(EM2 * 1.2, 0, 1))[..., None] * (cls2 > 0)[..., None]
 add = (albedo * Ed2 * a.gain + gloss[..., None] * Es2 * 0.02 * a.spec) * recv

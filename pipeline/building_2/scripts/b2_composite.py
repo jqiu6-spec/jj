@@ -72,6 +72,16 @@ lum = lambda x: (0.2126 * x[..., 0] + 0.7152 * x[..., 1] + 0.0722 * x[..., 2])[.
 Fm = np.asarray(Image.open(mask_p).convert('RGB'), np.float32) / 255
 M = np.clip(np.abs(Fm - B).sum(-1, keepdims=True) * 6, 0, 1)
 M = np.clip(gblur(M, 1.5), 0, 1)
+if not A.legacy:
+    # non-emissive sign geometry (panel housing returns, lantern rims, box sides, plinth) is surface, not light:
+    # take it out of the sign mask so it gets the same spill, glow and haze as the wall around it and keeps
+    # its own shading (otherwise the returns flip to dark outlines or melt into the wall)
+    import cv2 as _cv2r, os as _osr
+    if _osr.path.exists('out/signgeo.npz'):
+        _sg = np.load('out/signgeo.npz')
+        RET = _cv2r.resize((_sg['SM'] * (1 - _sg['EM'])).astype(np.float32), (W, H), interpolation=_cv2r.INTER_LINEAR)
+        RET = np.clip(_cv2r.dilate(RET, np.ones((3, 3), np.uint8)), 0, 1)[..., None]
+        M = M * (1 - RET)
 E = Fl * M
 # sign faces incl. their dark lettering (M misses dark letters drawn over the dark photo): the self-veil
 # reduction below uses this so dark strokes on bright panels stay dark
@@ -79,7 +89,8 @@ if not A.legacy:
     import cv2 as _cv2, os as _os
     Ms = M
     if _os.path.exists('out/signgeo.npz'):
-        SMu = _cv2.resize(np.load('out/signgeo.npz')['SM'].astype(np.float32), (W, H), interpolation=_cv2.INTER_LINEAR)
+        _sg2 = np.load('out/signgeo.npz')
+        SMu = _cv2.resize((_sg2['SM'] * _sg2['EM']).astype(np.float32), (W, H), interpolation=_cv2.INTER_LINEAR)   # emitting faces only
         Ms = np.maximum(M, np.clip(gblur(SMu[..., None], 1.5), 0, 1))
     # keep the reduction INSIDE the sign faces: both masks are blurred and reach a few px out over the dark
     # wall, which then lost its bloom while the wall just beyond kept it -> a dark outline round every sign.

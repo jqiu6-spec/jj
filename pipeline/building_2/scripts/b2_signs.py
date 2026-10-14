@@ -391,6 +391,8 @@ def material(name, kind, rgba, xs, ys, uv, b, wpx, hpx):
         return col, al, (np.zeros_like(al) if kind == 'void' else (col.max(1) > 0.2).astype(np.float32) * al)
     return col, al, al
 
+REGULARIZE = {'mint_v2'}      # drawn 13% wider at the bottom - impossible for a flat banner seen by this camera
+
 def draw_face(name, tex_name=None, mode='coons'):
     CUR['anchor'] = 'near' if name in NEAR else 'far'
     pieces, rot, kind = FACES[name]
@@ -403,6 +405,10 @@ def draw_face(name, tex_name=None, mode='coons'):
         cnts, _ = cv2.findContours(b, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE); full = np.zeros_like(b)
         cv2.drawContours(full, cnts, -1, 1, -1); hole = full - b; b = full
     C = MANUAL.get(name, F[name]['corners'])
+    if name in REGULARIZE:                              # flat panel: opposite edges parallel (telephoto camera)
+        TLc, TRc, BRc, BLc = (np.array(p, float) for p in C)
+        C = [TLc, TRc, TRc + BLc - TLc, BLc]
+        b = np.zeros_like(b); cv2.fillConvexPoly(b, np.round(np.array(C)).astype(np.int32), 1)
     ys0, xs0 = np.nonzero(b)
     bbox = (xs0.min(), ys0.min(), xs0.max(), ys0.max())
     Cn = np.array(C, float)
@@ -548,12 +554,24 @@ def draw_plinth(cx, cy, r):
     side = np.maximum(side, ((np.abs(xx - pcx) < a) & (yy > pcy) & (yy < pcy + 0.16 * r * c_)).astype(np.float32))
     top = np.clip((1.0 - e_top) * 6, 0, 1)
     reg = canvas[y0:y1, x0:x1]
-    occl = np.clip((1.25 - np.minimum(e_top, e_bot)) * 2, 0, 1) * 0.35       # the roof screen is hidden right at the foot
+    occl = np.clip((1.06 - np.minimum(e_top, e_bot)) * 8, 0, 1) * 0.15       # the roof screen is hidden right at the foot
     reg *= (1 - occl)[..., None]
-    side_col = np.array([0.010, 0.010, 0.012], np.float32); top_col = np.array([0.020, 0.019, 0.024], np.float32)
-    rim = np.clip(1 - np.abs(np.sqrt(e_top) - 0.97) / 0.03, 0, 1)[..., None] * np.array([0.05, 0.035, 0.06], np.float32)
+    roof = reg[np.clip(e_bot, 0, 9) > 1.3].reshape(-1, 3).mean(0) if (e_bot > 1.3).any() else np.array([0.3, 0.1, 0.2], np.float32)
+    side_col = (0.012 + 0.18 * roof).astype(np.float32)                        # dark metal + pink bounce from the roof
+    top_col = (0.02 + 0.10 * roof + np.array([0.02, 0.03, 0.06])).astype(np.float32)   # top catches the ball's own light
+    rim = np.clip(1 - np.abs(np.sqrt(e_top) - 0.97) / 0.03, 0, 1)[..., None] * np.array([0.08, 0.06, 0.10], np.float32)
     reg[:] = reg * (1 - side[..., None]) + side_col * side[..., None]
     reg[:] = reg * (1 - top[..., None]) + (top_col + rim) * top[..., None]
+    # register as non-emissive lit metal so both light passes illuminate it (it was flagged EM by the roof below)
+    py, px = np.nonzero(np.maximum(side, top) > 0.5)
+    gx, gy = px + x0, py + y0
+    keep = (gx >= 0) & (gy >= 0) & (gx < W2) & (gy < H2)
+    gx, gy = gx[keep], gy[keep]
+    EM[gy // 2, gx // 2] = 0
+    tmask = top[py, px][keep] > 0.5
+    nrm = np.where(tmask[:, None], up[None], np.repeat(toward[None], len(gx), 0)).astype(np.float32)
+    CUR['anchor'] = 'near'
+    put_geo(gx, gy, nrm, 2.0, emissive=False)
 
 def draw_mesh_ball(name):
     import b2_sphere
@@ -699,6 +717,7 @@ for name, tx in ORDER:
         if not SKIP_BALLS: draw_mesh_ball(name)
         continue
     if FIX_L and name in ('L_bot', 'L_side'): continue
+    if name == 'pink_side': continue
     n = draw_face(name, tx); print(name, n, flush=True)
 for p in ('r34', 'r35', 'r36', 'r37'): draw_neon(p)
 for p in ('v43', 'v44', 'v45', 'v46', 'v47', 'v48'): draw_lamp(p)

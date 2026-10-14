@@ -35,6 +35,7 @@ import math
 import numpy as np
 from PIL import Image, ImageFilter
 from PIL.TiffImagePlugin import IFDRational
+from wood import apply_wood
 
 OUT_W, OUT_H = 4032, 2268          # iPhone 12MP 16:9 frame
 SEED = 1717
@@ -136,6 +137,7 @@ src_path, out_dir = sys.argv[1], sys.argv[2]
 os.makedirs(out_dir, exist_ok=True)
 
 src = np.asarray(Image.open(src_path).convert("RGB"), np.float32) / 255.0
+src_full = src.copy()
 H0, W0 = src.shape[:2]
 # 16:9 crop; the top of the ad is empty wall so take most of the trim there
 crop_h = int(round(W0 * 9 / 16))
@@ -189,6 +191,10 @@ scene_clean = np.where((alpha_raw > 0.02)[..., None] | (rough_d > 0)[..., None],
 def photo_pipeline(scene_small, label, overlay=None):
     print(f"[{label}] upscaling to {OUT_W}x{OUT_H}")
     scene = np.clip(resize_f(scene_small, (OUT_W, OUT_H), Image.LANCZOS), 0, 1)
+
+    # the CGI blocks become painted wood (grain, brush marks, worn arrises)
+    print(f"[{label}] painted-wood surfaces")
+    scene = apply_wood(scene, src_full, top, OUT_W / W0, OUT_H / H1)
 
     H, W = OUT_H, OUT_W
     cx, cy, f = (W - 1) / 2, (H - 1) / 2, W / 2

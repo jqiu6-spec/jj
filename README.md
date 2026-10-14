@@ -9,6 +9,12 @@ aberration, corner softness, vignetting, Smart-HDR-style tone, sensor grain,
 chroma noise reduction, ISP sharpening, 4:2:0 JPEG) and writes real iPhone 17
 EXIF metadata. Only numpy and Pillow are needed.
 
+`wood.py` turns the CGI blocks into painted wood before the camera pass: each
+block face is mapped through its own perspective homography into centimetre
+"wood space", where a procedural model adds flat-sawn flame grain (or end grain
+on the cut faces), brush marks, paint skin and worn arrises, in correct
+perspective and underneath the render's own shading.
+
 ```
 python3 iphone_look.py source-ad.webp output
 ```

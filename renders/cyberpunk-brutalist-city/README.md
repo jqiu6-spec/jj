@@ -5,7 +5,8 @@ A Three.js scene built from the composition sketch in `refs/sketch.png` and rend
 
 - `scenes/final.js` — the scene: three brutalist concrete towers, gridded dome, elevated viaduct,
   holographic ads, tiny figures in black coats, night-mode phone post-processing.
-- `out/` — rendered frames (PNG + JPEG).
+- `out/` — rendered frames: `cyberpunk-city_3024x4032.{png,jpg}` (seed 1, the main image),
+  `cyberpunk-city_alt-seed2_3024x4032.jpg` (same scene, different window/figure layout) and a 768×1024 preview.
 - `render.js` / `index.html` — the headless render harness.
 - `BRIEF.md` — the brief the scene was built against.
 

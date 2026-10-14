@@ -5,12 +5,19 @@ perspective foreshortening -> inverse map (u,v) per pixel -> texture lookup -> m
 lightbox diffuser + metal frame, dark metal returns, neon tubes, lamps).
 Also writes out/signgeo.npz: emission mask, two-sided flag, per-pixel normal/position overrides (page 1x units)
 for the light-transport stage.
+Flat ad panels get a 3-D housing (draw_housing): the drawn block is the front face, the back face is the front shifted
+by the orthographic projection of -n*t; the visible return faces (the sweep of the front along that shift) are drawn
+before the face, shaded as dark painted metal and registered in the sign maps.
+env: B2_TAG=<suffix> writes out/full_2x<tag>.png, out/full_1x<tag>.png, out/signgeo<tag>.npz, out/balls<tag>.json;
+     B2_SKIP_BALLS=1 skips the LED balls (faster test renders).
 """
-import json, sys, numpy as np, cv2
+import json, os, sys, numpy as np, cv2
 from PIL import Image
 from scipy.interpolate import griddata
 sys.path.insert(0, 'scripts')
 from b2_faces import FACES, face_mask, clean, piece_alpha
+TAG = os.environ.get('B2_TAG', '')
+SKIP_BALLS = os.environ.get('B2_SKIP_BALLS', '') == '1'
 
 def s2l(x): return np.where(x <= 0.04045, x / 12.92, ((x + 0.055) / 1.055) ** 2.4).astype(np.float32)
 def l2s(x):
@@ -31,6 +38,8 @@ ex = np.array([1.0, 0, 0], np.float32); toward = -np.array([0, 0, 1.0], np.float
 # sign geometry maps at 1x (page) resolution
 EM = np.zeros((2056, 1455), np.float32); TWO = np.zeros((2056, 1455), np.float32)
 SN = np.zeros((2056, 1455, 3), np.float32); SP = np.zeros((2056, 1455, 3), np.float32); SM = np.zeros((2056, 1455), np.float32)
+BALL = np.zeros((2056, 1455), np.float32)            # 1 where an LED ball covers the pixel (its light is traced by b2_balltrace.py)
+BALLS = []                                            # parameters of every LED ball -> out/balls.json
 
 MANUAL = {
     'trbox_front': [(2160, 340), (2531, 309), (2531, 577), (2165, 579)],
@@ -139,6 +148,9 @@ def put_geo(xs, ys, nrm, off, emissive, two=False):
     if two: TWO[y1, x1] = 1
 
 def face_normal(name, xs, ys):
+    if OUTLINE_SN and name in PANEL_N:                   # boxed panel: the normal its outline implies (see panel_normals)
+        ncol, x_lo = PANEL_N[name]
+        return ncol[np.clip(np.asarray(xs) - x_lo, 0, len(ncol) - 1)], 10 if not name.startswith('blade') else 60
     x1, y1 = np.clip(xs // 2, 0, 1454), np.clip(ys // 2, 0, 2055)
     gn = (GNN if CUR['anchor'] == 'near' else GNF)[y1, x1]
     def tangent_left(n):
@@ -158,6 +170,197 @@ def face_normal(name, xs, ys):
     if name in ('rec_wall', 'rec_wall2'): return gn * 0 + (-ex), -60
     return gn, 10
 
+# ---------------------------------------------------------------------------------------------------------------
+# 3-D housings of the flat ad panels
+HOUSING = {   # name: (style, free-standing) ; 'box' = lightbox (acrylic face in a painted aluminium can), 'led' = LED cabinet
+    'mint_v1': ('box', False), 'cream_h': ('box', False), 'mint_v2': ('box', False), 'pill': ('box', False),
+    'blade1': ('box', True), 'blade2': ('box', True), 'blade3': ('box', True),   # blades stand off the wall: no contact shadow
+    'mag': ('led', False), 'kiosk': ('led', True), 'pink': ('box', False)}
+# The housings always use the outline-consistent normals. OUTLINE_SN=True would also emit the faces' light along them
+# (physically consistent, but it dims the tuned green blade glow on the well wall and the purple wash on the walkway,
+# whose old emitter normals face sideways); False keeps the emitter normals exactly as before.
+OUTLINE_SN = False
+# The designer's 'L' box showed its underside (L_bot) and a side whose back edge drops below the front - impossible
+# for a camera looking down 41.7 deg. FIX_L replaces L_side/L_bot by a camera-consistent housing of L_face that keeps
+# the drawn top-back corner (side return to the right, depth ~60 px).
+FIX_L = True
+FIXED_N = {}
+if FIX_L:
+    HOUSING['L_face'] = ('box', False)
+    _sx, _sy = 404 - 346, 3134 - 3146                       # front-top -> back-top corner of the drawn L_side
+    _a, _b = -_sy / np.sin(th), _sx; _t = float(np.hypot(_a, _b))
+    FIXED_N['L_face'] = (np.array([-_b / _t, np.sin(th) * _a / _t, -np.cos(th) * _a / _t], np.float32), _t)
+PINK = ('pink_top', 'pink_mid', 'pink_bot')               # one 3-section sign: a single housing around the union
+CONST_N = {'blade1', 'blade2', 'blade3', 'kiosk', 'pink', 'pill'}  # straight panels: one normal from the mean edge slope
+T_OVERRIDE = {'kiosk': 10.0}                              # the hanging METRO box is deeper than a flat LED cabinet
+PANEL_N = {}                                              # name -> (per-column normals, first column x)
+st, ct = float(np.sin(th)), float(np.cos(th))
+
+def thickness(style, area):
+    if style == 'led': return float(np.clip(0.032 * np.sqrt(area), 6, 16))
+    return float(np.clip(0.06 * np.sqrt(area), 7, 20))
+
+def slope_normal(s):
+    """normal of a vertical panel whose horizontal lines run at image slope s (dy/dx). Orthographic camera: the
+    horizontal 3-D direction a*ex + b*(-h) projects to (a, b*sin th), so b/a = s/sin th."""
+    s = np.atleast_1d(np.asarray(s, np.float64))
+    a, b = np.ones_like(s), s / st; L = np.hypot(a, b); a, b = a / L, b / L
+    return np.stack([-b, a * st, -a * ct], -1).astype(np.float32)     # = -b*ex + a*(-h), turned to the camera
+
+def panel_normals(name, b, C):
+    """per-column normals (from the block's first column) implied by the slopes of its top and bottom edges"""
+    C = np.asarray(C, float)
+    xs = np.nonzero(b.any(0))[0]; x0, x1 = int(xs.min()), int(xs.max())
+    cols = np.arange(x0, x1 + 1)
+    sl_t = (C[1, 1] - C[0, 1]) / max(1e-3, C[1, 0] - C[0, 0]); sl_b = (C[2, 1] - C[3, 1]) / max(1e-3, C[2, 0] - C[3, 0])
+    s = np.full(len(cols), 0.5 * (sl_t + sl_b))
+    if name not in CONST_N:                                # curved panels: follow the local slope of both edges
+        bd = boundary(b, [tuple(p) for p in C])
+        if bd is not None:
+            T, _, Bm, _ = bd; ders = []
+            deg = 2 if x1 - x0 > 250 else 1
+            for P, (pa, pb) in ((T, (C[0], C[1])), (Bm, (C[3], C[2]))):
+                lo, hi = pa[0] + 0.12 * (pb[0] - pa[0]), pb[0] - 0.12 * (pb[0] - pa[0])
+                q = P[(P[:, 0] >= lo) & (P[:, 0] <= hi)]
+                if len(q) > 8:
+                    cf = np.polyfit(q[:, 0], q[:, 1], deg); ders.append(np.polyval(np.polyder(cf), np.clip(cols, lo, hi)))
+            if ders: s = np.mean(ders, 0)
+    return slope_normal(s), x0
+
+def outline_normals(bm, sig=6.0):
+    """per-pixel outward unit normal of the nearest point of mask bm's outline, smoothed along the outline"""
+    zero = np.ones(bm.shape, np.uint8); NXi = np.zeros(bm.shape, np.float32); NYi = np.zeros(bm.shape, np.float32)
+    cnts, _ = cv2.findContours(bm.astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    k = int(3 * sig); g = cv2.getGaussianKernel(2 * k + 1, sig).ravel()
+    for c in cnts:
+        c = c[:, 0, :].astype(np.float64)
+        if len(c) < 6: continue
+        ext = np.r_[c[-k:], c, c[:k]] if len(c) > k else np.r_[np.tile(c, (2 * k // len(c) + 1, 1))[-k:], c, np.tile(c, (2 * k // len(c) + 1, 1))[:k]]
+        sx_ = np.convolve(ext[:, 0], g, 'valid'); sy_ = np.convolve(ext[:, 1], g, 'valid')
+        tx, ty = np.roll(sx_, -1) - np.roll(sx_, 1), np.roll(sy_, -1) - np.roll(sy_, 1)
+        L = np.hypot(tx, ty) + 1e-9; nx, ny = ty / L, -tx / L
+        ix, iy = c[:, 0].astype(int), c[:, 1].astype(int)
+        jx = np.clip(np.rint(c[:, 0] + 2.5 * nx).astype(int), 0, bm.shape[1] - 1); jy = np.clip(np.rint(c[:, 1] + 2.5 * ny).astype(int), 0, bm.shape[0] - 1)
+        if bm[jy, jx].mean() > 0.5: nx, ny = -nx, -ny      # make it point out of the mask
+        zero[iy, ix] = 0; NXi[iy, ix] = nx; NYi[iy, ix] = ny
+    _, lab = cv2.distanceTransformWithLabels(zero, cv2.DIST_L2, 5, labelType=cv2.DIST_LABEL_PIXEL)
+    zy, zx = np.nonzero(zero == 0)
+    tnx = np.zeros(lab.max() + 1, np.float32); tny = np.zeros(lab.max() + 1, np.float32)
+    tnx[lab[zy, zx]] = NXi[zy, zx]; tny[lab[zy, zx]] = NYi[zy, zx]
+    return tnx[lab], tny[lab]
+
+def draw_housing(name, b, ncol, x_lo, t, style, free=False, off=10.0, leak_col=None, two=False):
+    """Sweep the front block b (uint8 2x mask) along the back-face shift -n*t (n per column from ncol) and draw the
+    visible return faces of the housing (top / side returns, rounded corners), a contact shadow on the wall, and
+    register the returns in the sign maps. Runs BEFORE the front face is composited."""
+    ys0, xs0 = np.nonzero(b)
+    cols = np.arange(W2)
+    nC = ncol[np.clip(cols - x_lo, 0, len(ncol) - 1)]                     # normal of every canvas column
+    SX, SY = -nC[:, 0] * t, -nC[:, 1] * t                                 # back-face shift (2x px)
+    pad = int(np.ceil(t)) + 14
+    X0, Y0 = max(0, xs0.min() - pad), max(0, ys0.min() - pad)
+    X1, Y1 = min(W2, xs0.max() + pad + 1), min(H2, ys0.max() + pad + 1)
+    fa = cv2.GaussianBlur(b.astype(np.float32), (0, 0), 0.7)[Y0:Y1, X0:X1]  # the face's own AA alpha
+    hh, ww = fa.shape
+    gx, gy = np.meshgrid(np.arange(ww, dtype=np.float32), np.arange(hh, dtype=np.float32))
+    sx = np.repeat(SX[X0:X1][None], hh, 0).astype(np.float32); sy = np.repeat(SY[X0:X1][None], hh, 0).astype(np.float32)
+    K = int(np.ceil(2.5 * t)) + 2
+    cov = np.zeros_like(fa); lam = np.full_like(fa, -1.0); best = np.zeros_like(fa)
+    for k in range(K + 1):                                  # gather: q is housing if q - l*s lies in the front block
+        l = k / K
+        v = cv2.remap(fa, gx - l * sx, gy - l * sy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+        hit = (v > 0.5) & (lam < 0); lam[hit] = l
+        upd = v > cov; best[upd] = l; cov = np.maximum(cov, v)
+    near = cv2.dilate(lam, np.ones((3, 3), np.uint8))       # AA fringe (never half covered): depth of the
+    lam = np.where(lam < 0, np.where(near >= 0, near, best), lam)   # neighbouring housing pixel
+    ret = (cov > 0.004) & (lam > 0)                         # return faces = housing outside the front block
+    # outward edge normal m of the front block at the source point p = q - lam*s (smoothed outline: the drawn
+    # edges are stair-stepped, which would streak the returns)
+    NXf, NYf = outline_normals(b[Y0:Y1, X0:X1])
+    px = np.clip(np.rint(gx - lam * sx), 0, ww - 1).astype(int); py = np.clip(np.rint(gy - lam * sy), 0, hh - 1).astype(int)
+    mx, my = NXf[py, px], NYf[py, px]
+    # 3-D normal of the return: in-plane outward direction e = a*tau + c*up with (a, c) = M^T m, M = [P(tau) P(up)]
+    # the projection of the panel's in-plane axes (normals transform with the inverse transpose)
+    nq = np.repeat(nC[X0:X1][None], hh, 0)
+    tau = np.cross(np.broadcast_to(up, nq.shape), nq); tau /= np.linalg.norm(tau, axis=-1, keepdims=True)
+    a_ = tau[..., 0] * mx + tau[..., 1] * my; c_ = -ct * my
+    e = a_[..., None] * tau + c_[..., None] * up[None, None]
+    e /= np.linalg.norm(e, axis=-1, keepdims=True) + 1e-9
+    e[e[..., 2] > 0] *= -1                                  # only faces turned to the camera can be seen
+    # ---- shading: dark painted aluminium; sky glow on the top return; darker toward the wall and the bottom
+    eu = np.clip(e @ up, 0, 1)
+    yb0, yb1 = ys0.min() - Y0, ys0.max() - Y0
+    vpos = np.clip((gy - yb0) / max(1, yb1 - yb0), 0, 1)
+    dpx = lam * (np.sqrt(sx ** 2 + sy ** 2) + 1e-6)         # distance behind the front edge (px)
+    rng = np.random.default_rng(sum(map(ord, name)))
+    grain = cv2.GaussianBlur(rng.standard_normal((hh, ww)).astype(np.float32), (0, 0), 0.8)
+    alb = np.array([0.0105, 0.0112, 0.0130], np.float32)
+    shade = (0.70 + 1.35 * eu) * (1.10 - 0.28 * vpos * (1 - eu)) * (1 - 0.30 * lam ** 1.5) * (1 + 0.06 * grain)
+    col = alb[None, None] * shade[..., None]
+    if style == 'led':                                      # thin black bezel where the LED cabinet face starts
+        bez = np.clip(1.6 - dpx, 0, 1)[..., None]
+        col = col * (1 - bez) + 0.0035 * bez
+    elif style == 'rim':                                    # lantern disc: translucent acrylic band, faint inner glow
+        gc = np.asarray(leak_col if leak_col is not None else (0.05, 0.05, 0.05), np.float32)
+        col = col + gc[None, None] * ((0.06 + 0.06 * eu) * (1 - 0.45 * lam))[..., None]
+    else:                                                   # rolled front lip of the can catches sky and face glow
+        lip = (np.exp(-((dpx - 0.9) / 0.9) ** 2) * np.clip(-2 * e[..., 2], 0, 1))[..., None]   # not on grazing returns
+        glow = np.float32(0.02) if leak_col is None else np.asarray(leak_col, np.float32) * 0.10 + 0.012
+        col = col + lip * glow * (0.5 + 0.5 * eu[..., None])
+    # ---- contact shadow on the wall around the back of the housing (not for blades / hanging signs)
+    reg = canvas[Y0:Y1, X0:X1]
+    if not free:
+        back = cv2.remap(fa, gx - sx, gy - sy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+        d = cv2.distanceTransform((back < 0.5).astype(np.uint8), cv2.DIST_L2, 5)
+        r = float(np.clip(0.6 * t, 3.0, 9.0))
+        em = EM[np.clip((gy + Y0).astype(int) // 2, 0, 2055), np.clip((gx + X0).astype(int) // 2, 0, 1454)]
+        ao = 0.45 * np.exp(-d / r) * (1 - cov) * (1 - 0.85 * em)
+        reg[:] = reg * (1 - ao[..., None])
+    a = (cov * ret)[..., None]
+    reg[:] = reg * (1 - a) + col * a
+    # ---- sign maps: the returns are lit (non-emissive) surfaces with their own normal and depth
+    yy, xx = np.nonzero(ret & (cov > 0.5))
+    X, Y = xx + X0, yy + Y0
+    x1, y1 = np.clip(X // 2, 0, 1454), np.clip(Y // 2, 0, 2055)
+    SN[y1, x1] = e[yy, xx]; SM[y1, x1] = 1; EM[y1, x1] = 0; TWO[y1, x1] = 0
+    base_p = GPN if CUR['anchor'] == 'near' else GPF
+    lr = lam[yy, xx]
+    if two:   # two-sided blade: returns in the blade's outline 3-D frame. The relight puts the blade emitters at one depth
+        # (face depth = its wall end); along the blade (tau, from the wall end = left edge) the housing comes toward the
+        # camera, and the back face sits lam*t behind the face. So neither the blade's own two-sided face nor its
+        # neighbours (which the outline geometry puts behind the end strip / below the top return) light its returns;
+        # placed between face depth and wall, the returns glowed with their own face's light.
+        pxs, pys = xx - lr * sx[yy, xx], yy - lr * sy[yy, xx]
+        PX = np.clip(np.rint(pxs).astype(int) + X0, 0, W2 - 1) // 2
+        PY = np.clip(np.rint(pys).astype(int) + Y0, 0, H2 - 1) // 2
+        tq = tau[yy, xx]
+        along = np.clip((pxs + X0 - xs0.min()) / np.maximum(tq[:, 0], 0.05), 0, None)    # 2x px from the wall end
+        SP[y1, x1] = (base_p[PY, PX] + toward[None] * off - nq[yy, xx] * (lr * t / 2)[:, None]
+                      + np.c_[np.zeros((len(lr), 2), np.float32), along * tq[:, 2] / 2])
+    else:     # wall-mounted: between the face depth and the wall (behind a one-sided face, so never self-lit)
+        SP[y1, x1] = base_p[y1, x1] + toward[None] * (off * (1 - lr) + 1)[:, None]
+    nr = len(X); top = int((eu[yy, xx] > 0.5).sum())
+    print('  housing %-9s %s t %4.1f px  n %s  returns %d px (top %d, side %d)' % (name, style, t, np.round(ncol.mean(0), 2), nr, top, nr - top))
+
+def build_housing(name, b, C, col):
+    """housing of a boxed panel (the 3 PINK sections share one, built when the first of them is drawn)"""
+    key = 'pink' if name in PINK else name
+    if key == 'pink':
+        if 'pink_top' in PANEL_N: return
+        bu = np.zeros_like(b)
+        for p in PINK: bu |= clean(face_mask(p))
+        Ct, Cb = F['pink_top']['corners'], F['pink_bot']['corners']
+        b, C = bu, [Ct[0], Ct[1], Cb[2], Cb[3]]
+    style, free = HOUSING[key]
+    if key in FIXED_N: ncol, x_lo = FIXED_N[key][0][None], 0
+    else: ncol, x_lo = panel_normals(key, b, C)
+    for nm in (PINK if key == 'pink' else (name,)): PANEL_N[nm] = (ncol, x_lo)
+    t = FIXED_N[key][1] if key in FIXED_N else T_OVERRIDE.get(key, thickness(style, int(b.sum())))
+    draw_housing(key, b, ncol, x_lo, t, style, free=free, off=60.0 if key.startswith('blade') else 10.0,
+                 leak_col=np.median(col, 0) if style == 'box' else None, two=key in TWO_SIDED)
+
+LEAK = {'mint_v1', 'cream_h', 'mint_v2', 'pill', 'blade1', 'blade2', 'blade3', 'pink_top', 'pink_bot'} | ({'L_face'} if FIX_L else set())
+
 def material(name, kind, rgba, xs, ys, uv, b, wpx, hpx):
     col = s2l(rgba[:, :3]); al = rgba[:, 3]
     if kind in ('screen', 'disc'):
@@ -176,6 +379,8 @@ def material(name, kind, rgba, xs, ys, uv, b, wpx, hpx):
         frame = np.clip(1 - (dist - fw) / 1.2, 0, 1)
         inner = np.clip(dist / (fw * 4), 0, 1)
         col = col * (0.82 + 0.18 * inner)[:, None]
+        if name in LEAK:                                # thin light leak where the acrylic face meets the frame
+            col = col * (1 + 0.55 * np.exp(-((dist - fw - 1.3) / 0.9) ** 2))[:, None]
         col = col * (1 - frame)[:, None] + np.array([0.012, 0.012, 0.014], np.float32) * frame[:, None]
         return col, al, (1 - frame) * al
     if kind == 'metal':
@@ -231,12 +436,18 @@ def draw_face(name, tex_name=None, mode='coons'):
         else:
             hexc = [it for i, it in enumerate(items) if i == int(pieces[0][1:])][0]['fill'].lstrip('#')
             rgba = np.tile(np.array([int(hexc[k:k + 2], 16) / 255 for k in (0, 2, 4)] + [1.0], np.float32), (len(xs), 1))
-    col, al, emis = material(name, kind, rgba, xs, ys, uv, b, wpx, hpx)
+    boxed = name in HOUSING or name in PINK
+    if boxed and (rgba[:, 3] < 0.5).mean() > 0.002:     # the artwork carries its own outline (rounded pill): that is
+        bf = np.zeros_like(b); bf[ys, xs] = rgba[:, 3] > 0.5    # the face whose frame and housing we build
+    else:
+        bf = b
+    col, al, emis = material(name, kind, rgba, xs, ys, uv, bf, wpx, hpx)
+    if boxed: build_housing(name, bf, C, col)           # housing returns go under the face
     a = (al * alpha_aa)[:, None]
     canvas[ys, xs] = canvas[ys, xs] * (1 - a) + col * a
     nrm, off = face_normal(name, xs, ys)
     put_geo(xs, ys, nrm, off, emissive=kind in ('screen', 'disc', 'top') and emis.mean() > 0.05, two=name in TWO_SIDED)
-    if name == 'moon': draw_ball(hole)
+    if name == 'moon' and not SKIP_BALLS: draw_ball(hole)
     return len(xs)
 
 TILE_ORDER = ['tile_r28', 'tile_r26', 'tile_r30', 'tile_r27', 'tile_r31', 'tile_r29']    # drawing (stacking) order
@@ -284,14 +495,18 @@ def draw_ball(hole):
     import b2_sphere
     c = max(cv2.findContours(hole.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[0], key=cv2.contourArea)
     (cx, cy), (a1, a2), _ = cv2.fitEllipse(c); r = (a1 + a2) / 4
-    b2_sphere.LED_CELLS = led_cells(r); b2_sphere.LED_GAP = 0.2
+    b2_sphere.LED_CELLS = b2_sphere.halftone_cells(r, th, 0.0)
     env = cv2.GaussianBlur(canvas, (0, 0), 6)
-    # turned 180 deg: the back NEWS 360 logo and another ticker/weather segment face the camera (not a copy of the big ball)
-    res = b2_sphere.render_sphere(canvas, cx, cy, r, news_tex('news360'), th, rot_deg=180.0, exposure=1.0, env=env)
+    # turned to -90 deg: the 速報 badge and the 第七環ニュース ticker face the camera (the texture's second logo sits at 180,
+    # which would make this ball a small copy of the big one)
+    res = b2_sphere.render_sphere(canvas, cx, cy, r, news_tex('news360'), th, rot_deg=-90.0, exposure=1.0, env=env)
     xs, ys = np.asarray(res['xs']).astype(int), np.asarray(res['ys']).astype(int)
     keep = np.asarray(res['alpha']) > 0.5
     n = np.asarray(res['normals'], np.float32)[keep]
     put_geo(xs[keep], ys[keep], n, 12 + 0.5 * r * np.clip(-n[:, 2], 0, 1), emissive=True)
+    BALL[np.clip(ys[keep] // 2, 0, 2055), np.clip(xs[keep] // 2, 0, 1454)] = 1
+    BALLS.append(dict(name='ball_luna', cx=float(cx), cy=float(cy), r=float(r), tilt_deg=0.0, rot_deg=-90.0, texture='tex/news360.png',
+                      hover_1x=12.0, anchor='far', led_cells=list(b2_sphere.LED_CELLS), mounted=True))
     print('ball: centre (%.1f, %.1f) r %.1f px, %d px' % (cx, cy, r, keep.sum()))
 
 # gradient-mesh balls of the design (PDF shading type 7; not present in the AI layer data):
@@ -299,7 +514,8 @@ def draw_ball(hole):
 SCL = 1.37926365188936
 def pdf2c(x, y): return (x + 129.429184403833) * SCL * 2, (1357.319672131148 - y) * SCL * 2
 MESH_BALLS = {
-    # name: (pdf centre x, y, pdf radius, axis tilt deg (+ = pole toward viewer), spin deg, hover px@1x, texture)
+    # name: (pdf centre x, y, pdf radius, extra axis tilt deg about the camera-right axis (b2_sphere tilt_deg; negative tips
+    # the pole back, but the 41.7 deg camera pitch still shows it), spin deg, hover px@1x, texture)
     # big ball: the ticker is the designer's peach band - a latitude ring at +10.5 deg (texture news360_big) seen on a ball
     # whose axis is tipped back 25 deg; it hovers in front of the wall (no mounting collar, no contact shadow)
     'ball_big': (88.033, 725.160, 105.82, -25.0, 0.0, 220.0, 'news360_big'),
@@ -318,18 +534,43 @@ def news_tex(name):
         _NEWS[name] = prepare_texture(np.asarray(Image.open(f'tex/{name}.png').convert('RGBA'), np.float32) / 255)
     return _NEWS[name]
 
+def draw_plinth(cx, cy, r):
+    """a short dark metal plinth under a ball resting on a horizontal roof: a ring around the contact point, seen from
+    above at the camera pitch (ellipse aspect sin th); only its front crescent shows below the ball"""
+    s_, c_ = np.sin(th), np.cos(th)
+    pcx, pcy = cx, cy + r * c_                     # contact point = ball centre - r*up, projected
+    a, b = 0.72 * r, 0.72 * r * s_
+    x0, x1 = int(pcx - a - 4), int(pcx + a + 5); y0, y1 = int(pcy - b - 4), int(pcy + b + 12)
+    yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
+    e_top = ((xx - pcx) / a) ** 2 + ((yy - pcy) / b) ** 2                 # top face of the plinth
+    e_bot = ((xx - pcx) / a) ** 2 + ((yy - pcy - 0.16 * r * c_) / b) ** 2  # its base on the roof (height 0.16 r)
+    side = np.clip((1.0 - np.minimum(e_top, e_bot)) * 6, 0, 1)
+    side = np.maximum(side, ((np.abs(xx - pcx) < a) & (yy > pcy) & (yy < pcy + 0.16 * r * c_)).astype(np.float32))
+    top = np.clip((1.0 - e_top) * 6, 0, 1)
+    reg = canvas[y0:y1, x0:x1]
+    occl = np.clip((1.25 - np.minimum(e_top, e_bot)) * 2, 0, 1) * 0.35       # the roof screen is hidden right at the foot
+    reg *= (1 - occl)[..., None]
+    side_col = np.array([0.010, 0.010, 0.012], np.float32); top_col = np.array([0.020, 0.019, 0.024], np.float32)
+    rim = np.clip(1 - np.abs(np.sqrt(e_top) - 0.97) / 0.03, 0, 1)[..., None] * np.array([0.05, 0.035, 0.06], np.float32)
+    reg[:] = reg * (1 - side[..., None]) + side_col * side[..., None]
+    reg[:] = reg * (1 - top[..., None]) + (top_col + rim) * top[..., None]
+
 def draw_mesh_ball(name):
     import b2_sphere
     xp, yp, rp, tilt, spin, hover, texn = MESH_BALLS[name]
     cx, cy = pdf2c(xp, yp); r = rp * SCL * 2
-    b2_sphere.LED_CELLS = led_cells(r); b2_sphere.LED_GAP = 0.2
+    b2_sphere.LED_CELLS = b2_sphere.halftone_cells(r, th, tilt)     # halftone LED dots: ~4.6 px apart on the big ball, ~3 px on small ones
     CUR['anchor'] = 'near' if name == 'ball_small' else 'far'
+    if name == 'ball_small': draw_plinth(cx, cy, r)
     env = cv2.GaussianBlur(canvas, (0, 0), 8)
     res = b2_sphere.render_sphere(canvas, cx, cy, r, news_tex(texn), th, rot_deg=spin, tilt_deg=tilt, exposure=1.0, env=env,
                                   collar=False, shadow=0.0)
     xs, ys = np.asarray(res['xs']).astype(int), np.asarray(res['ys']).astype(int)
     keep = (np.asarray(res['alpha']) > 0.5) & (xs >= 0) & (ys >= 0) & (xs < W2) & (ys < H2)
     n = np.asarray(res['normals'], np.float32)[keep]
+    BALL[np.clip(ys[keep] // 2, 0, 2055), np.clip(xs[keep] // 2, 0, 1454)] = 1
+    BALLS.append(dict(name=name, cx=float(cx), cy=float(cy), r=float(r), tilt_deg=float(tilt), rot_deg=float(spin), texture=f'tex/{texn}.png',
+                      hover_1x=float(hover), anchor=CUR['anchor'], led_cells=list(b2_sphere.LED_CELLS), mounted=False))
     if name == 'ball_big':
         # a free-hovering sphere also lights the wall behind it with its hidden back half: register the visible cells
         # at the ball-centre depth as two-sided emitters (stand-in for the far hemisphere)
@@ -339,28 +580,41 @@ def draw_mesh_ball(name):
     print('%s: centre (%.0f, %.0f) r %.1f px, tilt %.1f, LED %s' % (name, cx, cy, r, tilt, b2_sphere.LED_CELLS))
 
 def draw_disc_mask(bm, tex_name, rim=True):
+    """round lantern sign = a short cylinder. The drawn ellipse is its front face. Content stays upright (texture up =
+    world up = image up) and fills the ellipse's x / y extents (the fitted ellipse angle is 0/90/180 deg for these
+    upright ellipses, which used to turn some discs 90 or 180 deg). 3-D normal: a vertical disc turned psi away from
+    the camera has width/height = cos psi / sqrt(cos^2 th + sin^2 psi sin^2 th); blade discs stand perpendicular to
+    their wall, so a turned disc faces away from the side its wall faces. rim=True draws the cylinder side."""
     cnts, _ = cv2.findContours(bm.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     c = max(cnts, key=cv2.contourArea)
     (cx, cy), (ax1, ax2), ang = cv2.fitEllipse(c)
-    tex = load_tex(tex_name, ax1, ax2); th_, tw = tex.shape[:2]
     a = np.radians(ang); R = np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]])
-    S = np.diag([ax1 / tw, ax2 / th_])
-    A = R @ S; t = np.array([cx, cy]) - A @ np.array([tw / 2, th_ / 2])
-    M = np.c_[A, t].astype(np.float32)
-    x0, y0 = int(cx - max(ax1, ax2) / 2 - 6), int(cy - max(ax1, ax2) / 2 - 6); x1, y1 = int(cx + max(ax1, ax2) / 2 + 6), int(cy + max(ax1, ax2) / 2 + 6)
+    Q = R @ np.diag([(ax1 / 2) ** 2, (ax2 / 2) ** 2]) @ R.T
+    Wd, Hd = 2 * np.sqrt(Q[0, 0]), 2 * np.sqrt(Q[1, 1])          # x / y extents of the drawn ellipse
+    k = Wd / Hd
+    cpsi = float(min(1.0, k / np.sqrt(1 + k * k * st * st)))
+    gnx = float(GNF[int(cy) // 2, int(cx) // 2, 0])
+    sgn = -np.sign(gnx) if abs(gnx) > 0.05 else 1.0
+    nrm = (cpsi * -h2 + sgn * np.sqrt(max(0.0, 1 - cpsi ** 2)) * ex).astype(np.float32)
+    D = Hd / np.sqrt(ct ** 2 + (1 - cpsi ** 2) * st ** 2)         # disc diameter (2x px)
+    t = float(np.clip(0.10 * D, 6, 20))
+    tex = load_tex(tex_name, Wd, Hd); th_, tw = tex.shape[:2]
+    A = np.diag([Wd / tw, Hd / th_]); t0 = np.array([cx, cy]) - A @ np.array([tw / 2, th_ / 2])
+    M = np.c_[A, t0].astype(np.float32)
+    x0, y0 = int(cx - Wd / 2 - 6), int(cy - Hd / 2 - 6); x1, y1 = int(cx + Wd / 2 + 7), int(cy + Hd / 2 + 7)
     M2 = M.copy(); M2[:, 2] -= [x0, y0]
     warped = cv2.warpAffine(tex, M2, (x1 - x0, y1 - y0), flags=cv2.INTER_LINEAR)
-    reg = canvas[y0:y1, x0:x1]
     al = warped[..., 3:4]
     col = s2l(warped[..., :3])
-    if rim:                                             # disc edge seen slightly from the side: dark metal rim
-        inside = (warped[..., 3] > .5).astype(np.uint8)
-        rimm = (cv2.dilate(inside, np.ones((5, 5), np.uint8)) - inside).astype(np.float32)
-        reg[:] = reg * (1 - rimm[..., None] * .9) + 0.01 * rimm[..., None]
+    if rim:                                             # the cylinder side (drawn before the face)
+        front = np.zeros((H2, W2), np.uint8); front[y0:y1, x0:x1] = warped[..., 3] > 0.5
+        draw_housing(tex_name, front, nrm[None], 0, t, 'rim', free=cpsi < 0.9, off=12.0,
+                     leak_col=np.median(col[warped[..., 3] > 0.5], 0))
+    reg = canvas[y0:y1, x0:x1]
     reg[:] = reg * (1 - al) + col * al
     ys, xs = np.nonzero(al[..., 0] > 0.5); xs = xs + x0; ys = ys + y0
-    nrm, off = face_normal('disc', xs, ys)
-    put_geo(xs, ys, nrm, 12, emissive=True)
+    put_geo(xs, ys, nrm if OUTLINE_SN else face_normal('disc', xs, ys)[0], 12, emissive=True)
+    print('  %s: %.0fx%.0f px, psi %.0f deg, n %s' % (tex_name, Wd, Hd, np.degrees(np.arccos(cpsi)), np.round(nrm, 2)))
 
 def draw_neon(piece, core_col=None):
     CUR['anchor'] = 'far'
@@ -441,7 +695,10 @@ ORDER = [
     ('L_bot', None), ('L_side', None), ('L_face', 'L_face'),
 ]
 for name, tx in ORDER:
-    if name in MESH_BALLS: draw_mesh_ball(name); continue
+    if name in MESH_BALLS:
+        if not SKIP_BALLS: draw_mesh_ball(name)
+        continue
+    if FIX_L and name in ('L_bot', 'L_side'): continue
     n = draw_face(name, tx); print(name, n, flush=True)
 for p in ('r34', 'r35', 'r36', 'r37'): draw_neon(p)
 for p in ('v43', 'v44', 'v45', 'v46', 'v47', 'v48'): draw_lamp(p)
@@ -449,7 +706,9 @@ CUR['anchor'] = 'far'
 for e in ('r8', 'r9', 'r10', 'r11', 'r12'):
     draw_disc_mask(clean(face_mask('disc_' + e)), 'disc_' + e)
 out = l2s(canvas)
-Image.fromarray((np.clip(out, 0, 1) * 255 + .5).astype(np.uint8)).save('out/full_2x.png')
-np.savez_compressed('out/signgeo.npz', EM=EM, TWO=TWO, SN=SN, SP=SP, SM=SM)
-Image.fromarray((np.clip(out, 0, 1) * 255 + .5).astype(np.uint8)).resize((1455, 2056), Image.LANCZOS).save('out/full_1x.png')
+Image.fromarray((np.clip(out, 0, 1) * 255 + .5).astype(np.uint8)).save(f'out/full_2x{TAG}.png')
+np.savez_compressed(f'out/signgeo{TAG}.npz', EM=EM, TWO=TWO, SN=SN, SP=SP, SM=SM, BALL=BALL)
+json.dump(dict(th=th, canvas='2x page 2910x4112; camera: orthographic, x right, y down, z forward; world up in camera coords (0,-cos th,-sin th)',
+               balls=BALLS), open(f'out/balls{TAG}.json', 'w'), indent=1)
+Image.fromarray((np.clip(out, 0, 1) * 255 + .5).astype(np.uint8)).resize((1455, 2056), Image.LANCZOS).save(f'out/full_1x{TAG}.png')
 print('signs done')

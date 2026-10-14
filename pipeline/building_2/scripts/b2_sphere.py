@@ -1,6 +1,7 @@
 """Spherical LED screen renderer (photoreal ball display seen by the tilted telephoto camera).
 
-    render_sphere(canvas, cx, cy, r, tex, th, rot_deg=0.0, tilt_deg=0.0, exposure=1.0, env=None) -> dict
+    render_sphere(canvas, cx, cy, r, tex, th, rot_deg=0.0, tilt_deg=0.0, exposure=1.0, env=None, collar=True,
+                  shadow=None) -> dict
 
 canvas   float32 HxWx3 LINEAR light, modified in place. Pixel (row j, col i) has its centre at (x, y) = (i, j).
 cx,cy,r  ball centre / radius in canvas px.
@@ -20,16 +21,59 @@ coverage, color (N,3) final shaded ball colour) for every pixel the ball touches
 
 Model: front hemisphere nz = -sqrt(1-nx^2-ny^2); world X=n.ex, Y=n.up, Z=n.h with up=(0,-cos th,-sin th),
 h=(0,-sin th,cos th). Analytic screen->texture Jacobian -> anisotropic mip sampling (up to MAX_ANISO taps along the
-footprint's major axis; pixels at the pole pinch, where that is not enough, are 8x8 screen-supersampled), LED cell grid in lat/lon texture space (faded when cells < ~1.5-3 px), per-cell/module
-brightness variation, LED viewing-angle falloff + colour shift, Schlick Fresnel cover reflecting env (screen-space
-folded around the limb), one soft specular glint, 4x4 supersampled silhouette, dark metal collar + contact shadow.
+footprint's major axis; pixels at the pole pinch, where that is not enough, are 8x8 screen-supersampled), LED cell grid
+in lat/lon texture space, per-cell/module brightness variation, LED viewing-angle falloff + colour shift, Schlick
+Fresnel cover reflecting env (screen-space folded around the limb), one soft specular glint, 4x4 supersampled
+silhouette, dark metal collar + contact shadow.
+
+LED_STYLE = 'halftone' (default): every LED cell is a round dot on a near-black substrate.  Cell colour = exact box
+average C of the texture over the cell; the dot shines in that colour at (at most) HT_PEAK = 1.0 in the canvas (the
+clip level of the 8-bit full_2x.png) and its AREA carries the brightness (area ~ max(C) / HT_PEAK, plus a faint
+diffuser bleed glow HT_BLEED on the substrate), so the cell mean equals C before and after the clip: dark -> tiny
+dot / off, bright -> big dot nearly filling its cell (bright dots may grow just past touching, clipped to their cell,
+up to HT_COVER coverage).  Dots are circles on the sphere surface: their screen shape comes from the local
+screen->cell Jacobian (ellipses toward the limb); coverage is the exact overlap of the dot (local screen radius) with
+a unit-area disc pixel filter (analytic AA), or for sub-pixel dots an energy-exact box filter (no moire from dots
+falling between pixel centres); the own cell and its 3 nearest neighbours contribute.  Where the dot pitch falls
+below HT_FADE px the dots fade to the plain filtered texture (no moire); below HT_DETAIL[1] px each dot's size and
+colour follow the per-pixel texture inside its cell (threshold halftone, legible text on the small balls).
+'emission' stays the cell-average (undotted) radiance.  halftone_cells(r, th, tilt_deg) gives the recommended
+LED_CELLS.  LED_STYLE = 'grid': the previous look (flat cells + shallow dark gap), unchanged.
 """
 import math, sys
 import numpy as np, cv2
 
 # ---------------------------------------------------------------- tunables (module level, override if needed)
-LED_CELLS = (256, 128)          # LED pixels around (lon) x pole-to-pole (lat)
-LED_GAP = 0.13                  # dark-gap depth per axis (product <= ~0.25 contrast)
+LED_STYLE = 'halftone'          # 'halftone': round LED dots on a black substrate, dot size = brightness
+                                # 'grid': the old look (flat cells with a shallow dark gap)
+LED_CELLS = (256, 128)          # LED pixels around (lon) x pole-to-pole (lat); see halftone_cells(r)
+LED_GAP = 0.13                  # ('grid') dark-gap depth per axis (product <= ~0.25 contrast)
+# ---- halftone LED surface ('halftone' style)
+HT_PEAK = 1.0                   # max dot radiance in the canvas (linear, max channel; / exposure in texture units).
+                                # 1.0 = the canvas clip level (b2_signs saves an 8-bit PNG): every dot shines at
+                                # <= HT_PEAK and its AREA carries the brightness (area ~ cell mean / HT_PEAK), so the
+                                # mean survives the clip.  >1 = smaller, hotter dots (punchier halftone), but the part
+                                # above 1.0 is clipped away in the pipeline (HT_PEAK 4 loses ~30% of the big ball's red).
+HT_COVER = 0.80                 # largest dot coverage of its cell (0.80 ~ circles just touching, clipped to their
+                                # cell; dark corner holes stay).  Only cells brighter than ~0.84 x HT_PEAK then need
+                                # dots > HT_PEAK (white text: ~1.19, clipped -> up to ~15% darker); 0.94 keeps even
+                                # white within ~3% but turns bright dots into rounded squares
+HT_FILL = 0.86                  # dot diameter / narrower cell side asked for by the display value V alone (V = 1);
+                                # the dot is never smaller than that (only matters for HT_PEAK > ~1.7)
+HT_GAMMA = 1.2                  # V-based diameter = HT_FILL * ((V - HT_V0) / (1 - HT_V0)) ** HT_GAMMA
+HT_V0 = 0.03                    # V (display value of the cell colour) below which the V-based dot is off
+HT_VMIX = 0.5                   # V = mix(luma, max channel) of the sRGB cell colour (0 = luma .. 1 = max channel)
+HT_SAT = 1.0                    # saturation of the dot colour around its luminance (1 = cell colour as is)
+HT_BLEED = 0.10                 # diffuser bleed glow on the substrate around a dot (fraction of the dot radiance,
+                                # reached for dots >= the HT_FILL size)
+HT_BLEED_W = 0.15               # bleed decay length (fraction of the narrower cell side)
+HT_FADE = (1.7, 2.7)            # screen pitch (px) range over which dots fade in (below: plain averaged colour)
+HT_DETAIL = (1.0, 4.2, 3.6)     # dot size + colour = mix(cell's, from the per-pixel texture, d): d = [0] at pitch
+                                # <= [2] px, 0 at pitch >= [1] px (one colour per dot); legible small-ball text
+HT_AA_R = 0.5642                # pixel filter: disc of unit area (analytic disc-disc overlap coverage)
+HT_BOX = (0.55, 1.1)            # dots whose minor screen semi-axis is below [0] px use an energy-exact box pixel
+                                # filter (equal-area rectangle footprint), blending to the disc filter by [1] px
+TH_SCENE = 0.72767              # camera pitch of the scene (rad), default for halftone_cells()
 LED_VAR = 0.08                  # per-LED brightness scatter
 LED_MODULE = 16                 # LEDs per module edge (module-to-module brightness scatter)
 LED_MODULE_VAR = 0.035
@@ -65,6 +109,210 @@ def _smooth(e0, e1, x):
 def _hash(i, j):
     i = np.asarray(i, np.float64); j = np.asarray(j, np.float64)
     return ((np.sin(i * 12.9898 + j * 78.233) * 43758.5453) % 1.0).astype(np.float32)
+
+
+# ---------------------------------------------------------------- halftone LED cell grid
+def halftone_pitch(r):
+    """recommended LED dot pitch (screen px at the front of the ball) for a ball of radius r (2x canvas px):
+    ~3.0 px for r~51, ~3.1 px for r~68, ~4.75 px for r~292 (visible halftone, text still legible)."""
+    return float(np.clip(3.1 + (r - 68.0) * 0.0074, 3.0, 6.0))
+
+
+def halftone_cells(r, th=None, tilt_deg=0.0, pitch=None):
+    """recommended LED_CELLS (around, pole-to-pole) for the halftone style: halftone_pitch(r) screen px between dots
+    around the equator; the rows are made slightly denser (cells square half way between the equator, where the
+    tickers run, and the latitude facing the camera, lat = th + tilt; th defaults to the scene camera TH_SCENE)."""
+    p = halftone_pitch(r) if pitch is None else float(pitch)
+    th = TH_SCENE if th is None else float(th)
+    latf = math.radians(float(np.clip(math.degrees(th) + tilt_deg, -70.0, 70.0)))
+    nu = max(16, int(round(2 * math.pi * r / p / 4)) * 4)
+    nv = max(8, int(round(nu / 2 / math.cos(latf / 2) / 2)) * 2)
+    return (nu, nv)
+
+
+_HT_LUT = {}
+_LUT_LK = np.linspace(math.log(0.02), math.log(4.0), 45)      # log cell aspect kx (lon / lat cell size)
+_LUT_T = np.linspace(0.0, 1.0, 129)                           # dot radius / cell corner distance
+
+
+def _ht_lut():
+    """mean radiance of one LED cell (per unit dot radiance) and dot coverage, tabulated over the cell aspect kx and
+    the dot radius T (fraction of the corner distance): the dot is a circle clipped to its own cell (exact area),
+    the bleed glow (amplitude HT_BLEED * min(R / R_fill, 1), decay HT_BLEED_W * side) from the cell and its 8
+    neighbours (same R) shows only on the uncovered substrate (numeric, 48x48 samples)."""
+    key = (HT_FILL, HT_BLEED, HT_BLEED_W)
+    if key in _HT_LUT: return _HT_LUT[key]
+    n = 48
+    gq = (np.arange(n) + 0.5) / n - 0.5
+    A = np.zeros((len(_LUT_LK), len(_LUT_T))); COV = np.zeros_like(A)
+    for i, lk in enumerate(_LUT_LK):
+        kx = math.exp(lk); side = min(kx, 1.0); hx, hy = kx / 2, 0.5
+        Rc = _LUT_T * math.hypot(hx, hy)
+        def seg(h):
+            q = np.clip(h / np.maximum(Rc, 1e-12), -1, 1)
+            return np.where(Rc > h, Rc * Rc * np.arccos(q) - h * np.sqrt(np.maximum(Rc * Rc - h * h, 0)), 0.0)
+        cov = np.clip((np.pi * Rc * Rc - 2 * seg(hx) - 2 * seg(hy)) / kx, 0, 1)     # circle ∩ cell (exact)
+        X, Y = np.meshgrid(gq * kx, gq)
+        rho0 = np.hypot(X, Y).ravel().astype(np.float32)
+        rho = np.stack([np.hypot(X - dx * kx, Y - dy).ravel() for dx in (-1, 0, 1) for dy in (-1, 0, 1)])
+        rho = rho.astype(np.float32) / np.float32(HT_BLEED_W * side)
+        rw = (Rc / (HT_BLEED_W * side)).astype(np.float32)[:, None]
+        B = HT_BLEED * np.clip(Rc / (0.5 * HT_FILL * side), 0, 1)
+        sub = (rho0[None] >= Rc.astype(np.float32)[:, None])                         # uncovered substrate
+        glow = np.zeros((len(Rc), n * n), np.float32)
+        for k in range(9):
+            glow += np.exp(np.minimum(rw - rho[k][None], 0))
+        A[i] = cov + (sub * glow).mean(1) * B
+        COV[i] = cov
+    A = np.maximum.accumulate(A, axis=1)
+    _HT_LUT[key] = (A, COV)
+    return A, COV
+
+
+def _cell_grid(pt, NCU, NCV, peak=None):
+    """per-LED data for the halftone style, cached in the texture dict: cell-average colour C (exact box average of
+    the texture over the cell), dot radius R (lat-cell units), mean per unit radiance A (dot + bleed, from the LUT)
+    and dot radiance D = C / A, so the cell's mean radiance equals C.  The dot shines at HT_PEAK (max channel) and its area carries
+    the brightness, unless the V-based HT_FILL size is bigger; dots grow up to HT_COVER of the cell.
+    peak: max dot radiance in texture units (default HT_PEAK; render_sphere passes HT_PEAK / exposure)."""
+    peak = HT_PEAK if peak is None else float(peak)
+    key = ('ht', NCU, NCV, HT_FILL, HT_GAMMA, HT_V0, HT_VMIX, peak, HT_COVER, HT_SAT, HT_BLEED, HT_BLEED_W)
+    cache = pt.setdefault('_ht', {})
+    if key in cache: return cache[key]
+    lin = pt['levels'][0][0][:, 2:-2]
+    C = cv2.resize(lin, (NCU, NCV), interpolation=cv2.INTER_AREA).astype(np.float32).reshape(NCV, NCU, 3)
+    S = l2s(np.clip(C, 0, 1))
+    V = HT_VMIX * S.max(-1) + (1 - HT_VMIX) * (S @ np.array([0.2126, 0.7152, 0.0722], np.float32))
+    lat = (0.5 - (np.arange(NCV) + 0.5) / NCV) * np.pi
+    kx = np.maximum(2 * np.cos(lat) * NCV / NCU, 1e-4).astype(np.float32)   # lon / lat physical cell size per row
+    side = np.minimum(kx, 1.0)                                               # narrower side (lat-cell units)
+    w = (HT_BLEED_W * side).astype(np.float32)
+    corner = np.hypot(kx / 2, 0.5)
+    LA, LC = _ht_lut()
+    li = np.clip((np.log(np.clip(kx, 0.02, 4.0)) - _LUT_LK[0]) / (_LUT_LK[1] - _LUT_LK[0]), 0, len(_LUT_LK) - 1 - 1e-9)
+    l0 = np.floor(li).astype(int); lf = (li - l0)[:, None]
+    Arow = LA[l0] * (1 - lf) + LA[l0 + 1] * lf                               # (NCV, nT) mean / unit radiance
+    Crow = LC[l0] * (1 - lf) + LC[l0 + 1] * lf                               # (NCV, nT) dot coverage
+    Cm = C.max(-1)
+    agrid = np.linspace(0.0, 1.0, 257)
+    R = np.zeros((NCV, NCU)); a = np.zeros((NCV, NCU)); thi = np.zeros(NCV); Tinv = np.zeros((NCV, len(agrid)))
+    for j in range(NCV):
+        thi[j] = np.interp(HT_COVER, Crow[j], _LUT_T)                        # largest dot
+        Tinv[j] = np.interp(agrid, Arow[j], _LUT_T)                          # dot size for a mean (unit radiance)
+        tv = _tv(V[j], side[j], corner[j])
+        tp = np.interp(Cm[j] / peak, Arow[j], _LUT_T)                        # dot area that keeps D <= peak
+        t = np.minimum(np.maximum(tv, tp), thi[j])
+        R[j] = t * corner[j]
+        a[j] = np.interp(t, _LUT_T, Arow[j])
+    D = C / np.maximum(a, 1e-6)[..., None]
+    if HT_SAT != 1.0:
+        Y = (D @ np.array([0.2126, 0.7152, 0.0722], np.float32))[..., None]
+        D = np.maximum(Y + (D - Y) * HT_SAT, 0)
+    g = dict(C=C, R=R.astype(np.float32), D=D.astype(np.float32), A=a.astype(np.float32), kx=kx, w=w,
+             side=side.astype(np.float32), corner=corner.astype(np.float32), thi=thi.astype(np.float32),
+             Arow=Arow.astype(np.float32), Tinv=Tinv.astype(np.float32), peak=peak)
+    cache[key] = g
+    return g
+
+
+def _tv(V, side, corner):
+    """V-based dot radius (fraction of the corner distance)"""
+    return 0.5 * HT_FILL * np.clip((V - HT_V0) / (1 - HT_V0), 0, 1) ** HT_GAMMA * side / corner
+
+
+def _rowlerp(tab, rows, x):
+    """tab[rows, x] with linear interpolation along the (uniformly sampled) second axis, x in samples"""
+    x = np.clip(np.asarray(x, np.float64), 0, tab.shape[1] - 1)
+    i = np.minimum(np.floor(x).astype(np.int64), tab.shape[1] - 2); f = (x - i).astype(np.float32)
+    return tab[rows, i] * (1 - f) + tab[rows, i + 1] * f
+
+
+def _disc_cov(R, d, h=None):
+    """fraction of a unit-area disc pixel filter (radius h) at distance d from the centre of a disc of radius R that
+    the disc covers (exact disc-disc overlap; all in screen px)."""
+    h = HT_AA_R if h is None else h
+    R = np.maximum(R, 0.0); d = np.maximum(d, 0.0)
+    out = np.where(d <= np.abs(R - h), np.minimum(R, h) ** 2 / (h * h), 0.0)
+    part = np.nonzero((d > np.abs(R - h)) & (d < R + h))[0]
+    if len(part):
+        Rk, dk = R[part], np.maximum(d[part], 1e-9)
+        a1 = Rk * Rk * np.arccos(np.clip((dk * dk + Rk * Rk - h * h) / (2 * dk * np.maximum(Rk, 1e-9)), -1, 1))
+        a2 = h * h * np.arccos(np.clip((dk * dk + h * h - Rk * Rk) / (2 * dk * h), -1, 1))
+        k = 0.5 * np.sqrt(np.clip((-dk + Rk + h) * (dk + Rk - h) * (dk - Rk + h) * (dk + Rk + h), 0, None))
+        out[part] = (a1 + a2 - k) / (np.pi * h * h)
+    return out
+
+
+def _halftone(cu, cv, Ja, Jb, Jc, Jd, g, NCU, NCV, cont=None, detail=None):
+    """halftone LED radiance (texture units) at screen samples with continuous cell coords (cu, cv) and screen
+    Jacobian d(cu,cv)/d(x,y) = [[Ja, Jb], [Jc, Jd]] (cells per px).  Each dot is a circle on the sphere surface
+    (cell-local physical coords s = (du*kx, dv) in lat-cell units); its screen shape follows from the local Jacobian
+    (ellipses toward the limb).  The own cell and its 3 nearest neighbours contribute (dots near cell borders).
+    Bright dots that grow past touching are clipped to their own cell (coverage = min(disc, cell rectangle), both
+    anti-aliased in screen px); the bleed glow only shows on the uncovered substrate."""
+    iu0, iv0 = np.floor(cu), np.floor(cv)
+    fu, fv = cu - iu0 - 0.5, cv - iv0 - 0.5
+    su, sv = np.where(fu >= 0, 1.0, -1.0), np.where(fv >= 0, 1.0, -1.0)
+    gu = np.sqrt(Ja * Ja + Jb * Jb) + 1e-9; gv = np.sqrt(Jc * Jc + Jd * Jd) + 1e-9   # cells per px (u, v)
+    dot = np.zeros((len(cu), 3), np.float32); glo = np.zeros((len(cu), 3), np.float32)
+    U = np.zeros(len(cu), np.float32); cell = None
+    if detail is not None:                      # threshold halftone of the per-pixel texture (sub-cell detail)
+        a_px = np.clip(cont.max(1) / g['peak'], 0, 1) * (g['Tinv'].shape[1] - 1)
+        sc = l2s(np.clip(cont, 0, 1))
+        V_px = HT_VMIX * sc.max(1) + (1 - HT_VMIX) * (sc @ np.array([0.2126, 0.7152, 0.0722], np.float32))
+        nT = g['Arow'].shape[1] - 1
+    for k, l in ((0, 0), (1, 0), (0, 1), (1, 1)):
+        iu, iv = iu0 + k * su, iv0 + l * sv
+        ok = (iv >= 0) & (iv < NCV)
+        ivc = np.clip(iv, 0, NCV - 1).astype(np.int64); iuc = np.mod(iu, NCU).astype(np.int64)
+        kx = g['kx'][ivc]
+        du, dv = fu - k * su, fv - l * sv                                   # offset from this cell's centre (cells)
+        s0, s1 = du * kx, dv
+        rho2 = s0 * s0 + s1 * s1
+        tx, ty = kx * Ja * s0 + Jc * s1, kx * Jb * s0 + Jd * s1            # J_s^T s
+        F2 = (kx * Ja) ** 2 + (kx * Jb) ** 2 + Jc * Jc + Jd * Jd
+        gs = np.sqrt((tx * tx + ty * ty + 1e-6 * F2 / 2) / (rho2 + 1e-6))    # surface units per px along s
+        R = g['R'][ivc, iuc]; rho = np.sqrt(rho2)
+        Dk = g['D'][ivc, iuc]
+        if detail is not None:                  # dot size + colour from the pixel's own texture value, sized on
+            # this cell's row exactly like a cell of that brightness (mean kept, dot <= HT_PEAK): the dot edges
+            # follow the glyph edges inside the cell (legible small text)
+            cn = g['corner'][ivc]
+            Tp = np.minimum(np.maximum(_rowlerp(g['Tinv'], ivc, a_px), _tv(V_px, g['side'][ivc], cn)), g['thi'][ivc])
+            Ap = _rowlerp(g['Arow'], ivc, Tp * nT)
+            R = R * (1 - detail) + Tp * cn * detail
+            Dk = Dk * (1 - detail)[:, None] + cont / np.maximum(Ap, 1e-6)[:, None] * detail[:, None]
+        cd = _disc_cov(R / gs, rho / gs)
+        # small dots (minor screen semi-axis < ~1 px): the disc pixel filter does not tile the plane, so a sub-pixel
+        # dot between pixel centres would lose energy (low-frequency moire on dark, small-dot areas).  Use an
+        # energy-exact 1x1 box pixel filter there, with the dot's screen ellipse replaced by the equal-area
+        # axis-aligned rectangle of its bounding-box proportions.
+        det = kx * (Ja * Jd - Jb * Jc)
+        det = np.where(np.abs(det) < 1e-12, 1e-12, det)
+        i00, i01, i10, i11 = Jd / det, -kx * Jb / det, -Jc / det, kx * Ja / det          # J_s^-1 (px per unit)
+        smax = np.sqrt(0.5 * (F2 + np.sqrt(np.maximum(F2 * F2 - 4 * det * det, 0))))     # largest sv of J_s
+        beta = _smooth(HT_BOX[0], HT_BOX[1], R / smax)                                    # minor semi-axis, px
+        mb = np.nonzero(beta < 1)[0]
+        if len(mb):
+            ex, ey = np.hypot(i00[mb], i01[mb]), np.hypot(i10[mb], i11[mb])
+            kk = np.sqrt(np.pi / (4 * np.abs(det[mb]) * np.maximum(ex * ey, 1e-12))) * R[mb]
+            wx, wy = ex * kk, ey * kk                                                    # rectangle half-sizes
+            X = i00[mb] * s0[mb] + i01[mb] * s1[mb]; Y = i10[mb] * s0[mb] + i11[mb] * s1[mb]   # pixel - dot, px
+            ox = np.clip(np.minimum(0.5, X + wx) - np.maximum(-0.5, X - wx), 0, 1)
+            oy = np.clip(np.minimum(0.5, Y + wy) - np.maximum(-0.5, Y - wy), 0, 1)
+            cd[mb] = cd[mb] * beta[mb] + ox * oy * (1 - beta[mb])
+        cr = np.clip(0.5 + (0.5 - np.abs(du)) / gu, 0, 1) * np.clip(0.5 + (0.5 - np.abs(dv)) / gv, 0, 1)
+        cov = (np.minimum(cd, cr) * ok).astype(np.float32)
+        B = HT_BLEED * np.clip(R / (0.5 * HT_FILL * g['side'][ivc]), 0, 1)  # bleed scales with the dot size
+        glow = B * np.exp(-np.maximum(rho - R, 0) / g['w'][ivc]) * ok
+        var = 1 + LED_VAR * (_hash(iuc, ivc) - 0.5)
+        var *= 1 + LED_MODULE_VAR * (_hash(iuc // LED_MODULE + 37, ivc // LED_MODULE + 11) - 0.5) * 2
+        Dk = Dk * var[:, None]
+        dot += Dk * cov[:, None]
+        glo += Dk * glow[:, None].astype(np.float32)
+        U += cov
+        if cell is None: cell = g['C'][ivc, iuc]
+    return dot + glo * np.clip(1 - U, 0, 1)[:, None], cell
 
 
 # ---------------------------------------------------------------- texture pyramid + sampling
@@ -198,6 +446,49 @@ def _shade(nx, ny, r, cx, cy, pt, M, rot, up_c, exposure, envf):
     gu = np.sqrt(a * a + b * b) * NCU / W0 + 1e-9      # cells per px (u)
     gv = np.sqrt(c * c + d * d) * NCV / H0 + 1e-9
     pu, pv = 1 / gu, 1 / gv                            # cell size in px
+    mu = np.clip(-nz, 0, 1)
+    fall = 0.35 + 0.65 * mu ** 0.6                     # LED viewing-angle falloff + slight colour shift
+    tint = 1 + ((1 - mu) ** 2)[:, None] * np.array([-0.06, -0.015, 0.08], np.float32)
+    if LED_STYLE == 'halftone':
+        led, emis = _shade_halftone(pt, nx, ny, r, M, rot, u, v, p, a, b, c, d, s1, s2, ntap, lod, au, av, cu, cv,
+                                    pu, pv, exposure)
+    else:
+        led, emis = _shade_grid(pt, nx, ny, r, M, rot, u, v, p, s1, s2, ntap, lod, au, av, cu, cv, pu, pv, exposure)
+    led = led * fall[:, None].astype(np.float32) * tint
+    return _cover(led, emis, n, nx, ny, nz, mu, r, cx, cy, up_c, envf)
+
+
+def _shade_halftone(pt, nx, ny, r, M, rot, u, v, p, a, b, c, d, s1, s2, ntap, lod, au, av, cu, cv, pu, pv, exposure):
+    """halftone LED dots where the dot pitch is >= HT_FADE[1] px, fading to the plain filtered texture below
+    HT_FADE[0] px (no moire).  Returns (LED radiance, cell-average emission)."""
+    W0, H0 = pt['W'], pt['H']
+    NCU, NCV = LED_CELLS
+    N = len(nx)
+    pm = np.minimum(pu, pv)
+    fh = _smooth(HT_FADE[0], HT_FADE[1], pm).astype(np.float32)
+    dk = (HT_DETAIL[0] * (1 - _smooth(HT_DETAIL[2], HT_DETAIL[1], pm))).astype(np.float32)
+    cont = np.zeros((N, 3), np.float32)
+    mc = np.nonzero((fh < 1) | (dk > 0))[0]
+    if len(mc):
+        cont[mc] = _sample(pt, u[mc].astype(np.float32), v[mc].astype(np.float32), lod[mc], au[mc], av[mc], ntap[mc])
+    mp = np.nonzero(((fh < 1) | (dk > 0)) & (s1 > MAX_ANISO * np.maximum(s2, 1.0)) & (np.abs(p[:, 1]) > 0.9))[0]
+    if len(mp):                                                    # pole pinch
+        cont[mp] = _pole_supersample(pt, nx[mp], ny[mp], r, M, rot)
+    dots = np.zeros((N, 3), np.float32); cell = np.zeros((N, 3), np.float32)
+    md = np.nonzero(fh > 0)[0]
+    if len(md):
+        g = _cell_grid(pt, NCU, NCV, HT_PEAK / max(float(exposure), 1e-6))   # dots <= HT_PEAK in the canvas
+        ku, kv = NCU / W0, NCV / H0
+        dt = (cont[md], dk[md]) if HT_DETAIL[0] > 0 else (None, None)
+        dots[md], cell[md] = _halftone(cu[md], cv[md], a[md] * ku, b[md] * ku, c[md] * kv, d[md] * kv, g, NCU, NCV, *dt)
+    f = fh[:, None]
+    return (cont * (1 - f) + dots * f) * exposure, (cont * (1 - f) + cell * f) * exposure
+
+
+def _shade_grid(pt, nx, ny, r, M, rot, u, v, p, s1, s2, ntap, lod, au, av, cu, cv, pu, pv, exposure):
+    """the old look: flat LED cells (quantized colour where cells are big) with a shallow dark gap."""
+    W0, H0 = pt['W'], pt['H']
+    NCU, NCV = LED_CELLS
     fade_u = np.clip((pu - 1.5) / 1.5, 0, 1); fade_v = np.clip((pv - 1.5) / 1.5, 0, 1)
     fq = np.clip((np.minimum(pu, pv) - 2.5) / 2.5, 0, 1) if QUANTIZE else np.zeros_like(pu)
     # ---- texture lookup (continuous, anisotropic) and per-LED flat colour where cells are big
@@ -226,11 +517,11 @@ def _shade(nx, ny, r, cx, cy, pt, M, rot, up_c, exposure, envf):
     var = 1 + LED_VAR * (_hash(iu, iv) - 0.5) * fc
     fm = np.clip((np.minimum(pu, pv) * LED_MODULE - 4) / 4, 0, 1)
     var *= 1 + LED_MODULE_VAR * (_hash(iu // LED_MODULE + 37, iv // LED_MODULE + 11) - 0.5) * 2 * fm
-    # ---- LED viewing-angle falloff + slight colour shift
-    mu = np.clip(-nz, 0, 1)
-    fall = 0.35 + 0.65 * mu ** 0.6
-    tint = 1 + ((1 - mu) ** 2)[:, None] * np.array([-0.06, -0.015, 0.08], np.float32)
-    led = emis * (gap * var * fall)[:, None].astype(np.float32) * tint
+    return emis * (gap * var)[:, None].astype(np.float32), emis
+
+
+def _cover(led, emis, n, nx, ny, nz, mu, r, cx, cy, up_c, envf):
+    """glossy protective cover on top of the LEDs: Fresnel env reflection + one soft glint."""
     # ---- glossy cover: Fresnel reflection of the environment
     F = F0 + (1 - F0) * (1 - mu) ** 5
     rz = 1 - 2 * nz * nz                                # mirror dir z (view dir (0,0,1))
@@ -411,10 +702,17 @@ def _selftest():
     pt = prepare_texture(tex)
     import time
     t0 = time.time()
-    res = render_sphere(can, 540, 610, 500, pt, th, env=env)
-    render_sphere(can, 1060, 170, 120, pt, th, env=env)
-    render_sphere(can, 1095, 1010, 68, pt, th, rot_deg=180, env=None)     # back side: seam test at scene scale
-    render_sphere(can, 1110, 1150, 30, pt, th, rot_deg=90, env=None)
+    global LED_CELLS
+    cells0 = LED_CELLS
+    def ball(cx, cy, r, **kw):
+        global LED_CELLS
+        if LED_STYLE == 'halftone': LED_CELLS = halftone_cells(r, th)
+        return render_sphere(can, cx, cy, r, pt, th, **kw)
+    res = ball(540, 610, 500, env=env)
+    ball(1060, 170, 120, env=env)
+    ball(1095, 1010, 68, rot_deg=180, env=None)     # back side: seam test at scene scale
+    ball(1110, 1150, 30, rot_deg=90, env=None)
+    LED_CELLS = cells0
     print('render %.2fs, ball pixels %d' % (time.time() - t0, len(res['xs'])))
     os.makedirs(os.path.join(root, 'out'), exist_ok=True)
     out = os.path.join(root, 'out', 'sphere_test.png')

@@ -1,12 +1,25 @@
 """Post-process the browser render: light spill, bloom, night grade, grain.
-usage: composite.py full.png base.png out.png
+usage: b2_composite.py relit.png base.png out.png [full.png] [--self-veil 0.8] [--haze-blur 2.5] [--legacy]
+  --self-veil  how much of the bloom / glow is kept OFF the sign faces themselves, mostly on their dark
+               parts (0 = legacy: every sign was veiled by its own bloom, which washed out dark lettering on
+               bright panels; the halo around the signs on the dark architecture is unchanged; the sign
+               mask is eroded ~4 px so the wall right at a sign's edge keeps its bloom - no dark outline)
+  --haze-blur  blur radius of the far-sign haze veil (legacy 6: it also blurred the far signs)
+  --legacy     exact pre-clarity behaviour
 """
-import sys
+import sys, argparse
 import numpy as np
 from PIL import Image
 
-full_p, base_p, out_p = sys.argv[1:4]
-mask_p = sys.argv[4] if len(sys.argv) > 4 else full_p   # render before relighting, for the sign mask
+ap = argparse.ArgumentParser()
+ap.add_argument('full'); ap.add_argument('base'); ap.add_argument('out'); ap.add_argument('mask', nargs='?')
+ap.add_argument('--self-veil', type=float, default=0.8)
+ap.add_argument('--haze-blur', type=float, default=2.5)
+ap.add_argument('--legacy', action='store_true')
+A = ap.parse_args()
+if A.legacy: A.self_veil, A.haze_blur = 0.0, 6.0
+full_p, base_p, out_p = A.full, A.base, A.out
+mask_p = A.mask if A.mask else full_p   # render before relighting, for the sign mask
 F = np.asarray(Image.open(full_p).convert('RGB'), np.float32) / 255
 Bs = Image.open(base_p).convert('RGB')
 if Bs.size != (F.shape[1], F.shape[0]):
@@ -60,6 +73,26 @@ Fm = np.asarray(Image.open(mask_p).convert('RGB'), np.float32) / 255
 M = np.clip(np.abs(Fm - B).sum(-1, keepdims=True) * 6, 0, 1)
 M = np.clip(gblur(M, 1.5), 0, 1)
 E = Fl * M
+# sign faces incl. their dark lettering (M misses dark letters drawn over the dark photo): the self-veil
+# reduction below uses this so dark strokes on bright panels stay dark
+if not A.legacy:
+    import cv2 as _cv2, os as _os
+    Ms = M
+    if _os.path.exists('out/signgeo.npz'):
+        SMu = _cv2.resize(np.load('out/signgeo.npz')['SM'].astype(np.float32), (W, H), interpolation=_cv2.INTER_LINEAR)
+        Ms = np.maximum(M, np.clip(gblur(SMu[..., None], 1.5), 0, 1))
+    # keep the reduction INSIDE the sign faces: both masks are blurred and reach a few px out over the dark
+    # wall, which then lost its bloom while the wall just beyond kept it -> a dark outline round every sign.
+    # Erode ~4 px (at 2x) and feather inwards so the wall at the sign edge keeps the legacy bloom.
+    _er = max(1, int(round(4 * W / 2910)))
+    _k = _cv2.getStructuringElement(_cv2.MORPH_ELLIPSE, (2 * _er + 1, 2 * _er + 1))
+    Ms = _cv2.erode((Ms[..., 0] > 0.5).astype(np.float32), _k)
+    Ms = np.clip(gblur(Ms[..., None], 1.5 * W / 2910), 0, 1)
+    # strongest on the DARK parts of a sign face (lettering, outlines, pupils); the bright panel areas keep
+    # most of their glow, so the signs still read as luminous
+    dark = 1 - np.clip((lum(Fl) - 0.03) / (0.30 - 0.03), 0, 1)
+    dark = dark * dark * (3 - 2 * dark)
+    R = A.self_veil * Ms * (0.3 + 0.7 * dark)
 
 # 1) coloured light spill onto the surrounding architecture
 # light spill: falls off fast, mostly lights surfaces that are actually lit/reflective in the photo
@@ -70,15 +103,23 @@ out = Fl + 0.22 * S * surface * (1 - 0.9 * M)   # rough-surface scatter; direct 
 # 2) bloom (signs + the photo's own practical lights)
 # bloom only from genuinely bright sources, total weight well below 1 so flat signs do not bloom onto themselves
 bright = np.maximum(out - 0.3, 0)
-bloom = gblur(bright, 3) * 0.22 + gblur(bright, 10) * 0.18 + gblur(bright, 32) * 0.12 + gblur(bright, 100) * 0.03
-out = out + bloom
+bloom_s = gblur(bright, 3) * 0.22 + gblur(bright, 10) * 0.18
+bloom_l = gblur(bright, 32) * 0.12 + gblur(bright, 100) * 0.03
+if A.legacy:
+    out = out + (bloom_s + bloom_l)
+else:   # keep the tight bloom on the architecture/photo lights, mostly not on the sign faces themselves
+    out = out + bloom_s * (1 - R) + bloom_l * (1 - 0.75 * R)
 
 # 2b) diffuse light bloom: big bright posters scatter light into the night haze and the lens.
 #     Emission convolved with a wide multi-scale PSF -> large emitters get large soft halos, small neon stays tight.
 yy0 = np.linspace(1, 0, H, dtype=np.float32)[:, None, None]
 k2 = W / 2910.0
-glow = gblur(E, 12 * k2) * 0.32 + gblur(E, 40 * k2) * 0.22 + gblur(E, 120 * k2) * 0.05
-out = out + glow * (1 - 0.6 * M)
+glow_s = gblur(E, 12 * k2) * 0.32
+glow_l = gblur(E, 40 * k2) * 0.22 + gblur(E, 120 * k2) * 0.05
+if A.legacy:
+    out = out + glow_s * (1 - 0.6 * M) + glow_l * (1 - 0.6 * M)
+else:
+    out = out + (glow_s * (1 - R) + glow_l * (1 - 0.75 * R)) * (1 - 0.6 * M)
 
 # 3) atmospheric perspective from the geometry proxy: the deeper into the ring well (farther along the view
 #    ray), the more the new signage is veiled by the night haze
@@ -88,7 +129,7 @@ zn = (z - np.percentile(z[cls > 0], 2)) / (np.percentile(z[cls > 0], 98) - np.pe
 far = cv2.resize(np.clip(zn, 0, 1).astype(np.float32), (W, H), interpolation=cv2.INTER_LINEAR)[..., None] ** 1.4
 haze_col = np.array([0.010, 0.016, 0.024], np.float32)
 a = 0.16 * far * M
-out = out * (1 - a) + (haze_col + gblur(out, 6) * 0.5) * a
+out = out * (1 - a) + (haze_col + gblur(out, A.haze_blur) * 0.5) * a
 
 # 4) match the softness of the upscaled photograph on the new signage
 # (no extra softening of the signs: keep their detail)

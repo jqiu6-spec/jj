@@ -23,7 +23,7 @@ def l2s(x):
 ap = argparse.ArgumentParser(); ap.add_argument('inp'); ap.add_argument('out')
 ap.add_argument('--gain', type=float, default=3.0); ap.add_argument('--spec', type=float, default=1.0)
 ap.add_argument('--cell', type=int, default=8); ap.add_argument('--stride', type=int, default=7)
-ap.add_argument('--debug', default=None); ap.add_argument('--ext', type=float, default=260.0, help='haze extinction length (page px)')
+ap.add_argument('--debug', default=None); ap.add_argument('--no-balls', action='store_true', help='leave the LED balls out (their light is traced by b2_balltrace.py)'); ap.add_argument('--ext', type=float, default=260.0, help='haze extinction length (page px)')
 a = ap.parse_args()
 
 F = s2l(np.asarray(Image.open(a.inp).convert('RGB'), np.float32) / 255)            # 2x
@@ -32,6 +32,7 @@ H2, W2 = F.shape[:2]; H, W = H2 // 2, W2 // 2
 F1 = cv2.resize(F, (W, H), interpolation=cv2.INTER_AREA)
 geo = np.load('out/geo.npz'); P, N, cls = geo['P'][:H, :W], geo['N'][:H, :W], geo['cls'][:H, :W]; th = float(geo['th'])
 sg = np.load('out/signgeo.npz'); EM, TWO, SN, SP, SM = (sg[k][:H, :W] for k in ('EM', 'TWO', 'SN', 'SP', 'SM'))
+if a.no_balls and 'BALL' in sg.files: EM = EM * (1 - sg['BALL'][:H, :W])
 up = np.array([0, -np.cos(th), -np.sin(th)], np.float32)
 
 # ---------------- lights ----------------

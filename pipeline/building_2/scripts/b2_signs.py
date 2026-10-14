@@ -59,6 +59,10 @@ BIG_LED = {'mag', 'mascot', 'moon', 'trbox_left', 'trbox_front', 'band_top', 'ba
            'rec_floor', 'rec_wall', 'rec_wall2', 'blade1', 'blade2', 'blade3',
            'tile_r28', 'tile_r26', 'tile_r30', 'tile_r27', 'tile_r31', 'tile_r29'}
 LED_GROUP = {'mascot': 'mag'}      # the mascot is content ON the PURIN screen: it shares the screen's LED grid
+# finer LED pitch on panels whose lettering would break up at the default pitch (2x px; default b2_ledpanel.PITCH 4.4)
+LED_PITCH = {'mag': (3.3, 3.0), 'trbox_left': (4.4, 2.4), 'trbox_front': (3.6, 2.6), 'cap_front': (3.3, 2.6), 'cap_top': (4.4, 2.4),
+             'blade1': (4.4, 3.0), 'blade2': (4.4, 3.0), 'blade3': (4.4, 3.0)}     # name: (physical pitch, min on-screen pitch)
+HOMOG_LED = {'trbox_front', 'cap_front'}   # flat quads: LED grid from the corner homography (Coons map folds)
 PATCH = {}; GROUP_PX = {}
 BBOXMAP = {'trbox_top', 'pink_side', 'pink_mid', 'L_face', 'L_side', 'L_bot', 'wedge_side', 'wedge_under', 'moon_frame'}
 
@@ -387,7 +391,9 @@ def material(name, kind, rgba, xs, ys, uv, b, wpx, hpx):
         fw = np.clip(min(wpx, hpx) * 0.025, 1.5, 7)
         frame = np.clip(1 - (dist - fw) / 1.2, 0, 1)
         inner = np.clip(dist / (fw * 4), 0, 1)
-        if name in LED_GROUP:                           # content on another screen: no bezel of its own
+        if name in LED_GROUP:                           # content on another screen: no bezel, but a painted outline
+            ol = np.clip(1 - (dist - 7.0) / 1.2, 0, 1)
+            col = col * (1 - ol)[:, None] + s2l(np.array([0.23, 0.14, 0.08], np.float32))[None] * ol[:, None]
             frame = np.zeros_like(frame); inner = np.ones_like(inner)
         col = col * (0.82 + 0.18 * inner)[:, None]
         if name in LEAK:                                # thin light leak where the acrylic face meets the frame
@@ -424,12 +430,18 @@ def led_panel(name, xs, ys, uv, C, emis, cov, b):
         _, first = np.unique(lin[::-1], return_index=True)                 # dedupe, prefer the group member's pixels
         keep = len(lin) - 1 - first
         X, Y, UV = np.r_[hx, gx][keep], np.r_[hy, gy][keep], np.r_[huv, guv][keep]
-        cu, cv, ncell = LP.led_grid(UV, Ch, n, X, Y)
-        st_ = LP.halftone(canvas, X, Y, cu, cv, seed=hash(host) % 997)
+        cu, cv, ncell = LP.led_grid(UV, Ch, n, X, Y, *LED_PITCH.get(host, (LP.PITCH, None)))
+        st_ = LP.halftone(canvas, X, Y, cu, cv, seed=sum(map(ord, host)))
     elif name in LED_GROUP.values():                  # host screen: wait for its content group
         GROUP_PX[name] = (xs[inside], ys[inside], uv[inside]); return
     else:
-        cu, cv, ncell = LP.led_grid(uv[inside], C, n, xs[inside], ys[inside])
+        uvl = uv
+        if name in HOMOG_LED or name.startswith('tile_'):
+            Cq = np.float32(MANUAL.get(name, C)) if not name.startswith('tile_') else np.float32(C)
+            Hq = cv2.getPerspectiveTransform(Cq, np.float32([[0, 0], [1, 0], [1, 1], [0, 1]]))
+            q = np.c_[xs + .5, ys + .5, np.ones(len(xs))] @ Hq.T; uvl = q[:, :2] / q[:, 2:3]      # unclipped
+            C = Cq
+        cu, cv, ncell = LP.led_grid(uvl[inside], C, n, xs[inside], ys[inside], *LED_PITCH.get(name, (LP.PITCH, None)))
         st_ = LP.halftone(canvas, xs[inside], ys[inside], cu, cv, seed=sum(map(ord, name)))
     if st_: print('  LED %-11s grid %s  pitch %.1f px  mean %s -> %s' % (host if name in LED_GROUP else name, ncell, st_['pitch_med'],
                                                                  np.round(st_['mean_in'], 3), np.round(st_['mean_out'], 3)))
@@ -464,6 +476,12 @@ def draw_face(name, tex_name=None, mode='coons'):
         xs, ys = xs0, ys0
         q = np.c_[xs + .5, ys + .5, np.ones(len(xs))] @ Hh.T; uv = np.clip(q[:, :2] / q[:, 2:3], 0, 1)
         wpx, hpx = np.linalg.norm(TR - TL), np.linalg.norm(BL - TL)
+    elif name in HOMOG_LED:                            # flat LED box faces: content pixel-aligned with the LED grid
+        Cq = np.float32(MANUAL[name]); C = [tuple(p) for p in MANUAL[name]]
+        Hh = cv2.getPerspectiveTransform(Cq, np.float32([[0, 0], [1, 0], [1, 1], [0, 1]]))
+        xs, ys = xs0, ys0
+        q = np.c_[xs + .5, ys + .5, np.ones(len(xs))] @ Hh.T; uv = np.clip(q[:, :2] / q[:, 2:3], 0, 1)
+        wpx, hpx = np.linalg.norm(Cq[1] - Cq[0]), np.linalg.norm(Cq[3] - Cq[0])
     elif mode == 'bbox' or name in BBOXMAP:
         xs, ys = xs0, ys0
         uv = np.stack([(xs - bbox[0]) / max(1, bbox[2] - bbox[0]), (ys - bbox[1]) / max(1, bbox[3] - bbox[1])], -1)
@@ -502,7 +520,7 @@ def draw_face(name, tex_name=None, mode='coons'):
 TILE_ORDER = ['tile_r28', 'tile_r26', 'tile_r30', 'tile_r27', 'tile_r31', 'tile_r29']    # drawing (stacking) order
 TILE_TXT = {'tile_r28': ('#fdfbb0', '#141414', '夜市', 'DelaGothicOne-400.ttf'), 'tile_r26': ('#1414ff', '#ffffff', 'NIGHT', 'Bungee-400.ttf'),
             'tile_r30': ('#fdfbb0', '#141414', '屋台', 'DelaGothicOne-400.ttf'), 'tile_r27': ('#1414ff', '#ffffff', 'MARKET', 'Bungee-400.ttf'),
-            'tile_r31': ('#fdfbb0', '#c8141e', '毎晩', 'DelaGothicOne-400.ttf'), 'tile_r29': ('#1414ff', '#fff36a', '22-05', 'Orbitron-900.ttf')}
+            'tile_r31': ('#fdfbb0', '#c8141e', 'DAILY', 'Bungee-400.ttf'), 'tile_r29': ('#1414ff', '#fff36a', '22-05', 'Orbitron-900.ttf')}
 def tile_texture(name, b, xs, ys, uv):
     from PIL import ImageDraw, ImageFont
     later = TILE_ORDER[TILE_ORDER.index(name) + 1:]
@@ -708,16 +726,16 @@ def draw_lamp(piece):
 def procedural_band_front():
     """purple bioluminescent cell screen (the designer's cellular raster, rebuilt sharp): Worley-noise cells"""
     w, h = 2600, 460; rng = np.random.default_rng(11)
-    pts = np.c_[rng.uniform(0, w, 900), rng.uniform(0, h, 900)]
+    pts = np.c_[rng.uniform(0, w, 220), rng.uniform(0, h, 220)]
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
     d1 = np.full((h, w), 1e9, np.float32); d2 = np.full((h, w), 1e9, np.float32)
     for px, py in pts:
         d = (xx - px) ** 2 + (yy - py) ** 2
         d2 = np.minimum(d2, np.maximum(d1, d)); d1 = np.minimum(d1, d)
     d1, d2 = np.sqrt(d1), np.sqrt(d2)
-    edge = np.exp(-((d2 - d1) / 3.5) ** 2)              # glowing cell membranes
-    nuc = np.exp(-(d1 / 9) ** 2)                         # bright nuclei
-    blob = np.clip(1 - d1 / 34, 0, 1) ** 2
+    edge = np.exp(-((d2 - d1) / 9.0) ** 2)              # glowing cell membranes (>= 1.5 LEDs wide)
+    nuc = np.exp(-(d1 / 16) ** 2)                        # bright nuclei
+    blob = np.clip(1 - d1 / 60, 0, 1) ** 2
     r = 0.08 * blob + 0.55 * edge + 0.9 * nuc; g = 0.02 * blob + 0.12 * edge + 0.55 * nuc; bl = 0.18 * blob + 0.95 * edge + 1.0 * nuc
     img = np.stack([r * 0.75, g * 0.55, bl * 0.95], -1) * 0.95 + np.array([0.035, 0.0, 0.06])
     Image.fromarray((np.clip(img, 0, 1) ** (1 / 1.5) * 255).astype(np.uint8)).convert('RGBA').save('tex/band_front.png')

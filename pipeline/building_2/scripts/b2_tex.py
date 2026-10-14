@@ -31,9 +31,9 @@ tex('trbox_front', 1100, 640, f"""<div class="f" style="background:linear-gradie
 {''.join(f'<path d="M0,{300+i*34} C250,{260+i*34} 520,{350+i*34} 1100,{280+i*34}" fill="none" stroke="#7fd7ff" stroke-width="2" opacity="{.06+.03*i}"/>' for i in range(10))}
 {jelly(930,170,1.0,.9)}</svg>
 <div class="c" style="left:60px;top:40px;font-family:'Orbitron';font-weight:900;font-size:190px;letter-spacing:6px;color:#eafcff;text-shadow:0 0 14px #8fe3ff,0 0 44px #4a8cff">AQUA</div>
-<div class="c" style="left:66px;top:265px;font-family:'Dela Gothic One';font-size:78px;color:#ffffff;text-shadow:0 0 12px #7fd0ff">深海水族館</div>
-<div class="c" style="left:70px;top:375px;font-family:'Rajdhani';font-weight:700;font-size:44px;letter-spacing:8px;color:#bfeaff">DEEP SEA AQUARIUM · 140F</div>
-<div class="c" style="left:70px;top:440px;width:520px;height:6px;background:#9fe8ff;box-shadow:0 0 12px #9fe8ff"></div>""")
+<div class="c" style="left:60px;top:240px;font-family:'Dela Gothic One';font-size:150px;color:#ffffff;text-shadow:0 0 12px #7fd0ff">水族館</div>
+<div class="c" style="left:66px;top:405px;font-family:'Russo One';font-size:64px;letter-spacing:4px;color:#bfeaff">140F</div>
+<div class="c" style="left:70px;top:500px;width:520px;height:14px;background:#9fe8ff;box-shadow:0 0 12px #9fe8ff"></div>""")
 tex('trbox_top', 900, 400, """<div class="f" style="background:linear-gradient(180deg,#141018 0%,#1d1624 70%,#2a1f36 100%)"></div>
 <svg class="f" width="900" height="400">
 """ + ''.join(f'<line x1="{x}" y1="0" x2="{x}" y2="400" stroke="#0a080c" stroke-width="3"/>' for x in range(0, 900, 75)) +
@@ -70,9 +70,9 @@ tex('mint_v2', 280, 1060, """<div class="f" style="background:linear-gradient(90
 # ---------- big magenta screen with pudding mascot ----------
 tex('mag', 1200, 900, """<div class="f" style="background:radial-gradient(110% 90% at 50% 40%,#e01ae6 0%,#b10cba 45%,#6a0678 100%)"></div>
 <svg class="f" width="1200" height="900">""" + ''.join(f'<path d="M{-200+i*120},900 L{200+i*120},0" stroke="#ff9cf6" stroke-width="18" opacity=".05"/>' for i in range(16)) + """</svg>
-<div class="c" style="left:40px;top:24px;font-family:'Dela Gothic One';font-size:56px;color:#fff;background:#ff2f6e;padding:6px 18px;border-radius:8px">新発売</div>
+<div class="c" style="left:40px;top:24px;font-family:'Dela Gothic One';font-size:84px;color:#fff;background:#ff2f6e;padding:6px 20px;border-radius:10px">新発売</div>
 <div class="c" style="left:40px;top:770px;font-family:'Bungee';font-size:104px;letter-spacing:6px;color:#fff6c2;text-shadow:0 5px 0 #6a0678,0 0 30px #ffd2fb">PURIN</div>
-<div class="c" style="left:560px;top:790px;font-family:'Dela Gothic One';font-size:58px;color:#ffffff">とろける夜のプリン</div>""")
+<div class="c" style="left:560px;top:770px;font-family:'Dela Gothic One';font-size:92px;color:#ffffff">夜のプリン</div>""")
 tex('mascot', 800, 800, """<div class="f" style="background:radial-gradient(80% 80% at 45% 40%,#fffbd2 0%,#f8f3a8 55%,#e9df7c 100%)"></div>
 <svg class="f" width="800" height="800">
 <path d="M0,0 H800 V150 C760,150 750,250 700,250 C650,250 660,170 600,170 C540,170 560,300 500,300 C440,300 450,190 390,190 C330,190 340,260 280,260 C220,260 230,170 170,170 C110,170 110,230 60,230 C20,230 20,170 0,170 Z" fill="#7a3f12"/>
@@ -124,7 +124,7 @@ tex('moon', 1000, 1000, f"""<div class="f" style="background:radial-gradient(90%
 <path d="M0,780 C200,720 380,800 560,760 C740,720 860,780 1000,740 L1000,1000 L0,1000Z" fill="#0b0f5a" opacity=".85"/>
 <path d="M0,850 C220,800 420,880 640,840 C800,810 900,850 1000,830 L1000,1000 L0,1000Z" fill="#070940"/></svg>
 <div class="c v" style="left:40px;top:60px;font-family:'Zen Antique';font-size:120px;color:#fff4d0;text-shadow:0 0 14px #fff1b8">月見</div>
-<div class="c" style="left:0;right:0;top:840px;font-family:'Limelight';font-size:96px;letter-spacing:12px;color:#fff1c4;text-shadow:0 0 18px #ffe9a0">HOTEL LUNA</div>""")
+<div class="c" style="left:0;right:0;top:840px;font-family:'Limelight';font-size:96px;letter-spacing:12px;color:#fff1c4;-webkit-text-stroke:5px #fff1c4;text-shadow:0 0 18px #ffe9a0">HOTEL LUNA</div>""")
 tex('moon_disc', 400, 400, """<svg width="400" height="400"><defs><radialGradient id="m" cx="35%" cy="40%" r="70%"><stop offset="0" stop-color="#fffbe6"/><stop offset=".7" stop-color="#f3e6b8"/><stop offset="1" stop-color="#cdbb86"/></radialGradient>
 <mask id="cr"><rect width="400" height="400" fill="#fff"/><circle cx="270" cy="160" r="185" fill="#000"/></mask></defs>
 <circle cx="200" cy="200" r="198" fill="#10153a"/>
@@ -133,13 +133,13 @@ tex('moon_disc', 400, 400, """<svg width="400" height="400"><defs><radialGradien
 
 # ---------- green izakaya blades ----------
 tex('blade1', 360, 1100, """<div class="f" style="background:linear-gradient(90deg,#2fb800,#4fe00c 50%,#2fb800)"></div>
-<div class="c" style="left:70px;top:40px;width:220px;height:220px;border-radius:50%;background:#d0141e;font-family:'Dela Gothic One';font-size:150px;color:#fff">旨</div>
+<div class="c" style="left:70px;top:40px;width:220px;height:220px;border-radius:50%;background:#d0141e;font-family:'Zen Antique';font-size:150px;color:#fff;-webkit-text-stroke:4px #fff">旨</div>
 <div class="c v" style="left:0;right:0;top:300px;font-family:'Dela Gothic One';font-size:170px;color:#0a1a04">らーめん</div>""")
 tex('blade2', 360, 1100, """<div class="f" style="background:linear-gradient(90deg,#94dd2e,#c2ff5a 50%,#94dd2e)"></div>
 <div class="c v" style="left:0;right:0;top:60px;font-family:'Dela Gothic One';font-size:230px;color:#14240a">餃子</div>
-<div class="c" style="left:0;right:0;top:620px;font-family:'Bungee';font-size:66px;color:#14240a">GYOZA</div>
+
 <div class="c" style="left:40px;right:40px;top:760px;height:6px;background:#14240a"></div>
-<div class="c" style="left:0;right:0;top:800px;font-family:'Dela Gothic One';font-size:80px;color:#c8141e">¥380</div>""")
+<div class="c" style="left:0;right:0;top:700px;font-family:'Dela Gothic One';font-size:120px;color:#c8141e">¥380</div>""")
 tex('blade3', 360, 1100, """<div class="f" style="background:linear-gradient(90deg,#bfeaa6,#ecffe0 50%,#bfeaa6)"></div>
 <svg class="f" width="360" height="1100"><rect x="105" y="60" width="130" height="170" rx="14" fill="#f2b81c"/><rect x="105" y="60" width="130" height="44" rx="14" fill="#fffaf0"/>
 <path d="M235 100 h30 a30 30 0 0 1 30 30 v40 a30 30 0 0 1 -30 30 h-30" fill="none" stroke="#f2b81c" stroke-width="18"/></svg>
@@ -149,7 +149,7 @@ tex('L_face', 400, 400, """<div class="f" style="background:radial-gradient(90% 
 # ---------- ring band ----------
 tex('band_top', 2400, 260, """<div class="f" style="background:linear-gradient(180deg,#ff3f8f 0%,#ff6aa8 50%,#ff9cc2 100%)"></div>
 <svg class="f" width="2400" height="260">""" + ''.join(f'<path d="M{x},20 l60,110 l-60,110" fill="none" stroke="#fff0f6" stroke-width="16" opacity=".75"/>' for x in range(1900, 2380, 110)) + """</svg>
-<div class="c" style="left:60px;top:0;bottom:0;font-family:'Big Shoulders Display';font-weight:900;font-size:210px;letter-spacing:22px;color:#fff3f8;white-space:nowrap">RING SEVEN 第七環</div>""")
+<div class="c" style="left:60px;top:0;bottom:0;font-family:'Big Shoulders Display';font-weight:900;font-size:210px;letter-spacing:22px;color:#fff3f8;white-space:nowrap">RING SEVEN <span style="font-family:'Dela Gothic One';font-weight:400;font-size:190px;letter-spacing:6px">第七環</span></div>""")
 tex('band_end', 300, 700, """<div class="f" style="background:linear-gradient(90deg,#c000c0,#ff1aff 50%,#c000c0)"></div>
 <div class="c v" style="left:0;right:0;top:40px;font-family:'Dela Gothic One';font-size:200px;color:#fff">七</div>""")
 for k, (bg, fg, txt, font, size) in {

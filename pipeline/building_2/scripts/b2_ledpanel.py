@@ -18,11 +18,12 @@ from scipy.ndimage import distance_transform_edt
 PITCH = 4.4            # LED pitch in 2x-canvas px along an unforeshortened direction (balls: ~4.6 px)
 A_MAX = 0.80           # largest dot area (fraction of the cell) used for mean-preserving tones
 A_TOP = 0.86           # cells brighter than A_MAX grow up to this (whites stay round dots, just touching)
+SHARP = 1.0            # unsharp amount on the content before it is averaged into LEDs
 MIN_SCREEN = 3.6       # smallest on-screen LED pitch (10th percentile, along either axis); coarser LEDs if needed
 BLEED = 0.08           # diffuser glow around dots, on the substrate
 SUBSTRATE = np.array([0.0022, 0.0022, 0.0032], np.float32)
 LED_VAR, MOD_VAR, MODULE = 0.05, 0.025, 16
-FADE = (2.4, 3.2)      # on-screen pitch (px) range over which the dots fade in
+FADE = (2.2, 2.8)      # on-screen pitch (px) range over which the dots fade in
 
 _LUT = None
 def _lut():
@@ -55,7 +56,7 @@ def _fill_grad(xs, ys, F):
     gy, gx = np.gradient(I)
     return gx[ys - y0, xs - x0], gy[ys - y0, xs - x0]
 
-def led_grid(uv, C, n, xs, ys, pitch=PITCH):
+def led_grid(uv, C, n, xs, ys, pitch=PITCH, min_screen=None):
     """LED cell coordinates from the face's (u,v) map, its 4 corners C (TL,TR,BR,BL) and plane normal n.
     The cell count along each axis follows the PHYSICAL edge length, so LEDs are square on the panel; on panels
     seen at a steep angle the (still square) LEDs are made coarser until they are >= MIN_SCREEN px on screen."""
@@ -63,8 +64,8 @@ def led_grid(uv, C, n, xs, ys, pitch=PITCH):
     eu = 0.5 * ((C[1] - C[0]) + (C[2] - C[3])); ev = 0.5 * ((C[3] - C[0]) + (C[2] - C[1]))
     NU = physical_len(eu, n) / pitch; NV = physical_len(ev, n) / pitch
     ux, uy = _fill_grad(xs, ys, uv[:, 0]); vx, vy = _fill_grad(xs, ys, uv[:, 1])
-    pu = np.percentile(1 / (np.hypot(ux, uy) * NU + 1e-9), 10); pv = np.percentile(1 / (np.hypot(vx, vy) * NV + 1e-9), 10)
-    k = max(1.0, MIN_SCREEN / min(pu, pv))
+    pu = np.percentile(1 / (np.hypot(ux, uy) * NU + 1e-9), 50); pv = np.percentile(1 / (np.hypot(vx, vy) * NV + 1e-9), 50)
+    k = min(1.3, max(1.0, (MIN_SCREEN if min_screen is None else min_screen) / min(pu, pv)))   # steep rest fades (FADE)
     NU, NV = max(4, int(round(NU / k))), max(4, int(round(NV / k)))
     return uv[:, 0] * NU, uv[:, 1] * NV, (NU, NV)
 
@@ -76,11 +77,18 @@ def halftone(canvas, xs, ys, cu, cv, seed=0):
     if len(xs) == 0: return
     Cpx = canvas[ys, xs].astype(np.float32)
     ci = np.floor(cu).astype(np.int64); cj = np.floor(cv).astype(np.int64)
+    # contrast-preserved copy for the cell means: strokes thinner than one LED keep ~2x their contrast (zero-mean)
+    x0_, y0_ = xs.min(), ys.min(); w_, h_ = xs.max() - x0_ + 1, ys.max() - y0_ + 1
+    I_ = np.zeros((h_, w_, 3), np.float32); I_[ys - y0_, xs - x0_] = Cpx
+    m_ = np.zeros((h_, w_), np.float32); m_[ys - y0_, xs - x0_] = 1
+    sg_ = max(0.8, 0.5 * PITCH)
+    bl_ = cv2.GaussianBlur(I_, (0, 0), sg_) / np.maximum(cv2.GaussianBlur(m_, (0, 0), sg_), 1e-3)[..., None]
+    Cs = np.maximum(0, Cpx + SHARP * (Cpx - bl_[ys - y0_, xs - x0_]))
     span = int(ci.max() - ci.min() + 1)
     key = (cj - cj.min()) * span + (ci - ci.min())
     uk, inv = np.unique(key, return_inverse=True)
     cnt = np.bincount(inv).astype(np.float32)
-    mean = np.stack([np.bincount(inv, Cpx[:, k]) / cnt for k in range(3)], -1).astype(np.float32)
+    mean = np.stack([np.bincount(inv, Cs[:, k]) / cnt for k in range(3)], -1).astype(np.float32)
     # ---- per LED: dot area A and drive D so that D*A = cell mean (bleed compensated)
     cmax = mean.max(1)
     A = np.where(cmax <= A_MAX, np.sqrt(A_MAX * np.maximum(cmax, 0)), np.clip(cmax, A_MAX, A_TOP)).astype(np.float32)

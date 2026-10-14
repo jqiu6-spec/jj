@@ -11,7 +11,9 @@ direction turns around the ring) at the local px-per-metre scale; the wall behin
 shadow, with a soft contact shadow beyond. A new wall billboard in the HOTEL LUNA family (SORA TAXI, flying taxi) is
 added on the lower-left wall with the same LED material, metal frame and structure, its light spilled and bloomed
 onto the wall, then the lens falloff and the film treatment of the frame it sits in (halation, shoulder/toe, grade,
-scan sharpening, grain).
+scan sharpening, grain). The big screens (PURIN, HOTEL LUNA, AQUA, the RING SEVEN band) get the LED look of the NEWS
+360 balls: cell gaps, gain variation and partly flat cells, laid out in each screen's own (u, v) through a Coons
+patch so the grid follows the curved screens.
 
 It works on the finished frames because the `.ai` assets of the pipeline are not in the repository: the panel outlines
 are segmented from the Portra frame (all variants share the same geometry), the cinematic and Portra frames are edited
@@ -97,7 +99,7 @@ def segment(por):
     Hd, S, V = hsv[..., 0] * 2, hsv[..., 1] / 255, hsv[..., 2] / 255
     yy, xx = np.mgrid[0:H, 0:W]
     ball = ((xx - BALL[0]) ** 2 + (yy - BALL[1]) ** 2 <= BALL[2] ** 2).astype(np.uint8)
-    out = []
+    out = []; by_name = {}
     for name, p in PANELS.items():
         x0, y0, x1, y1 = p['bbox']
         m = (V >= p['vmin']) & (S >= p['smin'])
@@ -106,6 +108,7 @@ def segment(por):
         reg = np.zeros((H, W), bool); reg[y0:y1, x0:x1] = True
         m = (m & reg).astype(np.uint8)
         if name == 'luna': m[cv2.dilate(ball, disk(4)) > 0] = 0
+        if name == 'purin': m[cv2.dilate(by_name['midori'], disk(2)) > 0] = 0    # MIDORI's foot overlaps PURIN's corner
         m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
         kc = p.get('close', 5); m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((kc, kc), np.uint8))
         for j, part in enumerate(largest(m, p['n'])):
@@ -119,6 +122,7 @@ def segment(por):
             ys, xs = np.nonzero(part); cx = xs.mean()
             nx, nz = wall_normal(cx, p.get('nx'))
             out.append(dict(name=f'{name}{j if p["n"] > 1 else ""}', mask=part, scale=p['scale'], d=shift_vec(nx, nz, 1.0), kind='wall'))
+            by_name[name] = part
     wn = shift_vec(*wall_normal(0, 0.5), 1.0)                       # the wall the blades hang from
     blades = []
     for name, p in BLADES.items():
@@ -276,6 +280,147 @@ def add_body(img, orig, F, nimg, s, kind, look, protect, touched, tint=None, pol
         L.member(p, q, 1.2, 0.8, 0.05, hi=False, tint=face_col * 0.12, edge=False)
     return F | G
 
+# ----------------------------------------------------------------------------------------------- LED texture on the big screens
+# The big screens came out of the sign stage with a faint 3 px grid that the lens and film stages all but erased. Here
+# they get the LED look of the NEWS 360 balls: one flat colour per LED cell, dark gaps between the cells, per-cell and
+# per-module gain variation. Cells are laid out in the screen's own (u, v) through a Coons patch built from the
+# screen's outline (so the grid follows the curved screens around the ring), at the same pitch for every screen.
+LED_PITCH = 3.4                  # px per LED cell at 2400 px frame width (~7 cm, the pitch of the NEWS 360 balls)
+LED_GAP = 0.18                   # dark-gap depth per axis
+LED_VAR, LED_MODULE, LED_MODULE_VAR = 0.12, 8, 0.05
+LED_FLAT = float(np.clip((LED_PITCH - 2.5) / 2.5, 0, 1))   # how much of each cell is one flat colour (b2_sphere's rule)
+SMALL_BALLS = [(470, 1935, 60), (2176, 1405, 42)]           # the small NEWS 360 balls in front of HOTEL LUNA and on the band
+
+# quad TL, TR, BR, BL in frame px; 'mask' names a PANELS entry (cleaned, ball-aware) or a colour rule for the others
+SCREENS = {
+    'purin':      dict(quad=[(380, 1012), (924, 972), (932, 1345), (410, 1345)], mask='purin'),
+    'luna':       dict(quad=[(440, 1800), (810, 1800), (802, 2150), (452, 2082)], mask='luna'),
+    'aqua_left':  dict(quad=[(1642, 198), (1838, 236), (1838, 556), (1642, 538)], mask='quad', hue=(205, 262), smin=0.30, vmin=0.12),
+    'aqua_front': dict(quad=[(1838, 236), (2222, 262), (2222, 590), (1838, 556)], mask='quad', hue=(205, 262), smin=0.30, vmin=0.12),
+    'band_top':   dict(quad=[(1107, 2087), (2229, 1300), (2301, 1394), (1168, 2330)], mask='colour', hue=(300, 358), smin=0.30, vmin=0.40),
+    'band_front': dict(quad=[(1168, 2330), (2300, 1394), (2350, 1470), (1240, 2466)], mask='colour', hue=(262, 300), smin=0.25, vmin=0.22,
+                       tiles=True),
+}
+
+def resample(pts, n):
+    d = np.r_[0, np.cumsum(np.linalg.norm(np.diff(pts, axis=0), axis=1))]
+    if d[-1] < 1e-6: return np.repeat(pts[:1], n, 0)
+    t = np.linspace(0, d[-1], n)
+    return np.stack([np.interp(t, d, pts[:, 0]), np.interp(t, d, pts[:, 1])], -1)
+
+def boundary(b, C):
+    """split the outer contour of mask b at the 4 corners C (TL,TR,BR,BL) into top/right/bottom/left polylines"""
+    cnts, _ = cv2.findContours(b, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    c = max(cnts, key=cv2.contourArea)[:, 0, :].astype(np.float64)
+    x, y = c[:, 0], c[:, 1]
+    if 0.5 * np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y) < 0: c = c[::-1]   # clockwise in image coords
+    idx = [int(np.argmin(((c - np.array(p)) ** 2).sum(1))) for p in C]
+    n = len(c)
+    def arc(i, j):
+        k = (j - i) % n
+        return c[(i + np.arange(k + 1)) % n]
+    top, right, bot, left = arc(idx[0], idx[1]), arc(idx[1], idx[2]), arc(idx[2], idx[3])[::-1], arc(idx[3], idx[0])[::-1]
+    for a in (top, right, bot, left):
+        if len(a) > 0.8 * n: return None
+    return top, right, bot, left
+
+def coons(b, C, nu, nv, persp=True):
+    bd = boundary(b, C)
+    C = np.array(C, float)
+    if bd is None:
+        T, Bm = np.linspace(C[0], C[1], 50), np.linspace(C[3], C[2], 50)
+        L, R = np.linspace(C[0], C[3], 50), np.linspace(C[1], C[2], 50)
+    else:
+        T, R, Bm, L = bd
+    TL, TR, BR, BL = C[0], C[1], C[2], C[3]
+    hL, hR = np.linalg.norm(TL - BL), np.linalg.norm(TR - BR)
+    wT, wB = np.linalg.norm(TL - TR), np.linalg.norm(BL - BR)
+    rh = np.clip(hR / max(hL, 1), 0.85, 1.18) if persp else 1.0
+    rw = np.clip(wB / max(wT, 1), 0.85, 1.18) if persp else 1.0
+    u = np.linspace(0, 1, nu); v = np.linspace(0, 1, nv)
+    su = u * rh / ((1 - u) + u * rh); sv = v * rw / ((1 - v) + v * rw)
+    def along(P, s):
+        P = resample(np.asarray(P, float), 400); return np.stack([np.interp(s, np.linspace(0, 1, 400), P[:, k]) for k in (0, 1)], -1)
+    Tu, Bu = along(T, su), along(Bm, su)
+    Lv, Rv = along(L, sv), along(R, sv)
+    U, V = np.meshgrid(u, v)
+    P = ((1 - V)[..., None] * Tu[None] + V[..., None] * Bu[None] + (1 - U)[..., None] * Lv[:, None] + U[..., None] * Rv[:, None]
+         - ((1 - U) * (1 - V))[..., None] * TL - (U * (1 - V))[..., None] * TR - ((1 - U) * V)[..., None] * BL - (U * V)[..., None] * BR)
+    return P, U, V
+
+def inverse_uv(P, U, V, xs, ys):
+    pts = P.reshape(-1, 2); vals = np.stack([U.ravel(), V.ravel()], -1)
+    uv = griddata(pts, vals, (xs + .5, ys + .5), method='linear')
+    bad = np.isnan(uv[:, 0])
+    if bad.any(): uv[bad] = griddata(pts, vals, (xs[bad] + .5, ys[bad] + .5), method='nearest')
+    return np.clip(uv, 0, 1)
+
+def hash2(i, j):
+    return (np.sin(i * 12.9898 + j * 78.233) * 43758.5453) % 1.0
+
+def led_cells(uv, nu, nv):
+    """(cell index u, v, gap*variation gain) for texture coordinates uv on a screen of nu x nv LED cells; mean-preserving"""
+    cu, cv_ = uv[:, 0] * nu, uv[:, 1] * nv
+    fu, fv = cu % 1.0, cv_ % 1.0
+    eu, ev = np.abs(2 * fu - 1) ** 4, np.abs(2 * fv - 1) ** 4
+    gap = (1 - LED_GAP * eu) * (1 - LED_GAP * ev) / (1 - LED_GAP / 5) ** 2
+    iu, iv = np.floor(cu), np.floor(cv_)
+    var = 1 + LED_VAR * (hash2(iu, iv) - 0.5)
+    var *= 1 + LED_MODULE_VAR * (hash2(iu // LED_MODULE + 37, iv // LED_MODULE + 11) - 0.5) * 2
+    return iu, iv, (gap * var).astype(np.float32)
+
+def screen_masks(por, panels):
+    """face masks of the big screens: PANELS entries where they exist, else the colour rule cut by the (dilated) quad"""
+    hsv = cv2.cvtColor((por * 255).astype(np.uint8), cv2.COLOR_RGB2HSV).astype(np.float32)
+    Hd, S, V = hsv[..., 0] * 2, hsv[..., 1] / 255, hsv[..., 2] / 255
+    by_name = {p['name']: p['mask'] for p in panels}
+    out = {}
+    for name, sc in SCREENS.items():
+        Q = poly_mask(sc['quad'])
+        if sc['mask'] in by_name:
+            m = by_name[sc['mask']]
+        else:
+            m = (Hd >= sc['hue'][0]) & (Hd <= sc['hue'][1]) & (S >= sc['smin']) & (V >= sc['vmin'])
+            if sc.get('tiles'):                                             # the night-market tiles sit on the cell screen
+                m |= ((Hd >= 40) & (Hd <= 70) & (V > 0.6)) | ((Hd >= 215) & (Hd <= 250) & (S > 0.5) & (V > 0.4))
+            m = (m & (cv2.dilate(Q, disk(6)) > 0)).astype(np.uint8)
+            m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+            m = fill_holes(largest(m)[0])
+            if sc['mask'] == 'quad': m = Q & cv2.dilate(m, disk(3))         # straight-edged box faces: the quad itself
+        out[name] = m.astype(np.uint8)
+    return out
+
+def add_led(img, masks, exclude, touched):
+    """re-light the big screens as LED walls (display-space frame in, same out)"""
+    lin = s2l(img)
+    soft = cv2.GaussianBlur(lin, (0, 0), 0.5 * LED_PITCH)            # per-cell colour: the grain and the old grid averaged out
+    cont = cv2.GaussianBlur(lin, (0, 0), 1.0)                        # continuous part: the old 3 px grid filtered out (no moire)
+    for name, sc in SCREENS.items():
+        F = masks[name]
+        if F.sum() < 100: continue
+        C = np.array(sc['quad'], float)
+        wpx = 0.5 * (np.linalg.norm(C[1] - C[0]) + np.linalg.norm(C[2] - C[3]))
+        hpx = 0.5 * (np.linalg.norm(C[3] - C[0]) + np.linalg.norm(C[2] - C[1]))
+        nu_, nv_ = int(np.clip(wpx / 6, 24, 240)), int(np.clip(hpx / 6, 12, 160))
+        P, U, V = coons(F, sc['quad'], nu_, nv_)
+        ys, xs = np.nonzero(F & (exclude == 0))
+        uv = inverse_uv(P, U, V, xs, ys)
+        nu, nv = max(8, int(round(wpx / LED_PITCH))), max(8, int(round(hpx / LED_PITCH)))
+        iu, iv = led_cells(uv, nu, nv)[:2]
+        # cell centres back in the frame: average the patch points of each cell
+        gain = led_cells(uv, nu, nv)[2]
+        key = (iu * (nv + 1) + iv).astype(np.int64)
+        uniq, inv = np.unique(key, return_inverse=True)
+        cnt = np.bincount(inv).astype(np.float32)
+        cx = np.bincount(inv, xs) / cnt; cy = np.bincount(inv, ys) / cnt
+        cc = soft[np.clip(cy.astype(int), 0, H - 1), np.clip(cx.astype(int), 0, W - 1)]
+        col = (cc[inv] * LED_FLAT + cont[ys, xs] * (1 - LED_FLAT)) * gain[:, None]
+        a = cv2.GaussianBlur(F.astype(np.float32), (0, 0), 0.7)[ys, xs][:, None]
+        lin[ys, xs] = lin[ys, xs] * (1 - a) + col * a
+        touched[ys, xs] = np.maximum(touched[ys, xs], a[:, 0])
+        print('led: %s %d px, %dx%d cells' % (name, len(xs), nu, nv))
+    img[:] = l2s(lin)
+
 # ----------------------------------------------------------------------------------------------- the new billboard
 def film_pixels(lin, look):
     """per-pixel part of film.py (characteristic curve, colour, grade, scan contrast) -> display sRGB"""
@@ -334,11 +479,11 @@ def render_board(tex_path, look):
     rgba = cv2.remap(T, gx.reshape(rows, cols), gy.reshape(rows, cols), cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE).reshape(-1, 4)[:n]
     col = s2l(rgba[:, :3])
     # LED material of b2_signs.py: pixel grid at the pitch of the flat screens, per-cell gain variation
-    ledu, ledv = max(20, wpx / 3.0), max(8, hpx / 3.0)
-    fu, fv = (uv[:, 0] * ledu) % 1, (uv[:, 1] * ledv) % 1
-    cell = np.clip(1 - (np.abs(fu - .5) * 2) ** 6 * 0.4, 0, 1) * np.clip(1 - (np.abs(fv - .5) * 2) ** 6 * 0.4, 0, 1)
-    var = 0.93 + 0.14 * ((np.sin(np.floor(uv[:, 0] * ledu) * 12.9898 + np.floor(uv[:, 1] * ledv) * 78.233) * 43758.5453) % 1.0)
-    col = col * (cell * var)[:, None] * 1.05
+    nu, nv = max(8, int(round(wpx / LED_PITCH))), max(8, int(round(hpx / LED_PITCH)))
+    iu, iv, gain = led_cells(uv, nu, nv)
+    key = (iu * (nv + 1) + iv).astype(np.int64); uniq, inv = np.unique(key, return_inverse=True)      # one colour per LED
+    cnt = np.bincount(inv).astype(np.float32)
+    col = (np.stack([np.bincount(inv, col[:, k]) for k in range(3)], -1) / cnt[:, None])[inv] * gain[:, None]
     dist = cv2.distanceTransform(F, cv2.DIST_L2, 3)[ys, xs]
     fw = b['frame']
     frame = np.clip(1 - (dist - fw) / 1.2, 0, 1)
@@ -409,7 +554,7 @@ def finish(img, touched, sharpen, look, seed):
     img += ((gl * amp)[..., None] + chroma * (amp * 0.2)[..., None]) * touched[..., None]
     return np.clip(img, 0, 1)
 
-def process(img, look, panels, ball, bright, tex_path, seed):
+def process(img, look, panels, ball, bright, tex_path, seed, por_ref):
     img = img.copy(); orig = img.copy()
     protect = bright.copy()
     touched = np.zeros((H, W), np.float32)
@@ -417,6 +562,10 @@ def process(img, look, panels, ball, bright, tex_path, seed):
     # every sign face and every strongly lit element stays in front of the structure drawn behind other panels
     faces = np.maximum.reduce([p['mask'] for p in panels])
     in_front = ((bright > 0) & (img.max(-1) > 0.55)) | (faces > 0) | ball_m
+    yy, xx = np.mgrid[0:H, 0:W]
+    led_excl = ball_m.copy()
+    for cx, cy, r in SMALL_BALLS: led_excl |= (xx - cx) ** 2 + (yy - cy) ** 2 <= r * r
+    add_led(img, screen_masks(por_ref, panels), led_excl.astype(np.uint8), touched)   # LED walls first, structure over them
     for p in panels:
         occ = p.get('occluded_by')
         if occ is not None: keep_img, keep_t = img.copy(), touched.copy()
@@ -462,8 +611,8 @@ def main():
     assert cin.shape[:2] == (H, W) and por.shape[:2] == (H, W) and dit.shape[:2] == (H, W)
     panels, ball, bright = segment(por)
     print('panels:', ', '.join('%s s=%d n=(%.2f,%.2f)' % (p['name'], p['scale'], *p['d']) for p in panels))
-    por_new, touched, Fb = process(por, 'portra', panels, ball, bright, a.tex, a.seed)
-    cin_new, _, _ = process(cin, 'cinematic', panels, ball, bright, a.tex, a.seed)
+    por_new, touched, Fb = process(por, 'portra', panels, ball, bright, a.tex, a.seed, por)
+    cin_new, _, _ = process(cin, 'cinematic', panels, ball, bright, a.tex, a.seed, por)
     dit_new = dither_variant(por_new, dit, touched)
     save = lambda arr, p, **kw: Image.fromarray((np.clip(arr, 0, 1) * 255 + .5).astype(np.uint8)).save(p, **kw)
     save(cin_new, os.path.join(a.out, 'building_2_render.jpg'), quality=95, subsampling=0)
